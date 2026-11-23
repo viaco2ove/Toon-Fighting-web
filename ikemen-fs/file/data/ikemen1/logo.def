@@ -1,0 +1,20 @@
+; Boot logo storyboard (sprite-based - the browser build has no video support).
+[Info]
+localcoord = 1280,720
+
+[SceneDef]
+spr = logo.sff
+
+[Scene 0]
+fadein.time = 25
+fadeout.time = 40
+end.time = 260
+bg.name = BG0
+
+[BG0Def]
+
+[BG0 Logo]
+type = normal
+spriteno = 0,0
+start = 0,360
+scalestart = 0.7651,0.7651

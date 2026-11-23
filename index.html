@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Toon Fighting — 网页格斗 Demo</title>
+<style>
+  :root{
+    --bg:#07080b; --panel:#11141b; --line:#262c38;
+    --txt:#e7ecf3; --dim:#8b96a8; --hot:#ff3b30; --gold:#ffc233; --cyan:#3ad1ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;
+    font:14px/1.6 "Microsoft YaHei",system-ui,sans-serif;color:var(--txt)}
+  canvas{display:block}
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
+  #ikemen-canvas{width:100%;height:100%;object-fit:contain;
+    image-rendering:pixelated;image-rendering:crisp-edges;opacity:0;transition:opacity .35s}
+  #ikemen-canvas.on{opacity:1}
+
+  /* ---------- 加载屏 ---------- */
+  #boot{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;background:
+    radial-gradient(1200px 600px at 50% 0%,#171b24 0%,#07080b 70%)}
+  #boot.done{display:none}
+  #boot .logo{font-size:44px;font-weight:900;letter-spacing:.14em;line-height:1}
+  #boot .logo span{color:var(--hot)}
+  #boot .sub{color:var(--dim);letter-spacing:.3em;font-size:12px}
+  .bar{width:min(560px,72vw);height:6px;border-radius:3px;background:#1b2029;overflow:hidden;
+    box-shadow:0 0 0 1px #2a3140 inset}
+  .bar>i{display:block;height:100%;width:0;border-radius:3px;
+    background:linear-gradient(90deg,#ff3b30,#ffc233);transition:width .25s}
+  #boot .state{color:var(--dim);font-size:13px;letter-spacing:.06em;min-height:1.4em}
+  #boot .pct{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
+  #boot .err{color:#ff7b72;max-width:min(560px,72vw);text-align:center;white-space:pre-wrap;font-size:13px}
+
+  /* ---------- 选人屏 ---------- */
+  #select{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;
+    align-items:center;justify-content:center;gap:18px;padding:24px;
+    background:radial-gradient(1000px 520px at 50% 8%,#161a23 0%,#07080b 72%)}
+  #select.on{display:flex}
+  #select h1{margin:0;font-size:26px;font-weight:900;letter-spacing:.06em}
+  #select h1 em{color:var(--hot);font-style:normal}
+  .rowlabel{width:min(980px,94vw);display:flex;align-items:baseline;gap:12px;margin-top:6px}
+  .rowlabel b{font-size:13px;letter-spacing:.16em;color:var(--cyan)}
+  .rowlabel span{font-size:12px;color:var(--dim)}
+  .roster{width:min(980px,94vw);display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .card{position:relative;text-align:left;cursor:pointer;padding:14px 14px 12px;
+    background:linear-gradient(160deg,#161b24,#0d1015);border:1px solid var(--line);
+    border-radius:10px;color:var(--txt);font-family:inherit;transition:.16s;
+    overflow:hidden}
+  .card:before{content:"";position:absolute;inset:0;opacity:0;transition:.16s;
+    background:radial-gradient(120% 80% at 50% 0%,rgba(255,59,48,.18),transparent 60%)}
+  .card:hover{transform:translateY(-3px);border-color:#3b4557}
+  .card:hover:before{opacity:1}
+  .card.sel{border-color:var(--hot);box-shadow:0 0 0 1px var(--hot),0 8px 26px -12px rgba(255,59,48,.8)}
+  .card.sel:before{opacity:1}
+  #roster2 .card.sel{border-color:var(--cyan);
+    box-shadow:0 0 0 1px var(--cyan),0 8px 26px -12px rgba(58,209,255,.8)}
+  #roster2 .card.sel:before{background:radial-gradient(120% 80% at 50% 0%,rgba(58,209,255,.16),transparent 60%)}
+  .card .glyph{font-size:30px;font-weight:900;line-height:1.1;letter-spacing:.04em}
+  .card .name{margin-top:2px;font-size:12px;color:var(--dim);letter-spacing:.18em;text-transform:uppercase}
+  .card .tag{margin-top:10px;font-size:12px;color:#c3ccd9}
+  .card .style{margin-top:2px;font-size:12px;color:#7f8b9d}
+  .card .heavy{position:absolute;top:10px;right:10px;font-size:11px;color:var(--gold);
+    border:1px solid rgba(255,194,51,.4);border-radius:4px;padding:0 5px}
+
+  #difficulty{display:flex;gap:8px;align-items:center}
+  #difficulty b{font-size:12px;letter-spacing:.14em;color:var(--dim);margin-right:4px}
+  .chip{cursor:pointer;font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;
+    background:#121722;border:1px solid var(--line);color:var(--dim);transition:.15s}
+  .chip:hover{border-color:#3b4557;color:var(--txt)}
+  .chip.on{background:rgba(255,59,48,.14);border-color:var(--hot);color:#fff}
+  #actions{display:flex;gap:10px;align-items:stretch;margin-top:6px}
+  #actions button{position:relative;cursor:pointer;font-family:inherit;font-size:15px;
+    font-weight:900;letter-spacing:.22em;padding:13px 34px;border-radius:8px;border:0}
+  #start-train{color:#fff;background:linear-gradient(180deg,#ff5a3c,#d92b1a);
+    box-shadow:0 10px 30px -12px rgba(217,43,26,.9)}
+  #start{color:#0b0c10;background:linear-gradient(180deg,#ffd45e,#ff9c1a);
+    box-shadow:0 10px 30px -12px rgba(255,156,26,.9)}
+  #start-train:hover,#start:hover{filter:brightness(1.06)}
+  #select .note{font-size:12px;color:#6f7b8d;max-width:min(980px,94vw);text-align:center;line-height:1.7}
+
+  /* ---------- 对局中的浮层 ---------- */
+  #hud{position:fixed;top:12px;left:14px;z-index:30;padding:7px 11px;border-radius:7px;
+    background:rgba(6,8,12,.62);backdrop-filter:blur(4px);color:#cbd5e1;
+    font-size:12px;pointer-events:none;display:none;transition:opacity .5s;text-decoration:none}
+  #hud.on{display:block}
+  #hud.fade{opacity:0}
+  #hud b{color:#fff}
+  #hud .vs{color:var(--gold);font-weight:700}
+  #tools{position:fixed;top:12px;right:14px;z-index:30;display:none;gap:8px}
+  #tools.on{display:flex}
+  #tools button{cursor:pointer;font-family:inherit;font-size:12px;padding:6px 12px;border-radius:6px;
+    background:rgba(6,8,12,.62);border:1px solid var(--line);color:#cbd5e1;backdrop-filter:blur(4px)}
+  #tools button:hover{border-color:var(--hot);color:#fff}
+  #warn{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:31;display:none;
+    padding:7px 14px;border-radius:6px;font-size:12px;background:rgba(255,59,48,.14);
+    border:1px solid rgba(255,59,48,.5);color:#ffb4ad}
+  #warn.on{display:block}
+
+  /* 按键回显：先用它确认浏览器到底收没收到键盘 */
+  #keyecho{position:fixed;right:14px;bottom:14px;z-index:32;display:flex;gap:7px;align-items:center;
+    font-size:12px;color:#8b96a8;pointer-events:none;opacity:0;transition:opacity .2s}
+  #keyecho.on{opacity:1}
+  #keyecho b{display:inline-block;min-width:38px;text-align:center;padding:3px 7px;border-radius:4px;
+    background:rgba(6,8,12,.78);border:1px solid #2a3140;color:#fff;font-family:Consolas,monospace;font-weight:700}
+  #keyecho b.good{border-color:#3fb950;color:#b7f0c2;box-shadow:0 0 12px -4px rgba(63,185,80,.7)}
+  #keyecho b.bad{border-color:#f85149;color:#ffb4ad;box-shadow:0 0 12px -4px rgba(248,81,73,.7)}
+
+  /* 没拿到键盘焦点时的横条 */
+  #focusTip{position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:33;display:none;
+    padding:7px 16px;border-radius:6px;font-size:12.5px;
+    background:rgba(255,194,51,.12);border:1px solid rgba(255,194,51,.5);color:#ffd98a}
+  #focusTip.on{display:block}
+
+  /* 首局载入角色/场景时的等待遮罩 */
+  #ready{position:fixed;inset:0;z-index:45;display:none;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;background:rgba(5,6,9,.92);transition:opacity .4s}
+  #ready.on{display:flex}
+  #ready .sp{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,195,51,.22);
+    border-top-color:var(--gold);animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #ready .tx{font-size:15px;letter-spacing:.08em}
+  #ready .sub{font-size:12px;color:var(--dim)}
+
+  /* ---------- 系统设置 ---------- */
+  #btn-settings{position:relative;cursor:pointer;font-family:inherit;font-size:15px;
+    font-weight:900;letter-spacing:.22em;padding:13px 34px;border-radius:8px;
+    border:1px solid var(--line);color:var(--txt);background:#12161f;transition:.16s}
+  #btn-settings:hover{border-color:#3b4557;color:#fff}
+  #settings{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;
+    background:rgba(4,5,8,.82);backdrop-filter:blur(5px)}
+  #settings.on{display:flex}
+  #settings .box{width:min(880px,94vw);max-height:88vh;overflow:auto;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:24px 28px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
+  #settings h2{margin:0 0 4px;font-size:20px;font-weight:900;letter-spacing:.08em}
+  #settings .sub{font-size:12px;color:var(--dim);margin-bottom:16px}
+  #st-tabs{display:flex;gap:8px;margin-bottom:16px}
+  #st-tabs button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.1em;
+    padding:8px 18px;border-radius:20px;background:#121722;border:1px solid var(--line);color:var(--dim);transition:.15s}
+  #st-tabs button:hover{color:var(--txt);border-color:#3b4557}
+  #st-tabs button.on{background:rgba(255,59,48,.14);border-color:var(--hot);color:#fff}
+  .stpane{display:none}
+  .stpane.on{display:block}
+  .pane-title{font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--cyan);margin:2px 0 10px}
+  .keygrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 26px}
+  @media (max-width:720px){.keygrid{grid-template-columns:1fr}}
+  .krow{display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:6px 8px 6px 12px;border:1px solid var(--line);border-radius:7px;background:#0d1017}
+  .krow span{font-size:13px;color:#c3ccd9}
+  .krow button{cursor:pointer;font-family:Consolas,monospace;font-weight:700;font-size:13px;
+    min-width:120px;padding:6px 12px;border-radius:6px;background:#161b26;
+    border:1px solid var(--line);color:var(--txt);transition:.12s}
+  .krow button:hover{border-color:#3b4557}
+  .krow button.listen{border-color:var(--gold);color:var(--gold);
+    box-shadow:0 0 14px -4px rgba(255,194,51,.8)}
+  .krow button.dup{border-color:var(--hot);color:#ffb4ad}
+  .presetrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:6px}
+  @media (max-width:720px){.presetrow{grid-template-columns:1fr}}
+  .preset{cursor:pointer;text-align:left;padding:14px 16px;border-radius:9px;font-family:inherit;
+    background:#0d1017;border:1px solid var(--line);color:var(--txt);transition:.15s}
+  .preset b{display:block;font-size:15px;letter-spacing:.06em;margin-bottom:4px}
+  .preset small{font-size:12px;color:var(--dim);line-height:1.5}
+  .preset:hover{border-color:#3b4557}
+  .preset.on{border-color:var(--hot);background:rgba(255,59,48,.1);
+    box-shadow:0 0 0 1px var(--hot)}
+  .setting-line{display:flex;justify-content:space-between;align-items:center;gap:14px;
+    padding:10px 12px;border:1px solid var(--line);border-radius:7px;background:#0d1017;margin-bottom:8px}
+  .setting-line label{font-size:13px;color:#c3ccd9;flex-shrink:0}
+  .setting-line select{font-family:inherit;font-size:13px;padding:6px 10px;border-radius:6px;
+    background:#161b26;border:1px solid var(--line);color:var(--txt)}
+  .setting-line input[type=range]{flex:1;accent-color:#ff3b30}
+  .setting-line .val{font-size:12px;color:var(--gold);min-width:36px;text-align:right;
+    font-variant-numeric:tabular-nums}
+  .stfoot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:20px}
+  .stfoot .hint{font-size:12px;color:#6f7b8d}
+  .stfoot .hint b{color:#ffd98a}
+  .stfoot button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;padding:8px 18px;
+    border-radius:7px;border:1px solid var(--line);background:#121722;color:var(--txt)}
+  .stfoot button:hover{border-color:#3b4557}
+  #st-reset{color:#ffb4ad}
+  #st-done{background:rgba(255,59,48,.16);border-color:rgba(255,59,48,.5)}
+
+  /* 失焦/切后台遮罩 */
+  #cover{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:10px;background:rgba(4,5,8,.86);backdrop-filter:blur(3px);cursor:pointer}
+  #cover.on{display:flex}
+  #cover .t{font-size:20px;font-weight:900;letter-spacing:.08em}
+  #cover .d{font-size:13px;color:var(--dim)}
+  #cover .k{font-size:12px;color:#5d687a;margin-top:6px}
+</style>
+</head>
+<body>
+
+<div id="stage"><canvas id="ikemen-canvas" width="640" height="480" tabindex="0"></canvas></div>
+
+<div id="boot">
+  <div class="logo">TOON <span>FIGHTING</span></div>
+  <div class="sub">WEB DEMO · I K E M E N   G O   A S M</div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="state"><span class="pct" id="pct">0%</span> · <span id="stage-text">初始化</span></div>
+  <div class="err" id="err"></div>
+</div>
+
+<div id="select">
+  <h1>选择你的<em>战士</em></h1>
+
+  <div class="rowlabel"><b>你 · P1</b><span>键盘操作，方向键移动，Z / X / C 出拳</span></div>
+  <div class="roster" id="roster1"></div>
+
+  <div class="rowlabel"><b>对手 · P2</b><span>CPU 控制</span></div>
+  <div class="roster" id="roster2"></div>
+
+  <div id="difficulty"><b>强度</b>
+    <button class="chip" data-ai="1">简单</button>
+    <button class="chip on" data-ai="3">普通</button>
+    <button class="chip" data-ai="6">困难</button>
+  </div>
+
+  <div id="actions">
+    <button id="start-train">练 习 · 对手站桩</button>
+    <button id="start">正 式 对 战</button>
+    <button id="btn-settings">系 统 设 置</button>
+  </div>
+  <div class="note">P1 用你的键盘控制：←→↑↓ 移动，Z 轻拳、X 中拳、C 重拳。<br>
+    练习模式下 P2 站着不还手，随便打；正式对战按上面的「强度」交给 CPU。<br>
+    提示：把浏览器窗口保持在最前台，一旦切走 / 最小化，浏览器会把帧循环压到 1 帧每秒，画面会像卡死——那是浏览器省电，不是游戏卡。</div>
+</div>
+
+<div id="hud"><b>P1</b> ←↑↓→ 移动 · <b>Z</b> 轻拳 · <b>X</b> 中拳 · <b>C</b> 重拳 · <b>A/S/D</b> 组合 · <b>Enter</b> 确认</div>
+<div id="tools">
+  <button id="btn-change">换人重打</button>
+</div>
+<div id="warn"></div>
+<div id="keyecho"></div>
+<div id="focusTip">点一下画面，把键盘焦点交给游戏</div>
+
+<div id="ready">
+  <div class="sp"></div>
+  <div class="tx">正在载入角色与场景</div>
+  <div class="sub">首次要等引擎把 sff / snd 拉下来，之后会快很多</div>
+</div>
+
+<div id="cover">
+  <div class="t">游戏已暂停</div>
+  <div class="d" id="cover-d">窗口不在前台，浏览器正在降频</div>
+  <div class="k">点这里回到游戏</div>
+</div>
+
+<div id="settings">
+  <div class="box">
+    <h2>系统设置</h2>
+    <div class="sub">所有设置自动保存在浏览器里，下次进来不用再调</div>
+    <div id="st-tabs">
+      <button data-pane="keys" class="on">键位配置</button>
+      <button data-pane="perf">性能配置</button>
+      <button data-pane="personal">个性化配置</button>
+    </div>
+
+    <div class="stpane on" id="pane-keys">
+      <div class="pane-title">玩家 1（P1）</div>
+      <div class="keygrid" id="keygrid-p1"></div>
+      <div class="pane-title" style="margin-top:16px">玩家 2（P2 · 本地双人时使用）</div>
+      <div class="keygrid" id="keygrid-p2"></div>
+      <div class="hint" style="font-size:12px;color:#6f7b8d;margin-top:12px">
+        点一下按键框，再按你想要的键即可改绑。<span style="color:#ffb4ad">红色</span>表示这个键被两个动作同时占用，请改开。</div>
+    </div>
+
+    <div class="stpane" id="pane-perf">
+      <div class="pane-title">性能 ↔ 质量（默认最佳性能）</div>
+      <div class="presetrow" id="presetrow"></div>
+      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.7;margin-top:10px">
+        渲染分辨率越低，同一台机器帧率越高。默认按「最佳性能」启动：640×480 + 像素锐利渲染，
+        老机器 / 内嵌浏览器也能跑满帧。画质档适合独显 + 独立浏览器全屏。</div>
+    </div>
+
+    <div class="stpane" id="pane-personal">
+      <div class="pane-title">画面与声音</div>
+      <div class="setting-line"><label>渲染分辨率</label>
+        <select id="st-res"></select></div>
+      <div class="setting-line"><label>画面滤镜</label>
+        <select id="st-filter">
+          <option value="pixelated">锐利像素（放大不糊，性能更好）</option>
+          <option value="smooth">平滑缩放（观感柔和，稍吃性能）</option>
+        </select></div>
+      <div class="setting-line"><label>主音量</label>
+        <input type="range" id="st-vol-master" min="0" max="100" step="1"><span class="val" id="st-vol-master-v"></span></div>
+      <div class="setting-line"><label>音效音量</label>
+        <input type="range" id="st-vol-wav" min="0" max="100" step="1"><span class="val" id="st-vol-wav-v"></span></div>
+      <div class="setting-line"><label>音乐音量</label>
+        <input type="range" id="st-vol-bgm" min="0" max="100" step="1"><span class="val" id="st-vol-bgm-v"></span></div>
+    </div>
+
+    <div class="stfoot">
+      <div class="hint">键位 / 分辨率 / 音量在<b>下一次开打</b>时生效（重开一局即可）；滤镜立即生效。</div>
+      <div style="display:flex;gap:8px">
+        <button id="st-reset">恢复默认</button>
+        <button id="st-done">完 成</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="./vfs.js"></script>
+<script src="./wasm_exec.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---------------- 角色表 ----------------
+  const ROSTER = [
+    { id: 'Lin',      glyph: '林', cn: '林',   style: '紫电连段 · 轻快突进', tag: '速度型' },
+    { id: 'Hinako',   glyph: '雏', cn: '雏子', style: '相扑压制 · 近身重投', tag: '力量型' },
+    { id: "K'",       glyph: "K'", cn: 'K 达什', style: '炽焰拳击 · 中距火力', tag: '均衡型' },
+    { id: 'Rugal2nd', glyph: '卢', cn: '卢卡尔', style: '全距离压制 · BOSS', tag: '重负载', heavy: true },
+  ];
+
+  const q = new URLSearchParams(location.search);
+  const bootEl = document.getElementById('boot');
+  const barEl = document.getElementById('bar');
+  const pctEl = document.getElementById('pct');
+  const stageText = document.getElementById('stage-text');
+  const errEl = document.getElementById('err');
+  const selEl = document.getElementById('select');
+  const canvas = document.getElementById('ikemen-canvas');
+  const hudEl = document.getElementById('hud');
+  const toolsEl = document.getElementById('tools');
+  const warnEl = document.getElementById('warn');
+  const coverEl = document.getElementById('cover');
+  const coverD = document.getElementById('cover-d');
+  const readyEl = document.getElementById('ready');
+
+  let curP1 = q.get('p1') || 'Lin';
+  let curP2 = q.get('p2') || 'Hinako';
+  let curAI = Number(q.get('ai') || 3);
+
+  const pct = (v) => Math.max(0, Math.min(100, Math.round(v)));
+  function progress(v, text) {
+    barEl.style.width = pct(v) + '%';
+    pctEl.textContent = pct(v) + '%';
+    if (text) stageText.textContent = text;
+  }
+  function fail(msg) {
+    errEl.textContent = String(msg && msg.stack ? msg.message : msg);
+    stageText.textContent = '启动失败';
+    console.error(msg);
+  }
+
+  // ---------------- 选人 UI ----------------
+  function buildRoster(row, pick, get) {
+    row.innerHTML = '';
+    for (const c of ROSTER) {
+      const b = document.createElement('button');
+      b.className = 'card' + (get() === c.id ? ' sel' : '');
+      b.innerHTML =
+        (c.heavy ? '<div class="heavy">重负载</div>' : '') +
+        '<div class="glyph">' + c.glyph + '</div>' +
+        '<div class="name">' + c.id + '</div>' +
+        '<div class="tag">' + c.cn + ' · ' + c.tag + '</div>' +
+        '<div class="style">' + c.style + '</div>';
+      b.addEventListener('click', () => {
+        pick(c.id);
+        for (const other of row.children) other.classList.remove('sel');
+        b.classList.add('sel');
+      });
+      row.appendChild(b);
+    }
+  }
+  const row1 = document.getElementById('roster1');
+  const row2 = document.getElementById('roster2');
+  buildRoster(row1, (id) => { curP1 = id; }, () => curP1);
+  buildRoster(row2, (id) => { curP2 = id; }, () => curP2);
+
+  for (const chip of document.querySelectorAll('#difficulty .chip')) {
+    if (Number(chip.dataset.ai) === curAI) {
+      document.querySelectorAll('#difficulty .chip').forEach((x) => x.classList.remove('on'));
+      chip.classList.add('on');
+    }
+    chip.addEventListener('click', () => {
+      curAI = Number(chip.dataset.ai);
+      document.querySelectorAll('#difficulty .chip').forEach((x) => x.classList.remove('on'));
+      chip.classList.add('on');
+    });
+  }
+
+  // ---------------- 系统设置（键位 / 性能 / 个性化） ----------------
+  // 落地方式：把设置生成一份「只含覆盖项」的 save/user-config.ini，
+  // 通过 vfs.js 的 mod overlay（IndexedDB）在引擎启动前塞进虚拟文件系统，
+  // 再用 argv 的 -config 让引擎优先读它（config.go: loadConfig 默认叠加在
+  // 内置 defaultConfig.ini 之上，first-wins）。vfs.js 是 vendor 不改，
+  // 全部走它已暴露的 globalThis.ikemenMods 公共 API。
+  const SETTINGS_KEY = 'toonfight:settings-v1';
+  const clampNum = (v, lo, hi, dflt) => {
+    v = Number(v); if (!Number.isFinite(v)) return dflt;
+    return Math.max(lo, Math.min(hi, Math.round(v)));
+  };
+  const DEFAULT_KEYS = () => ({
+    p1: { up:'UP', down:'DOWN', left:'LEFT', right:'RIGHT',
+          a:'z', b:'x', c:'c', x:'a', y:'s', z:'d', start:'RETURN', d:'q', w:'w' },
+    p2: { up:'i', down:'k', left:'j', right:'l',
+          a:'f', b:'g', c:'h', x:'r', y:'t', z:'y', start:'RSHIFT', d:'LBRACKET', w:'RBRACKET' },
+  });
+  const PERF_PRESETS = {
+    fast:     { w: 640,  h: 480, filter: 'pixelated', name: '最佳性能',
+                desc: '640×480 · 像素锐利<br>最低渲染负载，老机器 / 内嵌浏览器也能满帧' },
+    balanced: { w: 960,  h: 540, filter: 'smooth',    name: '平衡',
+                desc: '960×540 · 平滑缩放<br>清晰度和帧率折中' },
+    quality:  { w: 1280, h: 720, filter: 'smooth',    name: '高画质',
+                desc: '1280×720 · 平滑缩放<br>最清晰，建议独立浏览器 + 前台窗口' },
+  };
+  const RES_CHOICES = [
+    ['auto', '跟随性能档位'],
+    ['640x480', '640×480（4:3）'],
+    ['854x480', '854×480'],
+    ['960x540', '960×540'],
+    ['1280x720', '1280×720（16:9）'],
+    ['1920x1080', '1920×1080（1080P）'],
+  ];
+  // 键位在引擎 config.ini 里的动作顺序（[Keys_P1] 段）
+  const KEY_ACTIONS = [
+    ['up', '上移'], ['down', '下移'], ['left', '左移'], ['right', '右移'],
+    ['a', '轻拳 A'], ['b', '中拳 B'], ['c', '重拳 C'],
+    ['x', 'X 攻击'], ['y', 'Y 攻击'], ['z', 'Z 攻击'],
+    ['start', '确认 / Start'], ['d', '辅助键 D'], ['w', '辅助键 W'],
+  ];
+
+  function normalizeSettings(s) {
+    s = s || {};
+    const d = DEFAULT_KEYS();
+    return {
+      perf: PERF_PRESETS[s.perf] ? s.perf : 'fast',
+      resMode: RES_CHOICES.some((r) => r[0] === s.resMode) ? s.resMode : 'auto',
+      filter: s.filter === 'smooth' ? 'smooth' : 'pixelated',
+      volume: {
+        master: clampNum(s.volume && s.volume.master, 0, 100, 100),
+        wav:    clampNum(s.volume && s.volume.wav, 0, 100, 80),
+        bgm:    clampNum(s.volume && s.volume.bgm, 0, 100, 75),
+      },
+      keys: {
+        p1: Object.assign({}, d.p1, (s.keys && s.keys.p1) || {}),
+        p2: Object.assign({}, d.p2, (s.keys && s.keys.p2) || {}),
+      },
+    };
+  }
+  function loadSettings() {
+    try {
+      return normalizeSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)));
+    } catch (e) { return normalizeSettings(null); }
+  }
+  const settings = loadSettings();
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+    applyFilterSetting();
+    refreshKeyEchoMap();
+    buildConfigDirty = true;
+  }
+  function effectiveRes() {
+    if (settings.resMode !== 'auto') {
+      const m = /^(\d+)x(\d+)$/.exec(settings.resMode);
+      if (m) return { w: +m[1], h: +m[2] };
+    }
+    const p = PERF_PRESETS[settings.perf];
+    return { w: p.w, h: p.h };
+  }
+  function applyFilterSetting() {
+    canvas.style.imageRendering = settings.filter === 'smooth' ? 'auto' : 'pixelated';
+  }
+  applyFilterSetting();
+
+  // 引擎的键名（input_js.go KeyToStringLUT）↔ 浏览器 KeyboardEvent.code
+  const CODE2INI = (() => {
+    const m = {
+      Enter:'RETURN', Escape:'ESCAPE', Backspace:'BACKSPACE', Tab:'TAB', Space:'SPACE',
+      Quote:'QUOTE', Comma:'COMMA', Minus:'MINUS', Period:'PERIOD', Slash:'SLASH',
+      Semicolon:'SEMICOLON', Equal:'EQUALS', BracketLeft:'LBRACKET', Backslash:'BACKSLASH',
+      BracketRight:'RBRACKET', Backquote:'BACKQUOTE', CapsLock:'CAPSLOCK',
+      PrintScreen:'PRINTSCREEN', ScrollLock:'SCROLLLOCK', Pause:'PAUSE', Insert:'INSERT',
+      Home:'HOME', PageUp:'PAGEUP', Delete:'DELETE', End:'END', PageDown:'PAGEDOWN',
+      ArrowUp:'UP', ArrowDown:'DOWN', ArrowLeft:'LEFT', ArrowRight:'RIGHT',
+      NumLock:'NUMLOCKCLEAR', NumpadDivide:'KP_DIVIDE', NumpadMultiply:'KP_MULTIPLY',
+      NumpadSubtract:'KP_MINUS', NumpadAdd:'KP_PLUS', NumpadEnter:'KP_ENTER',
+      NumpadDecimal:'KP_PERIOD', NumpadEqual:'KP_EQUALS', ContextMenu:'MENU',
+      ControlLeft:'LCTRL', ShiftLeft:'LSHIFT', AltLeft:'LALT', MetaLeft:'LGUI',
+      ControlRight:'RCTRL', ShiftRight:'RSHIFT', AltRight:'RALT', MetaRight:'RGUI',
+    };
+    for (let i = 0; i <= 9; i++) m['Digit' + i] = String(i);
+    for (const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') m['Key' + c] = c.toLowerCase();
+    for (let i = 1; i <= 24; i++) m['F' + i] = 'F' + i;
+    for (let i = 0; i <= 9; i++) m['Numpad' + i] = 'KP_' + i;
+    return m;
+  })();
+  function tokenLabel(t) {
+    if (!t || t === 'Not used') return '—';
+    const map = {
+      UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→', RETURN:'Enter', RSHIFT:'右Shift',
+      LSHIFT:'左Shift', LCTRL:'左Ctrl', RCTRL:'右Ctrl', LALT:'左Alt', RALT:'右Alt',
+      LGUI:'左Win', RGUI:'右Win', SPACE:'空格', BACKSPACE:'退格', TAB:'Tab',
+      CAPSLOCK:'CapsLock', ESCAPE:'Esc', SEMICOLON:';', EQUALS:'=', LBRACKET:'[',
+      RBRACKET:']', BACKSLASH:'\\', BACKQUOTE:'`', QUOTE:"'", COMMA:',', MINUS:'-',
+      PERIOD:'.', SLASH:'/', NUMLOCKCLEAR:'NumLock', KP_ENTER:'小键盘Enter',
+      MENU:'菜单键', PRINTSCREEN:'PrtSc', SCROLLLOCK:'ScrollLock', PAUSE:'Pause',
+      INSERT:'Insert', HOME:'Home', PAGEUP:'PgUp', DELETE:'Del', END:'End',
+      PAGEDOWN:'PgDn',
+    };
+    if (map[t]) return map[t];
+    if (/^KP_/.test(t)) return '小键盘' + t.slice(3);
+    if (/^[a-z]$/.test(t)) return t.toUpperCase();
+    return t;
+  }
+
+  // 生成只含覆盖项的引擎配置（引擎会把内置默认叠加在它下面）
+  function buildConfigIni() {
+    const r = effectiveRes();
+    const keysSection = (player) => {
+      const k = settings.keys[player];
+      const no = player === 'p1' ? 1 : 2;
+      return [
+        '[Keys_P' + no + ']',
+        'Joystick = -1',
+        'GUID =',
+        'up = ' + k.up, 'down = ' + k.down, 'left = ' + k.left, 'right = ' + k.right,
+        'a = ' + k.a, 'b = ' + k.b, 'c = ' + k.c,
+        'x = ' + k.x, 'y = ' + k.y, 'z = ' + k.z,
+        'start = ' + k.start, 'd = ' + k.d, 'w = ' + k.w, 'menu = Not used',
+      ].join('\n');
+    };
+    return [
+      '; Generated by the Toon Fighting web launcher from browser settings.',
+      '; Overrides only - the engine merges its built-in defaults underneath.',
+      '[Video]',
+      'GameWidth = ' + r.w,
+      'GameHeight = ' + r.h,
+      '',
+      '[Sound]',
+      'MasterVolume = ' + settings.volume.master,
+      'WavVolume = ' + settings.volume.wav,
+      'BGMVolume = ' + settings.volume.bgm,
+      '',
+      keysSection('p1'),
+      '',
+      keysSection('p2'),
+      '',
+    ].join('\n');
+  }
+
+  // ---------------- 设置面板 UI ----------------
+  const settingsEl = document.getElementById('settings');
+  let buildConfigDirty = false; // 设置变过 → 下次开打前需重写 user-config.ini
+  const keyCells = {}; // {p1:{up:btn,...},p2:{...}}
+
+  function dupTokens() {
+    const seen = {}, dup = {};
+    for (const p of ['p1', 'p2']) {
+      for (const tok of Object.values(settings.keys[p])) {
+        if (!tok || tok === 'Not used') continue;
+        if (seen[tok]) dup[tok] = true; else seen[tok] = true;
+      }
+    }
+    return dup;
+  }
+  function renderKeyGrid(player, rootId) {
+    const grid = document.getElementById(rootId);
+    grid.innerHTML = '';
+    keyCells[player] = {};
+    const dup = dupTokens();
+    for (const [act, label] of KEY_ACTIONS) {
+      const row = document.createElement('div');
+      row.className = 'krow';
+      const sp = document.createElement('span');
+      sp.textContent = (player === 'p1' ? 'P1 ' : 'P2 ') + label;
+      const btn = document.createElement('button');
+      btn.textContent = tokenLabel(settings.keys[player][act]);
+      if (dup[settings.keys[player][act]]) btn.classList.add('dup');
+      btn.addEventListener('click', () => startKeyCapture(player, act, btn));
+      row.appendChild(sp); row.appendChild(btn);
+      grid.appendChild(row);
+      keyCells[player][act] = btn;
+    }
+  }
+  function refreshKeyCells() {
+    const dup = dupTokens();
+    for (const p of ['p1', 'p2']) {
+      for (const act of Object.keys(keyCells[p] || {})) {
+        const btn = keyCells[p][act];
+        btn.textContent = tokenLabel(settings.keys[p][act]);
+        btn.classList.toggle('dup', !!dup[settings.keys[p][act]]);
+        btn.classList.remove('listen');
+      }
+    }
+  }
+  let capturing = null; // {player, act, btn}
+  function startKeyCapture(player, act, btn) {
+    if (capturing) capturing.btn.classList.remove('listen');
+    capturing = { player, act, btn };
+    btn.classList.add('listen');
+    btn.textContent = '按任意键…';
+  }
+  function cancelKeyCapture() {
+    if (!capturing) return;
+    capturing.btn.classList.remove('listen');
+    capturing = null;
+    refreshKeyCells();
+  }
+  // 抓键监听要在按键回显监听之前注册（两者都是 capture 阶段），
+  // 抓键时 stopImmediatePropagation 掉回显
+  document.addEventListener('keydown', (e) => {
+    if (!capturing) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (e.code === 'Escape') { cancelKeyCapture(); return; }
+    const tok = CODE2INI[String(e.code)];
+    if (!tok) return; // 识别不了的键（如 IME）不吞
+    const was = settings.keys[capturing.player][capturing.act];
+    settings.keys[capturing.player][capturing.act] = tok;
+    // 同一玩家内撞键时，把原动作让出去（避免绑不上）
+    for (const [other] of KEY_ACTIONS) {
+      if (other !== capturing.act &&
+          settings.keys[capturing.player][other] === tok &&
+          was && was !== 'Not used') {
+        settings.keys[capturing.player][other] = was;
+      }
+    }
+    capturing = null;
+    saveSettings();
+    refreshKeyCells();
+  }, true);
+
+  function renderPerfPresets() {
+    const row = document.getElementById('presetrow');
+    row.innerHTML = '';
+    for (const id of Object.keys(PERF_PRESETS)) {
+      const p = PERF_PRESETS[id];
+      const b = document.createElement('button');
+      b.className = 'preset' + (settings.perf === id ? ' on' : '');
+      b.innerHTML = '<b>' + p.name + '</b><small>' + p.desc + '</small>';
+      b.addEventListener('click', () => {
+        settings.perf = id;
+        settings.resMode = 'auto';
+        settings.filter = p.filter;
+        saveSettings(); syncPersonalControls(); refreshPerfPresets();
+      });
+      row.appendChild(b);
+    }
+  }
+  function refreshPerfPresets() {
+    for (const b of document.querySelectorAll('#presetrow .preset')) {
+      b.classList.toggle('on', b.querySelector('b').textContent === PERF_PRESETS[settings.perf].name);
+    }
+  }
+  function syncPersonalControls() {
+    const sel = document.getElementById('st-res');
+    if (!sel.options.length) {
+      for (const [v, label] of RES_CHOICES) {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = label;
+        sel.appendChild(o);
+      }
+    }
+    sel.value = settings.resMode;
+    document.getElementById('st-filter').value = settings.filter;
+    for (const k of ['master', 'wav', 'bgm']) {
+      document.getElementById('st-vol-' + k).value = settings.volume[k];
+      document.getElementById('st-vol-' + k + '-v').textContent = settings.volume[k] + '%';
+    }
+  }
+  document.getElementById('st-res').addEventListener('change', (e) => {
+    settings.resMode = e.target.value; saveSettings(); refreshPerfPresets();
+  });
+  document.getElementById('st-filter').addEventListener('change', (e) => {
+    settings.filter = e.target.value; saveSettings();
+  });
+  for (const k of ['master', 'wav', 'bgm']) {
+    document.getElementById('st-vol-' + k).addEventListener('input', (e) => {
+      settings.volume[k] = clampNum(e.target.value, 0, 100, 100); saveSettings();
+      document.getElementById('st-vol-' + k + '-v').textContent = settings.volume[k] + '%';
+    });
+  }
+  for (const tab of document.querySelectorAll('#st-tabs button')) {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#st-tabs button').forEach((x) => x.classList.remove('on'));
+      tab.classList.add('on');
+      document.querySelectorAll('.stpane').forEach((x) => x.classList.remove('on'));
+      document.getElementById('pane-' + tab.dataset.pane).classList.add('on');
+    });
+  }
+  document.getElementById('btn-settings').addEventListener('click', () => {
+    renderKeyGrid('p1', 'keygrid-p1');
+    renderKeyGrid('p2', 'keygrid-p2');
+    renderPerfPresets();
+    syncPersonalControls();
+    settingsEl.classList.add('on');
+  });
+  document.getElementById('st-done').addEventListener('click', () => {
+    cancelKeyCapture();
+    settingsEl.classList.remove('on');
+  });
+  document.getElementById('st-reset').addEventListener('click', () => {
+    Object.assign(settings, normalizeSettings(null));
+    saveSettings();
+    renderKeyGrid('p1', 'keygrid-p1');
+    renderKeyGrid('p2', 'keygrid-p2');
+    renderPerfPresets();
+    syncPersonalControls();
+  });
+  settingsEl.addEventListener('click', (e) => {
+    if (e.target === settingsEl) { cancelKeyCapture(); settingsEl.classList.remove('on'); }
+  });
+
+  // ---------------- 启动引擎 ----------------
+  let engineStarted = false;
+
+  async function startEngine(p1, p2, ai) {
+    if (engineStarted) return;
+    engineStarted = true;
+
+    const go = new Go();
+    go.argv = ['ikemen',
+      // 用户设置（键位/分辨率/音量）：生成于 boot()，经 mod overlay 注入 VFS
+      '-config', 'save/user-config.ini',
+      '-p1', p1, '-p1.ai', '0',
+      '-p2', p2, '-p2.ai', String(ai),
+      '-s', 'stages/kfm.def',
+      '-loadmotif'];
+    go.env = { GOGC: '100', GOMEMLIMIT: '800MiB' };
+
+    // wasm 下载带进度（约 24MB）
+    progress(32, '下载引擎镜像');
+    const res = await fetch('./ikemen.wasm');
+    const total = Number(res.headers.get('Content-Length')) || 24 * 1024 * 1024;
+    let got = 0;
+    const chunks = [];
+    if (res.body && res.body.getReader) {
+      const reader = res.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value); got += value.length;
+        progress(32 + 68 * (got / total), `下载引擎镜像 ${(got / 1e6).toFixed(1)} / ${(total / 1e6).toFixed(0)} MB`);
+      }
+    } else {
+      const buf = await res.arrayBuffer(); chunks.push(new Uint8Array(buf)); got = buf.byteLength;
+    }
+    const bytes = new Uint8Array(got);
+    let at = 0;
+    for (const c of chunks) { bytes.set(c, at); at += c.length; }
+
+    progress(100, '编译并启动引擎');
+    bootEl.classList.add('done');
+    selEl.classList.remove('on');
+    readyEl.classList.add('on');
+    canvas.classList.add('on');
+    hudEl.textContent = '';
+    const K = settings.keys.p1;
+    const kl = (t) => esc(tokenLabel(K[t]));
+    const r = effectiveRes();
+    hudEl.innerHTML = '<b>P1</b> ' + kl('up') + kl('down') + kl('left') + kl('right') +
+      ' 移动 · <b>' + kl('a') + '</b> 轻拳 · <b>' + kl('b') + '</b> 中拳 · <b>' + kl('c') + '</b> 重拳 · <b>' +
+      kl('start') + '</b> 确认' +
+      ' · <span class="vs">' + esc(p1) + ' VS ' + esc(p2) + '</span>' +
+      ' · 渲染 ' + r.w + '×' + r.h;
+    hudEl.classList.add('on');
+    toolsEl.classList.add('on');
+
+    const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
+    go.run(instance); // 永不返回
+
+    // 首帧出来之前一直盖着 ready 遮罩
+    const wait = setInterval(() => {
+      if ((window.__ikemenEngineFrames || 0) > 15) {
+        clearInterval(wait);
+        readyEl.classList.remove('on');
+      }
+    }, 500);
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  function beginMatch(ai) {
+    bootEl.classList.remove('done');
+    startEngine(curP1, curP2, ai).catch(fail);
+    // 开局 8 秒后键位提示自动淡出，鼠标靠近顶部再显示
+    setTimeout(() => hudEl.classList.add('fade'), 8000);
+    window.addEventListener('mousemove', (e) => {
+      if (!engineStarted) return;
+      if (e.clientY < 80) hudEl.classList.remove('fade'); else hudEl.classList.add('fade');
+    });
+  }
+
+  document.getElementById('start').addEventListener('click', () => beginMatch(curAI));
+  document.getElementById('start-train').addEventListener('click', () => beginMatch(0));
+
+  document.getElementById('btn-change').addEventListener('click', () => {
+    const p = new URLSearchParams();
+    p.set('p1', curP1); p.set('p2', curP2); p.set('ai', String(curAI));
+    location.href = location.pathname + '?' + p.toString();
+  });
+
+  // ---------------- 加载 VFS ----------------
+  async function boot() {
+    try {
+    // 系统设置 → 引擎配置：把设置写成 save/user-config.ini 经 mod overlay
+    // 注入（vfs.js vendor 不改，走其公共 ikemenMods API），配合 argv 的
+    // -config 让引擎在启动时读它。必须在 ikemenVfsInit 之前写入 IndexedDB，
+    // 因为 overlay 是在 ikemenVfsInit 内部装载进虚拟文件系统的。
+    buildConfigDirty = false;
+    try {
+      await window.ikemenMods.add('save/user-config.ini',
+        new TextEncoder().encode(buildConfigIni()));
+    } catch (e) {
+      console.warn('[settings] user-config.ini 注入失败，本次按引擎默认配置启动', e);
+    }
+    let vfsDone = false;
+    progress(2, '浏览资源清单');
+    const n = await ikemenVfsInit('./ikemen-fs/manifest.json', [
+      'external/script/main.lua',
+      'save/config.json',
+    ], (got, total) => {
+      if (vfsDone) return;
+      progress(2 + 26 * Math.min(1, got / (total || 1)),
+        `预载资源 ${(got / 1e6).toFixed(1)} / ${((total || 0) / 1e6).toFixed(0)} MB`);
+    });
+    vfsDone = true;
+    progress(30, `清单就绪（${n} 个文件）`);
+
+      // 调试用：?auto=1 跳过选人直接开打（默认进练习模式，?ai= 可覆盖）
+      if (q.get('auto') === '1') {
+        const a = q.get('ai');
+        await startEngine(curP1, curP2, a === null ? 0 : Number(a));
+        return;
+      }
+      bootEl.classList.add('done');
+      selEl.classList.add('on');
+    } catch (e) { fail(e); }
+  }
+
+  // ---------------- 失焦 / 切后台 提示 ----------------
+  let coverOn = false;
+  function setCover(on, why) {
+    coverOn = on;
+    if (why) coverD.textContent = why;
+    coverEl.classList.toggle('on', on);
+  }
+  document.addEventListener('visibilitychange', () => {
+    setCover(document.hidden, document.hidden ? '页面已切到后台，浏览器把帧循环压到了 1 帧每秒' : '');
+  });
+  window.addEventListener('blur', () => {
+    if (!engineStarted) return;
+    setCover(true, '窗口不在前台，浏览器正在降频，游戏会像卡死');
+  });
+  window.addEventListener('focus', () => setCover(false));
+  coverEl.addEventListener('click', () => { setCover(false); window.focus(); });
+
+  // ---------------- 按键回显 + 焦点自检 ----------------
+  // 引擎的键盘监听挂在 document 上，但中文输入法、或者窗口没焦点时，
+  // 键可能根本到不了页面。这个回显就是用来区分“没收到键”和“引擎没响应”。
+  const echoEl = document.getElementById('keyecho');
+  const focusTip = document.getElementById('focusTip');
+
+  // 引擎 P1 实际绑定的键：从用户设置（系统设置面板）实时取，
+  // P1 改绑之后回显与提示跟着变，其它键引擎收到了也不会做动作
+  const P1_ACTION_DESC = {
+    up: '↑ 上', down: '↓ 下', left: '← 左', right: '→ 右',
+    a: '轻拳 A', b: '中拳 B', c: '重拳 C',
+    x: 'X 键', y: 'Y 键', z: 'Z 键', start: '确认 Start', d: '辅助 D', w: '辅助 W',
+  };
+  let P1_TOKEN_MAP = {};
+  function refreshKeyEchoMap() {
+    P1_TOKEN_MAP = {};
+    for (const [act, tok] of Object.entries(settings.keys.p1)) {
+      if (tok && tok !== 'Not used') P1_TOKEN_MAP[tok] = P1_ACTION_DESC[act] || act;
+    }
+  }
+  refreshKeyEchoMap();
+
+  let echoTimer = 0;
+  document.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    const token = CODE2INI[String(e.code || '')];
+    const label = tokenLabel(token) || '?';
+    const action = token ? P1_TOKEN_MAP[token] : null;
+    echoEl.innerHTML =
+      '<b class="' + (action ? 'good' : 'bad') + '">' + esc(label) + '</b>' +
+      '<span>' + (action ? '✓ P1 · ' + action : '✗ 不是 P1 键，引擎不会响应') + '</span>';
+    echoEl.classList.add('on');
+    clearTimeout(echoTimer);
+    echoTimer = setTimeout(() => echoEl.classList.remove('on'), 2400);
+  }, true);
+
+  setInterval(() => {
+    if (!engineStarted) { focusTip.classList.remove('on'); return; }
+    focusTip.classList.toggle('on', document.hasFocus() === false);
+  }, 1200);
+
+  document.addEventListener('mousedown', () => {
+    focusTip.classList.remove('on');
+    try { canvas.focus(); } catch (e) {}
+  }, true);
+
+  // ---------------- 运行状态监控（引擎起来后） ----------------
+  let fpsWin = [], lastFrames = 0, lastT = Date.now(), warnTimer = 0, lowCount = 0;
+  setInterval(() => {
+    if (!engineStarted) return;
+    const now = Date.now();
+    const f = window.__ikemenEngineFrames;
+    if (typeof f === 'number') {
+      const dt = (now - lastT) / 1000;
+      fpsWin.push((f - lastFrames) / dt);
+      if (fpsWin.length > 6) fpsWin.shift();
+      lastFrames = f; lastT = now;
+      const avg = fpsWin.reduce((a, b) => a + b, 0) / fpsWin.length;
+      if (fpsWin.length >= 6 && avg < 25 && !coverOn && document.visibilityState === 'visible') lowCount++;
+      else lowCount = 0;
+      // 连续 3 秒都低才提示，避免加载/换场时的瞬时抖动误报
+      if (lowCount >= 3) {
+        warnEl.textContent = '帧率偏低（约 ' + avg.toFixed(0) + ' 帧 / 秒），把浏览器窗口保持在前台、或换个轻一点的角色';
+        warnEl.classList.add('on');
+        clearTimeout(warnTimer);
+        warnTimer = setTimeout(() => { warnEl.classList.remove('on'); lowCount = 0; }, 8000);
+      }
+    }
+  }, 1000);
+
+  boot();
+})();
+</script>
+</body>
+</html>

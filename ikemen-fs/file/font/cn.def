@@ -1,0 +1,12 @@
+[FNT v2]
+fntversion = 2,00
+name = "SimHei"
+author = "Microsoft"
+
+[Def]
+Type = truetype
+Size = 7,14
+Spacing = 1,3
+Offset = 0,0
+File = cn.ttf
+Blend = 1

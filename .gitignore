@@ -1,0 +1,127 @@
+.gradle/
+.idea/
+local.properties
+
+build/
+app/build/
+
+*.iml
+*.apk
+*.aab
+
+captures/
+.externalNativeBuild/
+.cxx/
+
+*.keystore
+*.jks
+/tmp/
+/test/playwright/
+/.env
+
+.devtools
+# dependencies (bun install)
+node_modules
+
+# output
+out
+dist
+*.tgz
+*.tpg
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+_.log
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS) folder config
+.DS_Store
+
+build/*
+
+upload/*
+uploads/*
+
+db.sqlite
+db.sqlite-shm
+db.sqlite-wal
+db.sqlite.bak_*
+
+# local backup artifacts
+*.bak
+*.bak_*
+tmp/
+
+web/*
+run.local.cmd
+run.local.ps1
+/Toonflow-game/
+/node_modules_wsl/
+/.wsl_mirror/
+/nul
+/logs2/
+.hide.*
+/.aispace/claude/worktrees/agent-a4554f8deb76d473f/
+/.aispace/claude/worktrees/
+/toonflow-pkg-v1.0.2/
+/script/debug/tavo_app_webview/app_apk_reverse/tavo_decoded/lib/
+/script/debug/tavo_app_webview/app_apk_reverse/tavo_decoded/build/resources.zip
+/script/debug/tavo_app_webview/app_apk_reverse/tavo_decoded/build/
+/script/debug/tavo_app_webview/app_apk_reverse/tavo_decoded/smali/
+/script/debug/tavo_app_webview/app_apk_reverse/tavo_decoded/smali_classes2/
+/.workbuddy/
+/.hide/
+*.wav
+/.agents/
+/plugins_tpg/
+/__pycache__
+*/__pycache__
+/script/tavo_mcp_use/__pycache__/
+*.tbg
+null
+/workshops/
+/plugins/toonflow-field-survival/ui/
+/plugins/toonflow-field-survival/entry.js
+/.aispace/workbuddy-ai/
+/src/tools/toonflow-field-survival/map-editor/backend/ai_models.db
+/.qoder/
+/.aispace/workbuddy-ai/
+/.aispace/claude/
+/.aispace/
+/init-aispace-links.js
+/.workbuddy-ai/
+/workbuddy-ai/
+/system/
+/.serena/
+/.bsk_ctx
+/.zcode/
+
+# ---- Toon-Fighting-web 游戏资产（版权素材，禁止公开分发）----
+# 角色包：SNK《拳皇》/ Capcom《街霸》等素材的 MUGEN 改包，版权归原厂商，
+# 不随本仓库分发，获取方式见 README.md「资产获取」
+ikemen-fs/file/chars/
+# 场景包：MUGEN 社区场景，同上按原渠道获取
+ikemen-fs/file/stages/
+# 引擎二进制：由上游 Ikemen GO fork 构建的产物，见 README.md「资产获取」
+ikemen.wasm
+# 豆包/agent 本地工作目录
+.doubao/
+
