@@ -125,3 +125,15 @@ ikemen.wasm
 # 豆包/agent 本地工作目录
 .doubao/
 
+www/
+
+# Capacitor 构建产物与生成物
+android_h5/android/app/build/
+android_h5/android/.gradle/
+android_h5/android/build/
+android_h5/android/local.properties
+android_h5/android/.idea/
+android_h5/android/capacitor-cordova-android-plugins/
+# cap copy 写入的全部 web 资产（约134MB，重跑 npx cap sync android 即再生）
+android_h5/android/app/src/main/assets/
+
