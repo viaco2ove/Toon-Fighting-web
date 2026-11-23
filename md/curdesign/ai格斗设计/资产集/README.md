@@ -1,7 +1,7 @@
 # 资产集（tbg）子设计
 
 > 上游：[ai格斗联动-总体设计.md](../ai格斗联动-总体设计.md) §4
-> 样本：`workshops/toon-fighting-web/map_design/末世选择，从解析神明开始成神/`（当前仅 story.json 绑定种子）
+> 样本：`workshops/toon-fighting-web/map_design/末世选择，从解析神明开始成神/`（2026-11-24 已补齐 pack.json/roster.json/mapping.json/README，roster 含职业标签；.tbg 打包与安装器属 M4 范围）
 
 ## 1. 定位
 
@@ -9,20 +9,27 @@
 
 ## 2. 包结构（tbg）
 
+**两种形态（2026-11-24 定稿）：**
+
+- **纯映射包（轻量，可分发）**：仅下面 5 个元数据文件，不携带引擎资产 → 版权红线安全，适合公开分享；
+- **全量资产包（形态 B，同 android_h5 APK 口径）**：元数据层 + 引擎 VFS 全量（chars/data/external/font/stages + manifest.json），**私有侧载不分发**。首例：`workshops/toon-fighting-web/map_design/末世选择，从解析神明开始成神/`（stamp local38，123MB，355 文件与仓库 manifest 零差异）。
+
 ```
 <pack>.tbg                          ← zip 容器（M4 前先解包 field-survival ui.tbg 验证格式）
 ├── pack.json                       ← 包元数据
-│   { "id": "moshi-v1", "name": "末世选择资产集", "version": 1,
-│     "stories": ["末世选择，从解析神明开始成神"] }
+│   { "id": "moshi-v1", "name": "末世选择资产集", "version": 1, "type": "full-asset",
+│     "stories": ["末世选择，从解析神明开始成神"], "manifestStamp": "local38" }
 ├── story.json                      ← 绑定种子（同 map_design 现有格式）
 │   { "storyName": "…", "sessionId": "gs_…", "worldId": 48 }
-├── roster.json                     ← 故事角色表（分配池来源）
-│   { "chars": [ { "name": "陈默", "desc": "…", "isPlayer": true }, … ] }
+├── roster.json                     ← 故事角色表（分配池来源，含职业标签）
+│   { "chars": [ { "name": "陈默", "desc": "…", "profession": "武道家", "isPlayer": true }, … ] }
 ├── mapping.json                    ← 映射表
-│   { "charPool": ["Hinako","K'","Lin","Rugal2nd"],   // 可用引擎角色（≤本地已装集合）
-│     "stages": { "default": "stage0", "boss": "rugalstage", … },  // 剧情→场景 def
-│     "copy": { "opening": "…", "victory": "…", "defeat": "…" } }   // 主题文案
-└── README.md                       ← 资产来源声明（商用授权说明，对齐 NOTICE.md 口径）
+│   { "charPool": ["Hinako","K'","Lin","Rugal2nd","Leona"],   // 可用引擎角色（≤本地已装集合）
+│     "charPoolExcluded": {…},                                // 残缺角色声明（98-kim/MasterRyu）
+│     "stages": { "default": "kfm", "available": […] },        // 剧情→场景 def
+│     "copy": { "opening": "…", "victory": "…", "defeat": "…", "hud": {…} } }   // 主题文案
+├── manifest.json                   ← （仅全量包）VFS 清单，与仓库 manifest 同构，安装器校验用
+└── README.md                       ← 资产来源声明（版权口径，对齐 NOTICE.md）
 ```
 
 ## 3. 安装（终端侧）
