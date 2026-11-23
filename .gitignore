@@ -137,3 +137,4 @@ android_h5/android/capacitor-cordova-android-plugins/
 # cap copy 写入的全部 web 资产（约134MB，重跑 npx cap sync android 即再生）
 android_h5/android/app/src/main/assets/
 
+/android_h5/android/gradle/

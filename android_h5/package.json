@@ -1,0 +1,16 @@
+{
+  "name": "toon-fighting-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Toon Fighting web demo packaged as an Android app (Capacitor 7)",
+  "scripts": {
+    "sync": "node sync.mjs",
+    "cap:sync": "node sync.mjs && npx cap sync android",
+    "apk:debug": "node sync.mjs && npx cap sync android && cd android && call gradlew.bat assembleDebug"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/core": "^7.4.4"
+  }
+}
