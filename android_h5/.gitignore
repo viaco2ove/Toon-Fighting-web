@@ -1,0 +1,13 @@
+# www/ 与 android/app/src/main/assets/ 都是 node sync.mjs + cap sync 从项目根生成的，
+# 不手工编辑、不入库；www 走 android_h5 内规则，assets 在下面排除
+www/
+
+# Capacitor 构建产物与生成物
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+android/.idea/
+android/capacitor-cordova-android-plugins/
+# cap copy 写入的全部 web 资产（约134MB，重跑 npx cap sync android 即再生）
+android/app/src/main/assets/

@@ -31,6 +31,13 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
   - `save/{config.json, stats.json}`（引擎运行时会回写）
   - `font/`、`sound/`
 - `workshops/toon-fighting-web/{map_design, map_design_pre}` —— 美术资源工作区，未参与运行。
+- `android_h5/` —— Capacitor 7 安卓打包工程（形态 B），把站点装进 APK 侧载：
+  - `node sync.mjs` 把 index.html/vfs.js/wasm_exec.js/ikemen.wasm + ikemen-fs 全量（含 chars/stages，134MB 级）复制进 `www/`（排除 `*.bak*`）；APK 是私有侧载不分发，所以资产全量打包。
+  - `npm run apk:debug` = sync + `npx cap sync android` + `gradlew assembleDebug`，产物 `android/app/build/outputs/apk/debug/app-debug.apk`（约 84MB，wasm/资源已被 zip 压缩）。
+  - 构建环境：JAVA_HOME 必须指 `D:\Users\viaco\.jdks\jdk-21.0.10+7`（PATH 里的 java 1.8 无关）；`android/local.properties` 已写 SDK 路径（被 .gitignore，换机器要重写）；gradle wrapper 指向本地已缓存的 `gradle-8.14-all.zip` 免下载；`android/build.gradle` 前置了阿里云 maven 镜像（google/public/gradle-plugin），google()/mavenCentral() 兜底。
+  - `www/`、`android/app/build/`、`local.properties` 都在 `android_h5/.gitignore` 里；`android/` 平台源码要提交。改了 web 层文件后要重跑 `node sync.mjs && npx cap sync android` 才会进 APK。
+  - 虚拟手柄：设置项 `settings.pad`（auto/show/hide，默认 auto=触屏显示），注入走 INI2CODE 反查 `settings.keys.p1` 后合成 KeyboardEvent（引擎只读 `ev.code` 不校验 isTrusted，`system_js.go:96-120`）；改绑键位后手柄自动跟随。蓝牙手柄走 `input_js.go` 的 getGamepads 轮询，零代码可用。
+  - 验证脚本 `.cache/scripts/verify-pad.mjs <outDir> <port>`（无头 Edge，桌面默认隐藏→UI 开 show→reload→touch 注入→keyecho 全链路）。
 - `src/` —— 空。
 - `.cache/` —— 一切测试脚本与实验产物都放这里（根目录不再放临时代码）：
   - `.cache/scripts/` 全部 CDP 探针脚本

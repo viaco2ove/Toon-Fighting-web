@@ -1,4 +1,5 @@
 # Toon-Fighting-web
+对接 toonflow-game-app 后端，实现ai 化的格斗游戏终端。
 
 把 [Ikemen GO](https://github.com/ikemen-engine/Ikemen-GO)（MUGEN 兼容的 2D 格斗引擎）编译成
 WebAssembly，在浏览器里直接用真实 MUGEN 角色资产跑对局的网页格斗 Demo。

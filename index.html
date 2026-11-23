@@ -124,6 +124,34 @@
   #ready .tx{font-size:15px;letter-spacing:.08em}
   #ready .sub{font-size:12px;color:var(--dim)}
 
+  /* ---------- 虚拟手柄（触屏 / Android App） ---------- */
+  #pad{position:fixed;inset:0;z-index:35;pointer-events:none;display:none;
+    user-select:none;-webkit-user-select:none;touch-action:none}
+  #pad.on{display:block}
+  #pad button{pointer-events:auto;cursor:pointer;border:0;font-family:inherit;
+    background:rgba(12,15,22,.42);border:1px solid rgba(180,195,215,.35);
+    color:#dfe6f0;backdrop-filter:blur(2px);touch-action:none;user-select:none;
+    -webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+  #pad button:active,#pad button.pressed{background:rgba(255,59,48,.4);
+    border-color:rgba(255,59,48,.85);color:#fff}
+  #pad .dpad{position:absolute;left:16px;bottom:22px;width:186px;height:186px}
+  #pad .dpad button{position:absolute;width:62px;height:62px;border-radius:12px;
+    font-size:20px;font-weight:900}
+  #pad .dpad .up{top:0;left:62px}
+  #pad .dpad .down{bottom:0;left:62px}
+  #pad .dpad .left{left:0;top:62px}
+  #pad .dpad .right{right:0;top:62px}
+  #pad .dpad .center{left:62px;top:62px;background:rgba(12,15,22,.18);
+    border-color:rgba(180,195,215,.18)}
+  #pad .atk{position:absolute;right:14px;bottom:22px;display:grid;
+    grid-template-columns:repeat(2,68px);gap:10px}
+  #pad .atk button{width:68px;height:68px;border-radius:50%;font-size:19px;font-weight:900}
+  #pad .atk button small{display:block;font-size:10px;font-weight:400;letter-spacing:.06em;
+    color:rgba(223,230,240,.72);line-height:1.2}
+  #pad .atk button:active small,#pad .atk button.pressed small{color:#fff}
+  #pad .stbtn{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);
+    width:96px;height:44px;border-radius:22px;font-size:13px;letter-spacing:.2em;font-weight:900}
+
   /* ---------- 系统设置 ---------- */
   #btn-settings{position:relative;cursor:pointer;font-family:inherit;font-size:15px;
     font-weight:900;letter-spacing:.22em;padding:13px 34px;border-radius:8px;
@@ -248,6 +276,25 @@
   <div class="k">点这里回到游戏</div>
 </div>
 
+<div id="pad" aria-hidden="true">
+  <div class="dpad">
+    <button class="up"    data-act="up"    aria-label="上">↑</button>
+    <button class="down"  data-act="down"  aria-label="下">↓</button>
+    <button class="left"  data-act="left"  aria-label="左">←</button>
+    <button class="right" data-act="right" aria-label="右">→</button>
+    <div class="center"></div>
+  </div>
+  <div class="atk">
+    <button data-act="a">A<small>轻拳</small></button>
+    <button data-act="b">B<small>中拳</small></button>
+    <button data-act="c">C<small>重拳</small></button>
+    <button data-act="x">X<small>攻击</small></button>
+    <button data-act="y">Y<small>攻击</small></button>
+    <button data-act="z">Z<small>攻击</small></button>
+  </div>
+  <button class="stbtn" data-act="start">START</button>
+</div>
+
 <div id="settings">
   <div class="box">
     <h2>系统设置</h2>
@@ -283,6 +330,12 @@
         <select id="st-filter">
           <option value="pixelated">锐利像素（放大不糊，性能更好）</option>
           <option value="smooth">平滑缩放（观感柔和，稍吃性能）</option>
+        </select></div>
+      <div class="setting-line"><label>虚拟手柄</label>
+        <select id="st-pad">
+          <option value="auto">跟随设备（触屏显示，桌面隐藏）</option>
+          <option value="show">始终显示</option>
+          <option value="hide">始终隐藏</option>
         </select></div>
       <div class="setting-line"><label>主音量</label>
         <input type="range" id="st-vol-master" min="0" max="100" step="1"><span class="val" id="st-vol-master-v"></span></div>
@@ -432,6 +485,7 @@
       perf: PERF_PRESETS[s.perf] ? s.perf : 'fast',
       resMode: RES_CHOICES.some((r) => r[0] === s.resMode) ? s.resMode : 'auto',
       filter: s.filter === 'smooth' ? 'smooth' : 'pixelated',
+      pad: (s.pad === 'show' || s.pad === 'hide') ? s.pad : 'auto',
       volume: {
         master: clampNum(s.volume && s.volume.master, 0, 100, 100),
         wav:    clampNum(s.volume && s.volume.wav, 0, 100, 80),
@@ -452,6 +506,7 @@
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
     applyFilterSetting();
+    applyPad();
     refreshKeyEchoMap();
     buildConfigDirty = true;
   }
@@ -658,6 +713,7 @@
     }
     sel.value = settings.resMode;
     document.getElementById('st-filter').value = settings.filter;
+    document.getElementById('st-pad').value = settings.pad;
     for (const k of ['master', 'wav', 'bgm']) {
       document.getElementById('st-vol-' + k).value = settings.volume[k];
       document.getElementById('st-vol-' + k + '-v').textContent = settings.volume[k] + '%';
@@ -668,6 +724,9 @@
   });
   document.getElementById('st-filter').addEventListener('change', (e) => {
     settings.filter = e.target.value; saveSettings();
+  });
+  document.getElementById('st-pad').addEventListener('change', (e) => {
+    settings.pad = e.target.value; saveSettings();
   });
   for (const k of ['master', 'wav', 'bgm']) {
     document.getElementById('st-vol-' + k).addEventListener('input', (e) => {
@@ -706,12 +765,60 @@
     if (e.target === settingsEl) { cancelKeyCapture(); settingsEl.classList.remove('on'); }
   });
 
+  // ---------------- 虚拟手柄（触屏 / Android App） ----------------
+  // 引擎只读 KeyboardEvent.code 且不校验 isTrusted（system_js.go:96-120），
+  // 所以纯前端 dispatchEvent 即可注入输入，无需重编 wasm。
+  // 键码从用户键位设置实时反查：设置面板改绑后，手柄跟着变。
+  const padEl = document.getElementById('pad');
+  const INI2CODE = (() => {
+    const m = {};
+    for (const [code, tok] of Object.entries(CODE2INI)) m[tok] = code;
+    return m;
+  })();
+  function isTouchDevice() {
+    return (window.matchMedia && matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
+  }
+  function padVisible() {
+    if (settings.pad === 'show') return true;
+    if (settings.pad === 'hide') return false;
+    return isTouchDevice();
+  }
+  function applyPad() {
+    padEl.classList.toggle('on', engineStarted && padVisible());
+  }
+  function padDispatch(btn, type) {
+    const tok = settings.keys.p1[btn.dataset.act];
+    const code = INI2CODE[tok];
+    if (!code) return;
+    document.dispatchEvent(new KeyboardEvent(type, { code, bubbles: true, cancelable: true }));
+  }
+  for (const btn of padEl.querySelectorAll('button[data-act]')) {
+    btn.addEventListener('pointerdown', (e) => {
+      if (!engineStarted) return;
+      e.preventDefault();
+      try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+      btn.classList.add('pressed');
+      padDispatch(btn, 'keydown');
+    });
+    const release = (e) => {
+      if (!btn.classList.contains('pressed')) return;
+      if (e.cancelable) e.preventDefault();
+      btn.classList.remove('pressed');
+      padDispatch(btn, 'keyup');
+    };
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('lostpointercapture', release);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
   // ---------------- 启动引擎 ----------------
   let engineStarted = false;
 
   async function startEngine(p1, p2, ai) {
     if (engineStarted) return;
     engineStarted = true;
+    applyPad();
 
     const go = new Go();
     go.argv = ['ikemen',
