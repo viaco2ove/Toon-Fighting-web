@@ -1190,6 +1190,15 @@ function main.f_commandLine()
 		refresh()
 	end
 	game()
+	--[toon] quickmatch（-p1/-p2/-loadmotif 命令行直通）结果信号：saveIni 写 save/tf-result.ini
+	--经 vfs.js 持久化到 localStorage（ikemen-vfs11:save/tf-result.ini，写后约 400ms 落盘，
+	--纯 JS 定时器，紧随其后的 os.exit() 不影响落盘）。index.html 轮询该 key 做结算回写。
+	--getWinnerTeam()：1=P1 胜 2=P2 胜 0=平 -1=对局中止
+	pcall(function()
+		local ts = 0
+		if os ~= nil and os.time ~= nil then ts = os.time() end
+		saveIni({Result = {value = tostring(getWinnerTeam()), mode = 'quickmatch', t = tostring(ts)}}, 'save/tf-result.ini')
+	end)
 	if flags['-log'] ~= nil then
 		main.f_printTable(getGameStats().Matches[matchNo()], flags['-log'])
 	end

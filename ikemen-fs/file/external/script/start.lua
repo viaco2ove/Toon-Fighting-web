@@ -1768,6 +1768,15 @@ function start.f_game(common)
 	end
 	local winner = -1
 	winner, start.challenger = game()
+	print('TF_RESULT:' .. tostring(winner)) --[toon] 对局结束信号1：print 通道（motif 模式专用；quickmatch 不经此函数）
+	--[toon] 信号2（quickmatch/motif 通用主通道）：saveIni 写 save/tf-result.ini，经 vfs.js
+	--防抖约 400ms 持久化到 localStorage（ikemen-vfs11:save/tf-result.ini，纯 JS 定时器，
+	--引擎随后 os.exit() 也不影响落盘）。index.html 轮询该 key 做结算回写。pcall 兜底。
+	pcall(function()
+		local ts = 0
+		if os ~= nil and os.time ~= nil then ts = os.time() end
+		saveIni({Result = {value = tostring(winner), mode = 'motif', t = tostring(ts)}}, 'save/tf-result.ini')
+	end)
 	if gameOption('Debug.DumpLuaTables') then
 		main.f_printTable(getGameStats(), 'debug/t_gameStats.txt')
 	end

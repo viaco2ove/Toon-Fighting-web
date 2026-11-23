@@ -210,6 +210,66 @@
   #st-reset{color:#ffb4ad}
   #st-done{background:rgba(255,59,48,.16);border-color:rgba(255,59,48,.5)}
 
+  /* ---------- 故事联动 ---------- */
+  #btn-story{position:relative;cursor:pointer;font-family:inherit;font-size:15px;font-weight:900;
+    letter-spacing:.22em;padding:13px 34px;border-radius:8px;
+    border:1px solid rgba(58,209,255,.45);color:var(--cyan);background:rgba(58,209,255,.07);transition:.16s}
+  #btn-story:hover{border-color:var(--cyan);color:#fff}
+  #story{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;
+    background:rgba(4,5,8,.82);backdrop-filter:blur(5px)}
+  #story.on{display:flex}
+  #story .box{width:min(880px,94vw);max-height:88vh;overflow:auto;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:24px 28px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
+  #story h2{margin:0 0 4px;font-size:20px;font-weight:900;letter-spacing:.08em}
+  #story .sub{font-size:12px;color:var(--dim);margin-bottom:14px}
+  #story .sub.ok{color:#7ee2a8}
+  #story .sub.err{color:#ffb4ad}
+  .sesslist{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:720px){.sesslist{grid-template-columns:1fr}}
+  .sess{cursor:pointer;text-align:left;padding:12px 14px;border-radius:9px;font-family:inherit;
+    background:#0d1017;border:1px solid var(--line);color:var(--txt);transition:.15s}
+  .sess:hover{border-color:#3b4557;transform:translateY(-2px)}
+  .sess .t{font-size:14px;font-weight:700}
+  .sess .ch{font-size:12px;color:var(--cyan);margin-top:2px}
+  .sess .intro{font-size:12px;color:var(--dim);margin-top:6px;display:-webkit-box;
+    -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .sess .last{font-size:11px;color:#6f7b8d;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .charrow{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    padding:9px 12px;border:1px solid var(--line);border-radius:7px;background:#0d1017;margin-bottom:8px}
+  .charrow .cname{font-size:13px;color:#e7ecf3;flex-shrink:0;min-width:110px}
+  .charrow .badge{font-style:normal;font-size:10px;padding:1px 5px;border-radius:4px;margin-left:6px;vertical-align:1px}
+  .charrow .badge.player{color:#ffd98a;border:1px solid rgba(255,194,51,.4)}
+  .charrow .badge.npc{color:#9fb6d8;border:1px solid rgba(58,209,255,.3)}
+  .charrow select{font-family:inherit;font-size:13px;padding:5px 8px;border-radius:6px;
+    background:#161b26;border:1px solid var(--line);color:var(--txt)}
+  .charrow .rec{font-size:12px;color:var(--gold);min-width:64px;text-align:right;
+    font-variant-numeric:tabular-nums}
+  #story .stfoot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:20px}
+  #story .stfoot .hint{font-size:12px;color:#6f7b8d}
+  #story .stfoot button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;padding:8px 18px;
+    border-radius:7px;border:1px solid var(--line);background:#121722;color:var(--txt);transition:.15s}
+  #story .stfoot button:hover{border-color:#3b4557}
+  #sr-rand{color:#ffd98a}
+  #sr-save{border-color:rgba(58,209,255,.5)!important;color:var(--cyan)!important}
+  #sr-fight{background:rgba(255,59,48,.16)!important;border-color:rgba(255,59,48,.5)!important}
+
+  /* 故事联动 · 对局头像条（M3） */
+  #facebar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:30;display:none;
+    align-items:center;gap:12px;pointer-events:none}
+  #facebar.on{display:flex}
+  #facebar .face{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 6px;border-radius:22px;
+    background:rgba(6,8,12,.66);border:1px solid var(--line);backdrop-filter:blur(4px)}
+  #facebar .face.win{border-color:rgba(255,194,51,.8);box-shadow:0 0 16px -6px rgba(255,194,51,.9)}
+  #facebar .glyph{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:15px;font-weight:900;color:#fff;background:linear-gradient(160deg,#2a3140,#12161f);
+    border:1px solid #3b4557;overflow:hidden}
+  #facebar .glyph img{width:100%;height:100%;object-fit:cover}
+  #facebar .face.p2 .glyph{background:linear-gradient(160deg,#20344a,#0d1015)}
+  #facebar .nm{line-height:1.25}
+  #facebar .nm b{display:block;font-size:13px;color:#fff;font-weight:700}
+  #facebar .nm i{font-style:normal;font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+  #facebar .vs{font-size:15px;font-weight:900;color:var(--gold);letter-spacing:.1em}
+
   /* 失焦/切后台遮罩 */
   #cover{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
     flex-direction:column;gap:10px;background:rgba(4,5,8,.86);backdrop-filter:blur(3px);cursor:pointer}
@@ -249,6 +309,7 @@
   <div id="actions">
     <button id="start-train">练 习 · 对手站桩</button>
     <button id="start">正 式 对 战</button>
+    <button id="btn-story">故 事 联 动</button>
     <button id="btn-settings">系 统 设 置</button>
   </div>
   <div class="note">P1 用你的键盘控制：←→↑↓ 移动，Z 轻拳、X 中拳、C 重拳。<br>
@@ -257,6 +318,7 @@
 </div>
 
 <div id="hud"><b>P1</b> ←↑↓→ 移动 · <b>Z</b> 轻拳 · <b>X</b> 中拳 · <b>C</b> 重拳 · <b>A/S/D</b> 组合 · <b>Enter</b> 确认</div>
+<div id="facebar"></div>
 <div id="tools">
   <button id="btn-change">换人重打</button>
 </div>
@@ -350,6 +412,30 @@
       <div style="display:flex;gap:8px">
         <button id="st-reset">恢复默认</button>
         <button id="st-done">完 成</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="story">
+  <div class="box">
+    <h2>故 事 联 动</h2>
+    <div class="sub" id="story-status">检测联动服务…</div>
+    <div id="story-list">
+      <div class="pane-title">你的故事会话 <span style="color:#6f7b8d;font-weight:400">（点一个进入角色分配）</span></div>
+      <div class="sesslist" id="sesslist"></div>
+    </div>
+    <div id="story-roster" style="display:none">
+      <div class="pane-title" id="story-title"></div>
+      <div id="charrows"></div>
+      <div class="stfoot">
+        <button id="sr-back">← 会话列表</button>
+        <span class="hint" id="sr-hint">「我方」第一个角色出 P1，「对手」第一个出 P2</span>
+        <span>
+          <button id="sr-rand">随机分配</button>
+          <button id="sr-save">保 存</button>
+          <button id="sr-fight">用此分配开打</button>
+        </span>
       </div>
     </div>
   </div>
@@ -812,6 +898,364 @@
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
+  // ---------------- 故事联动（形态 B/C：serve.cjs --conn） ----------------
+  // 红线：对局进行中不发任何 /api 请求；联动数据全部在 boot 前取好。
+  // 后端不可达时一切回退本地模式：按钮隐藏、面板给出离线提示。
+  const CONN = {
+    on: false,             // /api/conn/status 探测结果
+    sessionId: null,       // 当前选中的会话
+    storyName: '',
+    worldId: 0,
+    roster: null,          // {storyChars:[{name,roleType,side,charId,win,lose}]}
+    sessions: null,
+  };
+  const storyEl = document.getElementById('story');
+  const storyStatusEl = document.getElementById('story-status');
+  const sessListEl = document.getElementById('sesslist');
+  const storyListEl = document.getElementById('story-list');
+  const storyRosterEl = document.getElementById('story-roster');
+  const storyTitleEl = document.getElementById('story-title');
+  const charRowsEl = document.getElementById('charrows');
+  document.getElementById('btn-story').style.display = 'none'; // 探测通过再显示
+
+  async function connApi(path, opt) {
+    try {
+      const r = await fetch(path, opt);
+      return await r.json();
+    } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+  }
+
+  async function probeConn() {
+    const r = await connApi('/api/conn/status');
+    CONN.on = !!(r && r.ok && r.connected);
+    if (CONN.on) {
+      document.getElementById('btn-story').style.display = '';
+      storyStatusEl.textContent = '联动服务已连接 · 后端 v' + (r.backendVersion || '?') + ' · ' + r.sessions + ' 个会话';
+      storyStatusEl.className = 'sub ok';
+    } else {
+      document.getElementById('btn-story').style.display = 'none';
+      storyStatusEl.textContent = '联动离线' + (r && r.error ? '：' + r.error : '') + '（用 node serve.cjs --conn 启动后刷新）';
+      storyStatusEl.className = 'sub err';
+    }
+    return CONN.on;
+  }
+  probeConn();
+
+  function fmtTime(ts) {
+    if (!ts) return '';
+    try { return new Date(Number(ts)).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch { return ''; }
+  }
+
+  async function openStory() {
+    storyEl.classList.add('on');
+    showListView();
+    if (!CONN.on) {
+      const ok = await probeConn();
+      if (!ok) { sessListEl.innerHTML = '<div style="color:#6f7b8d;font-size:13px">联动服务未连接，无法拉取会话。</div>'; return; }
+    }
+    storyStatusEl.textContent = '拉取会话列表…';
+    const r = await connApi('/api/conn/sessions');
+    if (!r || !r.ok || !Array.isArray(r.sessions)) {
+      storyStatusEl.textContent = '会话列表拉取失败：' + ((r && r.error) || '未知错误');
+      storyStatusEl.className = 'sub err';
+      return;
+    }
+    CONN.sessions = r.sessions;
+    storyStatusEl.textContent = '联动服务已连接 · ' + r.sessions.length + ' 个会话' + (r.cached ? '（缓存）' : '');
+    storyStatusEl.className = 'sub ok';
+    renderSessions(r.sessions);
+    // ?session= 直达该会话
+    const preset = q.get('session');
+    if (preset && r.sessions.some((s) => s.sessionId === preset)) pickSession(preset);
+  }
+
+  function renderSessions(list) {
+    sessListEl.innerHTML = '';
+    for (const s of list) {
+      const b = document.createElement('button');
+      b.className = 'sess';
+      const last = s.latestMessage ? (s.latestMessage.role + '：' + String(s.latestMessage.content || '').slice(0, 40)) : '';
+      b.innerHTML = '<div class="t">' + esc(s.title || s.worldName || s.sessionId) + '</div>' +
+        '<div class="ch">' + esc(s.chapterTitle || '') + ' · ' + esc(fmtTime(s.updateTime)) + '</div>' +
+        '<div class="intro">' + esc(s.worldIntro || '') + '</div>' +
+        (last ? '<div class="last">' + esc(last) + '</div>' : '');
+      b.addEventListener('click', () => pickSession(s.sessionId));
+      sessListEl.appendChild(b);
+    }
+  }
+
+  function showListView() {
+    storyListEl.style.display = '';
+    storyRosterEl.style.display = 'none';
+  }
+  function showRosterView() {
+    storyListEl.style.display = 'none';
+    storyRosterEl.style.display = '';
+  }
+
+  // 从消息里提取故事角色：roleType 非 narrator/system 的去重，按出场次数排序，最多 6 个
+  function extractStoryChars(messages) {
+    const byName = new Map();
+    for (const m of messages || []) {
+      const name = String(m.role || '').trim();
+      const roleType = String(m.roleType || 'npc');
+      if (!name || roleType === 'narrator' || roleType === 'system') continue;
+      const e = byName.get(name) || { name, roleType, count: 0 };
+      e.count++; e.roleType = roleType;
+      byName.set(name, e);
+    }
+    return [...byName.values()].sort((a, b) => b.count - a.count).slice(0, 6);
+  }
+
+  function randomCharId(avoid) {
+    const pool = ROSTER.map((c) => c.id).filter((id) =>
+      !avoid || (Array.isArray(avoid) ? !avoid.includes(id) : id !== avoid));
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // 组装 roster：有存档合并（保留同名角色的既有分配），没有则随机分配
+  function composeRoster(chars, saved) {
+    const savedMap = new Map((saved && saved.storyChars || []).map((c) => [c.name, c]));
+    const out = chars.map((c, i) => {
+      const s = savedMap.get(c.name);
+      const fallbackSide = i === 0 ? 'p1' : (i === 1 ? 'p2' : 'bench');
+      return {
+        name: c.name,
+        roleType: c.roleType,
+        side: s ? s.side : fallbackSide,
+        charId: s && ROSTER.some((r) => r.id === s.charId) ? s.charId : randomCharId(),
+        win: s ? Number(s.win || 0) : 0,
+        lose: s ? Number(s.lose || 0) : 0,
+      };
+    });
+    // 保证恰好有一个 p1；p2 尽量有一个
+    if (!out.some((c) => c.side === 'p1')) out[0].side = 'p1';
+    if (!out.some((c) => c.side === 'p2') && out.length > 1) {
+      const cand = out.find((c) => c.side !== 'p1');
+      if (cand) cand.side = 'p2';
+    }
+    return { storyChars: out };
+  }
+
+  async function pickSession(sid) {
+    const s = (CONN.sessions || []).find((x) => x.sessionId === sid);
+    CONN.sessionId = sid;
+    CONN.storyName = (s && (s.title || s.worldName)) || '';
+    CONN.worldId = (s && s.worldId) || 0;
+    storyStatusEl.textContent = '读取会话「' + CONN.storyName + '」…';
+    const [msgR, rosterR] = await Promise.all([
+      connApi('/api/conn/sessions/' + encodeURIComponent(sid) + '/messages'),
+      connApi('/api/conn/session-data/' + encodeURIComponent(sid) + '/tf_fight_roster'),
+    ]);
+    if (!msgR || !msgR.ok) {
+      storyStatusEl.textContent = '消息拉取失败：' + ((msgR && msgR.error) || '?');
+      storyStatusEl.className = 'sub err';
+      return;
+    }
+    const chars = extractStoryChars(msgR.messages);
+    if (!chars.length) {
+      storyStatusEl.textContent = '这个会话还没有可分配的故事角色（没有 NPC/玩家发言）。';
+      storyStatusEl.className = 'sub err';
+      return;
+    }
+    CONN.roster = composeRoster(chars, rosterR && rosterR.ok ? rosterR.value : null);
+    storyTitleEl.textContent = CONN.storyName + ' · 角色分配';
+    storyStatusEl.textContent = (rosterR && rosterR.ok && rosterR.value ? '已载入上次保存的分配（可修改）' : '已按出场次数自动随机分配') + ' · 共 ' + chars.length + ' 个角色';
+    storyStatusEl.className = 'sub ok';
+    renderRosterEditor();
+    showRosterView();
+  }
+
+  function renderRosterEditor() {
+    charRowsEl.innerHTML = '';
+    for (const c of CONN.roster.storyChars) {
+      const row = document.createElement('div');
+      row.className = 'charrow';
+      const sideSel = document.createElement('select');
+      for (const [v, t] of [['p1', '我方 P1'], ['p2', '对手 P2'], ['bench', '未上场']]) {
+        const o = document.createElement('option'); o.value = v; o.textContent = t;
+        if (c.side === v) o.selected = true;
+        sideSel.appendChild(o);
+      }
+      sideSel.addEventListener('change', () => {
+        c.side = sideSel.value;
+        if (sideSel.value === 'p1') { // p1 唯一：别人让位
+          for (const o of CONN.roster.storyChars) if (o !== c && o.side === 'p1') o.side = 'bench';
+          renderRosterEditor();
+        }
+      });
+      const charSel = document.createElement('select');
+      for (const r of ROSTER) {
+        const o = document.createElement('option'); o.value = r.id; o.textContent = r.id + '（' + r.cn + '）';
+        if (c.charId === r.id) o.selected = true;
+        charSel.appendChild(o);
+      }
+      charSel.addEventListener('change', () => { c.charId = charSel.value; });
+      const badge = c.roleType === 'player' ? '<i class="badge player">主角</i>' : '<i class="badge npc">NPC</i>';
+      row.innerHTML = '<span class="cname">' + esc(c.name) + badge + '</span>';
+      row.appendChild(sideSel);
+      row.appendChild(charSel);
+      const rec = document.createElement('span');
+      rec.className = 'rec'; rec.textContent = c.win + '胜 ' + c.lose + '负';
+      row.appendChild(rec);
+      charRowsEl.appendChild(row);
+    }
+  }
+
+  async function saveRoster() {
+    if (!CONN.sessionId || !CONN.roster) return;
+    document.getElementById('sr-save').textContent = '保存中…';
+    const [r1, r2] = await Promise.all([
+      connApi('/api/conn/session-data/' + encodeURIComponent(CONN.sessionId) + '/tf_fight_roster', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: CONN.roster }),
+      }),
+      connApi('/api/conn/session-data/' + encodeURIComponent(CONN.sessionId) + '/tf_fight_bind', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: { storyName: CONN.storyName, sessionId: CONN.sessionId, worldId: CONN.worldId } }),
+      }),
+    ]);
+    document.getElementById('sr-save').textContent = '保 存';
+    const ok = r1 && r1.ok && r2 && r2.ok;
+    storyStatusEl.textContent = ok ? '已保存到会话（下次进入自动载入）' : '保存失败：' + ((r1 && r1.error) || (r2 && r2.error) || '?');
+    storyStatusEl.className = 'sub ' + (ok ? 'ok' : 'err');
+    return ok;
+  }
+
+  function fightWithRoster() {
+    const cs = CONN.roster.storyChars;
+    const p1 = cs.find((c) => c.side === 'p1');
+    let p2 = cs.find((c) => c.side === 'p2');
+    if (!p2) p2 = cs.find((c) => c.side !== 'p1');
+    if (!p1 || !p2) {
+      storyStatusEl.textContent = '至少要各有一个「我方」和一个「对手」。';
+      storyStatusEl.className = 'sub err';
+      return;
+    }
+    curP1 = p1.charId; curP2 = p2.charId;
+    buildRoster(row1, (id) => { curP1 = id; }, () => curP1);
+    buildRoster(row2, (id) => { curP2 = id; }, () => curP2);
+    storyEl.classList.remove('on');
+    beginMatch(curAI);
+  }
+
+  document.getElementById('btn-story').addEventListener('click', openStory);
+  document.getElementById('sr-back').addEventListener('click', showListView);
+  document.getElementById('sr-rand').addEventListener('click', () => {
+    if (!CONN.roster) return;
+    const used = [];
+    for (const c of CONN.roster.storyChars) { c.charId = randomCharId(used.length < ROSTER.length ? used : null); used.push(c.charId); }
+    renderRosterEditor();
+    storyStatusEl.textContent = '已重新随机分配（记得保存）';
+    storyStatusEl.className = 'sub ok';
+  });
+  document.getElementById('sr-save').addEventListener('click', saveRoster);
+  document.getElementById('sr-fight').addEventListener('click', fightWithRoster);
+  storyEl.addEventListener('click', (e) => { if (e.target === storyEl) storyEl.classList.remove('on'); });
+
+  // ---------------- 对局头像条 + 结算回写（M3） ----------------
+  // 头像条：纯 DOM overlay，只在联动会话下显示；对局中不碰任何后端接口。
+  const facebarEl = document.getElementById('facebar');
+  function faceInfo(c) {
+    const r = ROSTER.find((x) => x.id === c.charId);
+    const avatar = c.avatarRef && /^data:image/.test(c.avatarRef)
+      ? '<img src="' + c.avatarRef + '" alt="">'
+      : esc(r ? r.glyph : '?');
+    return { glyph: avatar, name: c.name, charId: c.charId, rec: c.win + '胜' + c.lose + '负' };
+  }
+  function renderFacebar() {
+    if (!CONN.sessionId || !CONN.roster) { facebarEl.classList.remove('on'); return; }
+    const p1 = CONN.roster.storyChars.find((c) => c.side === 'p1');
+    const p2 = CONN.roster.storyChars.find((c) => c.side === 'p2');
+    if (!p1 || !p2) { facebarEl.classList.remove('on'); return; }
+    const a = faceInfo(p1), b = faceInfo(p2);
+    facebarEl.innerHTML =
+      '<div class="face p1" data-side="p1"><div class="glyph">' + a.glyph + '</div>' +
+      '<div class="nm"><b>' + esc(a.name) + '</b><i>' + esc(a.charId) + ' · ' + a.rec + '</i></div></div>' +
+      '<div class="vs">VS</div>' +
+      '<div class="face p2" data-side="p2"><div class="glyph">' + b.glyph + '</div>' +
+      '<div class="nm"><b>' + esc(b.name) + '</b><i>' + esc(b.charId) + ' · ' + b.rec + '</i></div></div>';
+    facebarEl.classList.add('on');
+  }
+  function showResult(msg, winnerSide) {
+    warnEl.textContent = msg;
+    warnEl.classList.add('on');
+    clearTimeout(showResult._t);
+    showResult._t = setTimeout(() => warnEl.classList.remove('on'), 8000);
+    if (winnerSide) {
+      for (const f of facebarEl.querySelectorAll('.face')) f.classList.remove('win');
+      const el = facebarEl.querySelector('.face.' + (winnerSide === 1 ? 'p1' : 'p2'));
+      if (el) el.classList.add('win');
+    }
+  }
+
+  // 结算：引擎 start.lua 在整场对局结束时把结果写 save/tf-result.ini（saveIni 绑定），
+  // vfs.js 把 save/ 下文件防抖 400ms 持久化到 localStorage（base64）。
+  // 注意：wasm 下 Go stdout 被 vfs.js 的 fs 拦截接管（stdout 是 fd1、不在 vfs 文件表，
+  // 写入被静默丢弃），print/console.log 通道不可达——localStorage 轮询才是主信号通道，
+  // console.log 钩子仅作双保险保留。
+  // 红线合规：轮询只读本地 localStorage，网络 PUT 仍只在结算这一刻发一次。
+  let matchSettled = false;
+  function onMatchResult(winner) {
+    if (matchSettled) return; // 一场对局只结算一次（quickmatch 打完一场引擎进程即退出）
+    matchSettled = true;
+    window.__tfMatchSettled = winner; // 供自动化验证探针读取
+    if (!CONN.sessionId || !CONN.roster) return;
+    const p1 = CONN.roster.storyChars.find((c) => c.side === 'p1');
+    const p2 = CONN.roster.storyChars.find((c) => c.side === 'p2');
+    if (!p1 || !p2) return;
+    let msg = '平局/对局中止', side = 0;
+    if (winner === 1) { p1.win++; p2.lose++; msg = esc(p1.name) + '（' + p1.charId + '）胜！战绩 ' + p1.win + '胜' + p1.lose + '负 · 已回写'; side = 1; }
+    else if (winner === 2) { p2.win++; p1.lose++; msg = esc(p2.name) + '（' + p2.charId + '）胜！战绩 ' + p2.win + '胜' + p2.lose + '负 · 已回写'; side = 2; }
+    else { showResult(msg, 0); return; }
+    showResult(msg, side);
+    renderFacebar();
+    // 只在确有联动会话时回写（本地模式静默跳过）
+    connApi('/api/conn/session-data/' + encodeURIComponent(CONN.sessionId) + '/tf_fight_roster', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: CONN.roster }),
+    });
+    // quickmatch 一场一进程：结算回写后自动回分配视图（reload），战绩已持久化、可直接开下一场
+    setTimeout(() => {
+      location.href = location.pathname + '?conn=1&session=' + encodeURIComponent(CONN.sessionId);
+    }, 6000);
+  }
+  (function hookEngineConsole() {
+    const orig = console.log.bind(console);
+    console.log = function (...args) {
+      try {
+        const line = args.map((a) => (typeof a === 'string' ? a : '')).join('');
+        const i = line.indexOf('TF_RESULT:');
+        if (i !== -1) onMatchResult(Number(line.slice(i + 10).trim()));
+      } catch { /* 信号解析失败不影响游戏 */ }
+      return orig(...args);
+    };
+  })();
+  // 主信号通道：轮询 vfs 持久化的 save/tf-result.ini（base64，内容变化即新对局结果）
+  (function hookVfsResult() {
+    const KEY = 'ikemen-vfs11:save/tf-result.ini';
+    let baseline = null;
+    try { baseline = localStorage.getItem(KEY); } catch { /* 私密模式 */ }
+    const b64decode = (b64) => {
+      const bin = atob(b64);
+      const buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      return new TextDecoder('utf-8').decode(buf);
+    };
+    setInterval(() => {
+      let raw = null;
+      try { raw = localStorage.getItem(KEY); } catch { return; }
+      if (!raw || raw === baseline) return;
+      baseline = raw;
+      try {
+        const text = b64decode(raw);
+        const m = text.match(/value\s*=\s*"?(-?\d+)"?/);
+        if (m) onMatchResult(Number(m[1]));
+      } catch { /* 解析失败不影响游戏 */ }
+    }, 500);
+  })();
+
   // ---------------- 启动引擎 ----------------
   let engineStarted = false;
 
@@ -828,6 +1272,9 @@
       '-p2', p2, '-p2.ai', String(ai),
       '-s', 'stages/kfm.def',
       '-loadmotif'];
+    // ?time= / ?rounds= 透传引擎（联动资产集/自动化验证用来缩短单场时长）
+    if (q.get('time')) go.argv.push('-time', q.get('time'));
+    if (q.get('rounds')) go.argv.push('-rounds', q.get('rounds'));
     go.env = { GOGC: '100', GOMEMLIMIT: '800MiB' };
 
     // wasm 下载带进度（约 24MB）
@@ -884,6 +1331,8 @@
 
   function beginMatch(ai) {
     bootEl.classList.remove('done');
+    matchSettled = false;      // 新一局允许重新结算
+    renderFacebar();           // 联动会话下显示 P1/P2 故事头像条
     startEngine(curP1, curP2, ai).catch(fail);
     // 开局 8 秒后键位提示自动淡出，鼠标靠近顶部再显示
     setTimeout(() => hudEl.classList.add('fade'), 8000);
@@ -899,6 +1348,9 @@
   document.getElementById('btn-change').addEventListener('click', () => {
     const p = new URLSearchParams();
     p.set('p1', curP1); p.set('p2', curP2); p.set('ai', String(curAI));
+    // 联动上下文透传：改完回来还在同一个故事的分配面板里
+    if (q.get('conn') === '1') p.set('conn', '1');
+    if (CONN.sessionId && q.get('conn') === '1') p.set('session', CONN.sessionId);
     location.href = location.pathname + '?' + p.toString();
   });
 
@@ -937,6 +1389,8 @@
       }
       bootEl.classList.add('done');
       selEl.classList.add('on');
+      // ?conn=1：联动模式自动打开故事面板（serve.cjs -- 配合启动）
+      if (q.get('conn') === '1' && !q.get('auto')) openStory();
     } catch (e) { fail(e); }
   }
 

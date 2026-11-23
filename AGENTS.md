@@ -38,6 +38,13 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
   - `www/`、`android/app/build/`、`local.properties` 都在 `android_h5/.gitignore` 里；`android/` 平台源码要提交。改了 web 层文件后要重跑 `node sync.mjs && npx cap sync android` 才会进 APK。
   - 虚拟手柄：设置项 `settings.pad`（auto/show/hide，默认 auto=触屏显示），注入走 INI2CODE 反查 `settings.keys.p1` 后合成 KeyboardEvent（引擎只读 `ev.code` 不校验 isTrusted，`system_js.go:96-120`）；改绑键位后手柄自动跟随。蓝牙手柄走 `input_js.go` 的 getGamepads 轮询，零代码可用。
   - 验证脚本 `.cache/scripts/verify-pad.mjs <outDir> <port>`（无头 Edge，桌面默认隐藏→UI 开 show→reload→touch 注入→keyecho 全链路）。
+- `md/curdesign/ai格斗设计/` —— 故事联动设计文档（总体设计 + 资产集 tbg 子设计）。
+- 故事联动（形态 B/C，serve.cjs --conn）：
+  - serve.cjs 兼做 BFF 代理：前端只打同源 `/api/conn/*`（status/sessions/messages/session-data/agent.generate/story），token 只在 serve.cjs 内存、永不进页面；401 自动用 .env 账号重登；sessions 60s 缓存；pluginData 同 key 写 800ms 合并。**对局进行中前端 0 请求是硬红线**。
+  - 后端 toonflow-game-app（.env `game_app_service_url`，本地 60002）：登录 `POST /other/login`；会话 `POST /game/listSession`；消息 `POST /game/getSession` 是 **NDJSON 流**（meta→message×N→done，serve.cjs 已重组）；插件数据 `POST /plugin/data {sessionId, pluginId, op:get|set|list|remove, dataKey, value}`（pluginId 固定 `com.viaco.toon-fighting`）；生图 `POST /plugin/agentRun {agentName:"field-survival-sprite-gener", input:{prompt,refImages≤3,size}}`。
+  - index.html「故事联动」面板：`?conn=1` 自动打开；会话卡片 → 角色分配（从消息 role/roleType 提取角色，narrator/system 排除，按出场次数取前 6）；持久化 key：`tf_fight_roster`（side: p1/p2/bench + charId + 战绩）、`tf_fight_bind`（storyName/sessionId/worldId）。开打=第一个 p1 出 P1、第一个 p2 出 P2。
+  - 验证脚本 `.cache/scripts/verify-story.mjs <outDir> <cdpPort>`（面板自动开→列表→分配→保存服务端读回→开打 HUD VS→reload 持久化）。设计文档：`md/curdesign/ai格斗设计/ai格斗联动-总体设计.md`（里程碑 M1-M6，M3=HUD 头像条+结算回写，M4=tbg 资产集，M5=AI 头像）。
+  - M3 结算信号（已验收）：网页开打 = argv `-p1/-p2/-loadmotif` 走 main.lua `main.f_commandLine()` 的 **quickmatch-with-motif 分支**（4309 行条件），一场打完 `game()` 返回后 `os.exit()` 结束进程——`start.f_game` 根本不在路径上。结果信号：quickmatch 尾部 + `start.f_game` 内均 `saveIni({Result={value,mode,t}}, 'save/tf-result.ini')` → vfs.js 对 `save/` 下文件防抖 400ms 持久化到 localStorage `ikemen-vfs11:save/tf-result.ini`（base64，纯 JS 定时器，紧跟的 os.exit 不影响落盘）；index.html 每 500ms 轮询该 key，内容变化→onMatchResult（PUT 回写一次 + 6s 后自动 reload 回分配视图）。**引擎一场一进程**，复开下一场靠 reload。诊断注意：Lua print 经 vfs `writeStd`→console.log 是通的（主 chunk 实测可见），但 CDP 探针必须监听 `Runtime.consoleAPICalled` 才能抓到；`Log.enable` 在新版 Edge 不回放 console.log。headless 保活按键别用 Enter（P1 Start=开暂停菜单），用 Z。验证脚本 `.cache/scripts/verify-result.mjs <outDir> <port>`（facebar→挂机→settled 标志→服务端战绩读回，已全绿）。
 - `src/` —— 空。
 - `.cache/` —— 一切测试脚本与实验产物都放这里（根目录不再放临时代码）：
   - `.cache/scripts/` 全部 CDP 探针脚本
