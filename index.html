@@ -212,6 +212,26 @@
   #keyecho b.good{border-color:#3fb950;color:#b7f0c2;box-shadow:0 0 12px -4px rgba(63,185,80,.7)}
   #keyecho b.bad{border-color:#f85149;color:#ffb4ad;box-shadow:0 0 12px -4px rgba(248,81,73,.7)}
 
+  /* 实体头顶悬浮头像（field-survival 同款做法）
+     坐标来自引擎（TF_HEAD 坐标包，引擎渲染分辨率下的屏幕坐标），
+     按画布 CSS 尺寸换算后定位到角色头顶。 */
+  #headav{position:fixed;inset:0;z-index:33;display:none;pointer-events:none;overflow:hidden}
+  #headav.on{display:block}
+  #headav .ha{position:absolute;transform:translate(-50%,-100%);
+    display:flex;flex-direction:column;align-items:center;gap:2px}
+  #headav .ha .pic{width:44px;height:44px;border-radius:50%;overflow:hidden;
+    background:linear-gradient(160deg,#2a3140,#12161f);border:2px solid #6b7688;
+    box-shadow:0 3px 10px -3px rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;
+    font-size:17px;font-weight:900;color:#e7ecf3}
+  #headav .ha .pic img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+  #headav .ha.p2 .pic{border-color:#c0563a}
+  #headav .ha .nm{font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 3px #000,0 0 6px #000;
+    white-space:nowrap;max-width:96px;overflow:hidden;text-overflow:ellipsis}
+  @media (max-width:480px){
+    #headav .ha .pic{width:36px;height:36px;font-size:14px}
+    #headav .ha .nm{font-size:10px;max-width:80px}
+  }
+
   /* 没拿到键盘焦点时的横条 */
   #focusTip{position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:33;display:none;
     padding:7px 16px;border-radius:6px;font-size:12.5px;
@@ -464,6 +484,7 @@
 </div>
 <div id="warn"></div>
 <div id="keyecho"></div>
+<div id="headav"></div>
 <div id="focusTip">点一下画面，把键盘焦点交给游戏</div>
 
 <div id="ready">
@@ -561,6 +582,11 @@
           <option value="on">开（开场 3-2-1）</option>
           <option value="off">关（直接开打）</option>
         </select></div>
+      <div class="setting-line"><label>头顶悬浮头像</label>
+        <select id="st-headavatar">
+          <option value="on">显示（实体头顶挂头像）</option>
+          <option value="off">隐藏</option>
+        </select></div>
       <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.7;margin-top:10px">
         发言 agent 在本页内实现、调用后端大模型接口生成符合角色人设与故事世界观的台词；
         接口出错 / 超时会自动跳过，不影响战斗。发言按角色绑定与职业信息构造提示词。</div>
@@ -616,6 +642,33 @@
   };
   // 引擎本地已装且验证可跑的角色（98-kim/MasterRyu 资源残缺，不进池）
   const LOCAL_OK = ["Lin", "Hinako", "K'", "Rugal2nd", "Leona"];
+
+  // ---------------- 头像 ----------------
+  // MUGEN 头像：由服务端从角色包的 sff 里解出（/api/portrait/<id>）；
+  // toonflow 角色头像：故事侧角色的 avatarPath，经 /api/role-avatar/<path> 代理。
+  // 两者都失败时回退到文字（首字），界面永不出现破图。
+  function mugPortraitUrl(charId) {
+    return '/api/portrait/' + encodeURIComponent(charId);
+  }
+  function rolePortraitUrl(role) {
+    if (!role || !role.avatarPath) return null;
+    if (/^data:image/i.test(role.avatarPath)) return role.avatarPath;
+    return '/api/role-avatar/' + role.avatarPath.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/');
+  }
+  // 生成一个头像节点（img 或首字），onerror 时自动退回文字
+  function avatarNode(src, fallbackText, cls) {
+    const box = document.createElement('div');
+    box.className = cls === undefined || cls === null ? 'ava' : cls;
+    box.textContent = fallbackText || '?';
+    if (src) {
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = '';
+      img.addEventListener('load', () => { box.textContent = ''; box.appendChild(img); });
+      img.addEventListener('error', () => { /* 保留文字首字 */ });
+    }
+    return box;
+  }
 
   const q = new URLSearchParams(location.search);
   const bootEl = document.getElementById('boot');
@@ -1056,6 +1109,7 @@
       battle: {
         speech: (s.battle && ['off', 'text', 'voice'].includes(s.battle.speech)) ? s.battle.speech : 'text',
         countdown: s.battle && s.battle.countdown === 'off' ? 'off' : 'on',
+        headAvatar: !(s.battle && s.battle.headAvatar === 'off'),
       },
       keys: {
         p1: Object.assign({}, d.p1, (s.keys && s.keys.p1) || {}),
@@ -1277,6 +1331,7 @@
     document.getElementById('st-pad').value = settings.pad;
     document.getElementById('st-speech').value = settings.battle.speech;
     document.getElementById('st-countdown').value = settings.battle.countdown;
+    document.getElementById('st-headavatar').value = settings.battle.headAvatar ? 'on' : 'off';
     for (const k of ['master', 'wav', 'bgm']) {
       document.getElementById('st-vol-' + k).value = settings.volume[k];
       document.getElementById('st-vol-' + k + '-v').textContent = settings.volume[k] + '%';
@@ -1296,6 +1351,10 @@
   });
   document.getElementById('st-countdown').addEventListener('change', (e) => {
     settings.battle.countdown = e.target.value; saveSettings();
+  });
+  document.getElementById('st-headavatar').addEventListener('change', (e) => {
+    settings.battle.headAvatar = e.target.value !== 'off'; saveSettings();
+    if (settings.battle.headAvatar) renderHeadAvatars(); else { headavEl.classList.remove('on'); headavEl.innerHTML = ''; }
   });
   for (const k of ['master', 'wav', 'bgm']) {
     document.getElementById('st-vol-' + k).addEventListener('input', (e) => {
@@ -1826,10 +1885,98 @@
         const line = args.map((a) => (typeof a === 'string' ? a : '')).join('');
         const i = line.indexOf('TF_RESULT:');
         if (i !== -1) onMatchResult(Number(line.slice(i + 10).trim()));
+        const j = line.indexOf('TF_HEAD:');
+        if (j !== -1) onHeadPos(line.slice(j + 8).trim());
       } catch { /* 信号解析失败不影响游戏 */ }
       return orig(...args);
     };
   })();
+
+  // ---------------- 实体头顶悬浮头像（field-survival 同款） ----------------
+  // 引擎侧（external/script/headavatar.lua）每 4 帧输出一次双方的屏幕坐标：
+  //   TF_HEAD:1:<x>,<y>|2:<x>,<y>
+  // 坐标是**引擎渲染分辨率**下的（默认 640×480），这里按画布 CSS 尺寸换算。
+  const headavEl = document.getElementById('headav');
+  const headPos = { 1: null, 2: null };
+  let headNodes = {};
+
+  function onHeadPos(payload) {
+    if (!settings.battle.headAvatar) return;
+    for (const part of String(payload).split('|')) {
+      const m = /^(\d+):(-?[\d.]+),(-?[\d.]+),(\d+),(\d+)$/.exec(part.trim());
+      if (!m) continue;
+      headPos[Number(m[1])] = { x: parseFloat(m[2]), y: parseFloat(m[3]), h: Number(m[4]), w: Number(m[5]) };
+    }
+    layoutHeadAvatars();
+  }
+
+  // 引擎渲染分辨率 → 画布 CSS 尺寸的换算系数
+  function headScale() {
+    const cv = canvas.getBoundingClientRect();
+    const r = effectiveRes();
+    const engW = r.w, engH = r.h;
+    // 画布是 object-fit:contain，实际内容区可能小于元素框 → 用宽高比推
+    const boxAspect = cv.width / cv.height;
+    const engAspect = engW / engH;
+    let w = cv.width, h = cv.height;
+    if (boxAspect > engAspect) { w = h * engAspect; } else { h = w / engAspect; }
+    return { sx: w / engW, sy: h / engH, ox: cv.left + (cv.width - w) / 2, oy: cv.top + (cv.height - h) / 2 };
+  }
+
+  function layoutHeadAvatars() {
+    if (!settings.battle.headAvatar) { headavEl.classList.remove('on'); headavEl.innerHTML = ''; headNodes = {}; return; }
+    const p1 = headPos[1], p2 = headPos[2];
+    if (!p1 && !p2) { headavEl.classList.remove('on'); return; }
+    const sc = headScale();
+    headavEl.classList.add('on');
+    for (const side of [1, 2]) {
+      const pos = headPos[side];
+      const node = headNodes[side];
+      if (!pos || !node) continue;
+      const x = sc.ox + pos.x * sc.sx;
+      const y = sc.oy + pos.y * sc.sy;
+      // 头顶 = 角色所在点往上抬「当前帧精灵高」
+      // 引擎给的 spriteVar('height') 就是屏幕上真实画出的高度，倒地/跳跃时会变
+      const lift = Math.max(24, (pos.h || 120) * sc.sy);
+      node.style.left = x.toFixed(1) + 'px';
+      node.style.top = (y - lift).toFixed(1) + 'px';
+    }
+  }
+
+  // 建/更新两个头像节点（内容：toonflow 角色头像 + 名字）
+  function renderHeadAvatars() {
+    headavEl.innerHTML = '';
+    headNodes = {};
+    if (!settings.battle.headAvatar) { headavEl.classList.remove('on'); return; }
+    for (const side of [1, 2]) {
+      const key = side === 1 ? 'p1' : 'p2';
+      const c = CONN.roster && CONN.roster.storyChars.find((x) => x.side === key);
+      const charId = side === 1 ? (p1SlotChars()[0] || curP1) : (p2SlotChars()[0] || curP2);
+      const m = MUGEN[charId] || { glyph: '?', cn: charId };
+      const roleMeta = c ? (CONN.storyRoles.find((r) => r.name === c.name) || c) : null;
+      const src = rolePortraitUrl(roleMeta) || mugPortraitUrl(charId);
+      const name = c ? c.name : (m.cn || charId);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'ha' + (side === 2 ? ' p2' : '');
+      const pic = document.createElement('div');
+      pic.className = 'pic';
+      pic.textContent = name.slice(0, 1);
+      if (src) {
+        const img = document.createElement('img');
+        img.src = src; img.alt = '';
+        img.addEventListener('load', () => { pic.textContent = ''; pic.appendChild(img); });
+      }
+      wrap.appendChild(pic);
+      const nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = name;
+      wrap.appendChild(nm);
+      headavEl.appendChild(wrap);
+      headNodes[side] = wrap;
+    }
+    layoutHeadAvatars();
+  }
   (function hookVfsResult() {
     const KEY = 'ikemen-vfs11:save/tf-result.ini';
     let baseline = null;
@@ -1915,6 +2062,7 @@
     toolsEl.classList.add('on');
     renderFacebar();
     renderSkills();
+    renderHeadAvatars();
 
     const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
     go.run(instance); // 永不返回
