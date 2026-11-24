@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>故事列表 · Toon-Fighting</title>
+<style>
+:root{--bg:#07080b;--panel:#11141b;--line:#262c38;--txt:#e7ecf3;--dim:#8b96a8;--hot:#ff3b30;--gold:#ffc233;--cyan:#3ad1ff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:radial-gradient(1100px 640px at 30% -12%,#101a2a 0%,var(--bg) 62%);color:var(--txt);
+  font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px}
+.stage{width:min(680px,100%)}
+.head{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.head a{color:var(--cyan);font-size:13px;text-decoration:none}
+.head h1{font-size:18px;font-weight:900;letter-spacing:.28em}
+.hint{font-size:12px;color:var(--dim);margin-bottom:16px;letter-spacing:.06em}
+.sess{width:100%;text-align:left;cursor:pointer;font-family:inherit;color:var(--txt);display:flex;gap:14px;align-items:center;
+  background:rgba(17,20,27,.88);border:1px solid var(--line);border-radius:12px;padding:15px 18px;margin-bottom:10px;transition:.16s}
+.sess:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 8px 22px rgba(255,194,51,.1)}
+.sess .ic{width:44px;height:44px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;font-size:20px;
+  background:linear-gradient(135deg,#232c3f,#12161f);border:1px solid var(--line)}
+.sess .t{font-size:15px;font-weight:800;letter-spacing:.04em}
+.sess .d{font-size:11.5px;color:var(--dim);margin-top:4px}
+.sess .meta{margin-left:auto;text-align:right;font-size:10.5px;color:#5a6478;line-height:1.8;flex:none}
+.toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);background:#0d1017;border:1px solid var(--gold);
+  font-size:13px;padding:10px 22px;border-radius:22px;opacity:0;transition:.3s;pointer-events:none}
+.toast.on{opacity:1}
+.crumb{position:fixed;top:18px;left:22px;font-size:12px}
+.crumb a{color:var(--cyan);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="index.html">← 原型导航</a> · 故事列表</div>
+<div class="stage">
+  <div class="head"><a href="home.html">← 返回主界面</a><h1>选择故事</h1></div>
+  <div class="hint">会话来自 toonflow-game-app（/api/conn/sessions）· 点选后随机分配默认资产并持久化，然后跳回主界面</div>
+  <div id="list"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const data=[
+ {t:'末世选择，从解析神明开始成神',d:'林羽在末世第一天觉醒「神明解析」……',n:3,upd:'2 小时前',cur:true},
+ {t:'深海列车杀人事件',d:'暴雨夜的 13 号车厢，侦探与七位乘客……',n:2,upd:'昨天'},
+ {t:'铁锈城佣兵日记',d:'接单、火拼、烂账，佣兵事务所的日常……',n:1,upd:'3 天前'}];
+document.getElementById('list').innerHTML=data.map((s,i)=>
+ `<button class="sess" onclick="pick(${i})"><div class="ic">📖</div>
+  <div><div class="t">${s.t}${s.cur?' <span style="color:var(--gold);font-size:10px;letter-spacing:.1em">● 当前</span>':''}</div>
+  <div class="d">${s.d}</div></div>
+  <div class="meta">角色 ${s.n}<br>${s.upd}</div></button>`).join('');
+let tt;function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2200)}
+function pick(i){
+ toast('已随机分配默认资产并持久化（tf_fight_roster）→ 跳回主界面');
+ setTimeout(()=>{document.querySelectorAll('.sess .t span').forEach(e=>e.remove());
+  document.querySelectorAll('.sess')[i].querySelector('.t').innerHTML+=' <span style="color:var(--gold);font-size:10px;letter-spacing:.1em">● 当前</span>';
+  setTimeout(()=>location.href='home.html',900)},700);
+}
+</script>
+</body>
+</html>

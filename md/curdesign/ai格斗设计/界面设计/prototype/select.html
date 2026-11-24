@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>选人 · Toon-Fighting</title>
+<style>
+:root{--bg:#07080b;--line:#262c38;--txt:#f2ecdf;--dim:#8b96a8;--hot:#ff3b30;--gold:#ffc233;--cyan:#3ad1ff}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:#000;font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;color:var(--txt);overflow:hidden;padding:14px}
+.arcade{position:relative;height:100%;border-radius:6px;overflow:hidden;
+  background:linear-gradient(180deg,#e8b8a8 0%,#d89484 18%,#b96a62 42%,#8a4a48 62%,#5a3236 82%,#3a2026 100%)}
+/* 云 */
+.arcade::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+   radial-gradient(420px 130px at 18% 78%,rgba(255,240,235,.5),transparent 70%),
+   radial-gradient(520px 150px at 55% 84%,rgba(255,240,235,.42),transparent 70%),
+   radial-gradient(460px 140px at 88% 80%,rgba(255,240,235,.35),transparent 70%),
+   radial-gradient(700px 200px at 40% 96%,rgba(255,245,240,.3),transparent 70%)}
+/* 顶部暗框 + logo 台面 */
+.arcade::after{content:'';position:absolute;top:0;left:0;right:0;height:64px;pointer-events:none;
+  background:linear-gradient(180deg,rgba(30,20,18,.9),rgba(60,36,32,.55) 60%,transparent)}
+/* MENU 按钮与下拉 */
+.menuwrap{position:absolute;top:12px;left:14px;z-index:20}
+.menubtn{cursor:pointer;font-family:inherit;font-size:12px;font-weight:900;letter-spacing:.22em;padding:9px 20px;border-radius:7px;
+  border:1px solid rgba(255,255,255,.4);background:rgba(8,8,14,.72);color:#fff;backdrop-filter:blur(3px)}
+.menubtn:hover{border-color:var(--cyan)}
+.menudd{position:absolute;top:44px;left:0;display:none;flex-direction:column;gap:6px;min-width:170px;
+  background:rgba(8,8,14,.88);border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:10px;backdrop-filter:blur(4px)}
+.menudd.open{display:flex}
+.menudd button{cursor:pointer;font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.1em;text-align:left;
+  padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);color:#f0e6da;transition:.12s}
+.menudd button:hover{border-color:var(--gold);color:#fff;background:rgba(255,194,51,.12)}
+/* 透视地板选人格 */
+.floor{position:absolute;left:50%;top:56%;transform:translateX(-50%) perspective(820px) rotateX(52deg);
+  width:680px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;transform-style:preserve-3d}
+.k{position:relative;cursor:pointer;aspect-ratio:1;border:2px solid rgba(255,255,255,.75);
+  background:linear-gradient(160deg,rgba(70,50,55,.88),rgba(38,26,30,.92));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.12s;backdrop-filter:blur(1px)}
+.k:hover{border-color:var(--gold);background:linear-gradient(160deg,rgba(110,70,70,.9),rgba(50,32,36,.94))}
+.k .ini{font-size:30px;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.k .nm{font-size:9.5px;color:#f0d8cf;margin-top:4px;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.k .ent{font-size:8px;color:#caa79e;font-family:Consolas,monospace;margin-top:1px;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.k .ord{position:absolute;top:3px;left:5px;font-size:10px;font-weight:900;color:var(--gold);text-shadow:0 1px 3px #000}
+.k.q .ini{color:#e8cfc6;font-size:32px}
+.k.sel{border-color:#ffd34d;box-shadow:0 0 14px rgba(255,211,77,.55),inset 0 0 14px rgba(255,211,77,.18)}
+/* 顶部金属标题 */
+.logo{position:absolute;top:8px;left:50%;transform:translateX(-50%) skewX(-6deg);z-index:5;
+  font-size:44px;font-weight:900;letter-spacing:.06em;font-style:italic;
+  background:linear-gradient(180deg,#f8f4ea 0%,#cfc6b8 38%,#8a8074 50%,#e8e2d6 56%,#6a6258 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(2px 3px 0 rgba(0,0,0,.55)) drop-shadow(0 6px 10px rgba(0,0,0,.3))}
+/* 左右斜切大头像面板 */
+.port{position:absolute;top:64px;bottom:86px;z-index:4;display:flex;flex-direction:column}
+.port.p1{left:14px;width:340px;clip-path:polygon(0 0,100% 0,74% 100%,0 100%)}
+.port.p2{right:14px;width:300px;clip-path:polygon(24% 0,100% 0,100% 100%,0 100%)}
+.pface{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pface .ini{font-size:150px;font-weight:900;color:rgba(255,255,255,.92);text-shadow:0 10px 40px rgba(0,0,0,.45);transform:translateY(-8%)}
+.port.p1 .pface{background:linear-gradient(160deg,rgba(20,26,38,.55),rgba(12,14,20,.72))}
+.port.p2 .pface{background:linear-gradient(200deg,rgba(20,26,38,.55),rgba(12,14,20,.72))}
+.pname{position:absolute;left:18px;bottom:6px;z-index:6;font-size:44px;font-weight:900;font-style:italic;letter-spacing:.02em;
+  background:linear-gradient(180deg,#fdf8ec 0%,#d8cfc0 40%,#8a8074 52%,#efe9dc 58%,#5a5248 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(2px 3px 0 rgba(0,0,0,.6));transform:skewX(-6deg);white-space:nowrap}
+.pname small{font-size:18px;font-weight:700;letter-spacing:.1em}
+/* 信息条（toonflow 名 + MUGEN 名 + 职业） */
+.pinfo{position:absolute;left:16px;right:76px;bottom:64px;z-index:6;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  background:rgba(10,10,14,.66);border:1px solid rgba(255,255,255,.22);border-radius:9px;padding:7px 12px;backdrop-filter:blur(3px)}
+.port.p2 .pinfo{left:76px;right:16px}
+.pinfo .mini{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;flex:none}
+.pinfo .who{font-size:13.5px;font-weight:900}
+.pinfo .ent{font-size:11px;color:var(--cyan);font-family:Consolas,monospace}
+.pinfo .job{font-size:9.5px;letter-spacing:.12em;color:var(--gold);border:1px solid rgba(255,194,51,.5);border-radius:12px;padding:1.5px 9px}
+/* 面板头：出场顺序 */
+.phd{position:absolute;top:10px;left:16px;z-index:6;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.port.p2 .phd{left:auto;right:16px;flex-direction:row-reverse}
+.phd .t{font-size:10.5px;letter-spacing:.18em;color:#ffe9e0;text-shadow:0 1px 3px #000;font-weight:800}
+.swp{cursor:pointer;font-size:11px;font-weight:900;letter-spacing:.08em;padding:4px 12px;border-radius:14px;
+  border:1px solid rgba(255,255,255,.4);background:rgba(10,10,14,.5);color:var(--cyan);font-family:inherit}
+.swp:hover{color:#fff;border-color:var(--cyan)}
+.chips{display:flex;gap:6px;margin-top:6px}
+.chip{cursor:pointer;font-size:10px;font-weight:800;padding:4px 10px;border-radius:14px;display:flex;gap:5px;align-items:center;
+  border:1px solid rgba(255,255,255,.35);background:rgba(10,10,14,.5);color:#e8ddd2}
+.chip .mini{width:14px;height:14px;border-radius:4px;font-size:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff}
+.chip .ord{color:var(--gold)}
+.chip.on{border-color:var(--hot);box-shadow:0 0 8px rgba(255,59,48,.5)}
+.chip.filled{color:#fff}
+/* 顶部工具条 */
+.topbar{position:absolute;top:12px;left:150px;z-index:15;display:flex;gap:8px;align-items:center}
+.tb{cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:800;letter-spacing:.1em;padding:6px 16px;border-radius:16px;
+  border:1px solid rgba(255,255,255,.3);background:rgba(10,10,14,.55);color:#f0e6da;backdrop-filter:blur(2px)}
+.tb.on{border-color:var(--hot);color:#fff;background:rgba(180,40,30,.4)}
+.topbar .cnt{margin-left:10px;display:flex;gap:6px;align-items:center;font-size:11px;color:#f0e6da}
+/* 底部 */
+.foot{position:absolute;left:14px;right:14px;bottom:14px;z-index:7;display:flex;gap:12px;align-items:stretch;height:58px}
+.namebar{flex:1;display:flex;gap:10px;align-items:center;background:rgba(8,8,12,.82);border:1px solid rgba(255,255,255,.28);
+  border-radius:11px;padding:8px 16px;overflow:hidden;backdrop-filter:blur(3px)}
+.namebar .who{font-size:14px;font-weight:900;white-space:nowrap}
+.namebar .ent{font-size:12.5px;color:var(--cyan);font-family:Consolas,monospace;white-space:nowrap}
+.namebar .job{font-size:10px;letter-spacing:.12em;color:var(--gold);border:1px solid rgba(255,194,51,.5);border-radius:12px;padding:2px 10px;white-space:nowrap}
+.diff{display:flex;gap:6px;align-items:center;font-size:12px;color:#f0e6da}
+.diff select{font-family:inherit;font-size:12px;padding:7px 10px;border-radius:8px;background:rgba(10,10,14,.7);border:1px solid rgba(255,255,255,.3);color:#fff}
+#start{cursor:pointer;font-family:inherit;font-size:17px;font-weight:900;letter-spacing:.3em;text-indent:.3em;padding:0 46px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.45);color:#fff;background:linear-gradient(180deg,#c8281e,#7a1410);
+  box-shadow:0 6px 20px rgba(200,40,30,.4);transition:.16s}
+#start:hover{filter:brightness(1.15)}
+#start:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:rgba(10,10,14,.9);border:1px solid var(--cyan);
+  color:#fff;font-size:13px;padding:10px 22px;border-radius:22px;opacity:0;transition:.3s;pointer-events:none;z-index:99}
+.toast.on{opacity:1}
+.surnote{position:absolute;right:18px;top:64px;z-index:6;font-size:10.5px;color:#ffe9e0;text-align:right;line-height:1.9;text-shadow:0 1px 3px #000}
+.selrow{position:absolute;left:50%;top:41%;transform:translateX(-50%);z-index:5;display:flex;gap:8px;align-items:flex-end}
+.selrow .sc{width:44px;text-align:center;position:relative}
+.selrow .sc .mv{width:44px;height:44px;border-radius:8px;border:2px solid rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#fff;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.35)}
+.selrow .sc .lb{font-size:9px;color:#ffe9e0;margin-top:3px;text-shadow:0 1px 3px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.selrow .sc .od{position:absolute;top:-7px;left:-5px;font-size:10px;font-weight:900;color:var(--gold);text-shadow:0 1px 3px #000}
+.selrow .sc.empty .mv{background:rgba(10,10,14,.45);color:rgba(255,255,255,.35);border-style:dashed}
+</style>
+</head>
+<body>
+<div class="arcade">
+  <div class="menuwrap">
+    <button class="menubtn" onclick="toggleMenu()">≡ 菜单</button>
+    <div class="menudd" id="menudd">
+      <button onclick="location.href='home.html'">🏠 回主界面</button>
+      <button onclick="location.href='story-list.html'">📖 切换故事</button>
+      <button onclick="location.href='roster-bind.html'">🔗 角色实体绑定</button>
+      <button onclick="location.href='fight.html?mode='+encodeURIComponent(mode)">⚔ 直接开打（随机对手）</button>
+      <button onclick="location.href='settings.html'">⚙ 系统设置</button>
+      <button onclick="location.href='index.html'">✕ 退出（原型导航）</button>
+    </div>
+  </div>
+  <div class="logo">TOON·FIGHTING</div>
+
+  <div class="topbar">
+    <button class="tb" data-m="练习" onclick="setMode(this)">练习</button>
+    <button class="tb on" data-m="对战" onclick="setMode(this)">对战</button>
+    <button class="tb" data-m="生存" onclick="setMode(this)">生存</button>
+    <span class="cnt">人数
+      <button class="tb" id="c1" onclick="setTeam(1)">1 人</button>
+      <button class="tb on" id="c3" onclick="setTeam(3)">3 人</button>
+    </span>
+  </div>
+
+  <div class="port p1">
+    <div class="phd"><span class="t">1 · 我方 TOONFLOW 角色</span><button class="swp" onclick="swapOrder()">⇄ 出场顺序</button>
+      <div class="chips" id="p1chips"></div></div>
+    <div class="pface" id="p1face"><div class="ini"></div></div>
+    <div class="pname" id="p1name">&nbsp;</div>
+    <div class="pinfo" id="p1info"></div>
+  </div>
+
+  <div class="port p2">
+    <div class="phd"><span class="t" id="p2cap">3 · 对手 TOONFLOW 角色</span>
+      <div class="chips" id="p2chips"></div></div>
+    <div class="pface" id="p2face"><div class="ini"></div></div>
+    <div class="pname" id="p2name">&nbsp;</div>
+    <div class="pinfo" id="p2info"></div>
+  </div>
+  <div class="surnote" id="surnote" style="display:none">生存模式：只能选我方队员<br>对手随机生成 / 按资产集设定<br>胜利 +1 续关</div>
+
+  <div class="selrow" id="selrow"></div>
+  <div class="floor" id="floor"></div>
+
+  <div class="foot">
+    <div class="namebar" id="bar1"></div>
+    <div class="namebar" id="bar2"></div>
+    <div class="diff">难度 <select><option>简单</option><option selected>普通</option><option>困难</option><option>地狱</option></select></div>
+    <button id="start" onclick="go()">开 始</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const pool=[
+ {n:'林羽',j:'武道家',g:'linear-gradient(135deg,#31435f,#1b2436)',e:'LinYu (98Ryo)'},
+ {n:'苏晚晴',j:'异能者',g:'linear-gradient(135deg,#5f3141,#361b24)',e:'98Athena'},
+ {n:'陈铁山',j:'摔跤力量',g:'linear-gradient(135deg,#2f5f4a,#1b3628)',e:'98Big'},
+ {n:'白鸦',j:'忍者刺客',g:'linear-gradient(135deg,#5a4a2f,#332b18)',e:'98Eiji'},
+ {n:'老周',j:'军人佣兵',g:'linear-gradient(135deg,#4a3a5f,#241b36)',e:'kof_ralf'},
+ {n:'小满',j:'辅助医疗',g:'linear-gradient(135deg,#3a5f5f,#1b3030)',e:'98Athena'},
+ {n:'雷虎',j:'黑帮街头',g:'linear-gradient(135deg,#5f5231,#362e18)',e:'98Geese'},
+ {n:'judge',j:'Boss神明',g:'linear-gradient(135deg,#4d1f24,#2a0f12)',e:'98Rugal'},
+ {n:'阿真',j:'特工搜查',g:'linear-gradient(135deg,#2f4a5f,#1b2e36)',e:'98Mary'}];
+let mode='对战',team=3,active={side:1,idx:0},order=[0,1,2],p1=[null,null,null],p2=[null,null,null];
+const p2need=()=>mode==='对战';
+function render(){
+ document.getElementById('p2cap').textContent=mode==='生存'?'3 · 对手（系统生成）':'3 · 对手 TOONFLOW 角色';
+ document.getElementById('surnote').style.display=mode==='生存'?'block':'none';
+ // 角色池（透视地板网格）
+ document.getElementById('floor').innerHTML=pool.map((c,idx)=>{
+  const in1=p1.findIndex(x=>x&&x.idx===idx),in2=p2.findIndex(x=>x&&x.idx===idx);
+  const ord=in1>=0?order.indexOf(in1)+1:0;
+  return `<div class="k ${in1>=0||in2>=0?'sel':''}" onclick="pick(${idx})">
+    ${ord?`<span class="ord">${ord}</span>`:''}<span class="ini">${c.n[0]}</span>
+    <span class="nm">${c.n}·${c.j}</span><span class="ent">${c.e}</span></div>`}).join('')
+  +`<div class="k q" onclick="randomOne()"><span class="ini">？</span><span class="nm">随机</span></div>`;
+ // 大头像面板
+ const face=(el,c,ph)=>{const f=document.getElementById(el);
+  f.style.background=c?pool[c.idx].g:'';f.innerHTML=`<div class="ini">${c?c.n[0]:''}</div>`};
+ face('p1face',p1[active.idx]);
+ face('p2face',mode==='生存'?p2[active.idx]:p2[active.idx]);
+ // 巨型名字
+ document.getElementById('p1name').innerHTML=p1[active.idx]?pool[p1[active.idx].idx].n:'&nbsp;';
+ const p2c=mode==='生存'?null:p2[active.idx];
+ document.getElementById('p2name').innerHTML=p2c?pool[p2c.idx].n:(mode==='生存'?'随机对手':'&nbsp;');
+ // 信息条
+ const info=(c,fallback)=>c
+  ?`<span class="mini" style="background:${pool[c.idx].g}">${c.n[0]}</span>
+    <span class="who">${pool[c.idx].n}</span><span class="ent">${pool[c.idx].e}</span><span class="job">${pool[c.idx].j}</span>`
+  :`<span class="who" style="color:#8b96a8">${fallback}</span>`;
+ document.getElementById('p1info').innerHTML=info(p1[active.idx],'2 · 空位 · 点中央选人格');
+ document.getElementById('p2info').innerHTML=info(mode==='生存'?null:p2[active.idx],mode==='生存'?'对手由系统随机生成':'待选');
+ // 出场位 chips
+ const chips=(L,side)=>[...Array(team)].map((_,i)=>{
+  const c=L[i];const ord=side===1?order.indexOf(i):i;
+  return `<div class="chip ${active.side===side&&active.idx===i?'on':''} ${c?'filled':''}" onclick="act(${side},${i})">
+   ${side===1?`<span class="ord">${ord+1}</span>`:''}P${i+1}
+   ${c?`<span class="mini" style="background:${pool[c.idx].g}">${c.n[0]}</span>`:''}</div>`}).join('');
+ document.getElementById('p1chips').innerHTML=chips(p1,1);
+ document.getElementById('p2chips').innerHTML=chips(p2,2);
+ // 已选小头像行（按出场顺序）
+ const slots=p1.filter(Boolean).length?p1:p2;
+ const sc=[...Array(team)].map((_,i)=>{const c=p1[i];
+  const ord=order.indexOf(i)+1;
+  return c?`<div class="sc"><span class="od">${ord}</span><div class="mv" style="background:${pool[c.idx].g}" onclick="act(1,${i})">${pool[c.idx].n[0]}</div><div class="lb">${pool[c.idx].n}</div></div>`
+   :`<div class="sc empty"><div class="mv">?</div><div class="lb">P${i+1}</div></div>`}).join('');
+ document.getElementById('selrow').innerHTML=sc;
+ // 底部名字条
+ const bar=(c,fallback)=>c
+  ?`<span class="who">${pool[c.idx].n}</span><span class="ent">${pool[c.idx].e}</span><span class="job">${pool[c.idx].j}</span>`
+  :`<span class="who" style="color:#5a6478">${fallback}</span>`;
+ document.getElementById('bar1').innerHTML=bar(p1[active.idx],'我方未选 · 点选人列表');
+ document.getElementById('bar2').innerHTML=bar(mode==='生存'?null:p2[active.idx],mode==='生存'?'对手随机生成':'对手未选');
+ document.getElementById('start').disabled=!(p1.filter(Boolean).length>0&&(mode!=='对战'||p2.filter(Boolean).length>0));
+}
+function act(side,i){active={side,idx:i};render()}
+function pick(idx){const L=active.side===1?p1:(p2need()?p2:null);
+ if(!L){toast('生存模式：只能编辑我方队伍，对手系统随机');return}
+ const my=L[active.idx];
+ if(my&&my.idx===idx){L[active.idx]=null;render();toast('已取消，可重新选择');return}
+ if(L.some((x,i)=>i!==active.idx&&x&&x.idx===idx)){toast('该角色已在本队其他出场位，先取消再选');return}
+ L[active.idx]={idx};
+ if(active.side===1&&active.idx<team-1&&!p1[active.idx+1])act(1,active.idx+1);else render()}
+function randomOne(){const idx=Math.floor(Math.random()*pool.length);
+ const L=active.side===1?p1:(p2need()?p2:null);
+ if(!L){toast('生存模式：对手由系统随机生成，无法手选');return}
+ L[active.idx]={idx};toast('？→ 随机：'+pool[idx].n+'（再点可取消重选）');render()}
+function setMode(btn){document.querySelectorAll('.topbar [data-m]').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+ mode=btn.dataset.m;active={side:1,idx:0};render();
+ toast(mode==='练习'?'练习：需选对方，进入后默认站桩':mode==='生存'?'生存：只能选我方，对方随机':'对战：双方都需选')}
+function setTeam(n){team=n;document.getElementById('c1').classList.toggle('on',n===1);
+ document.getElementById('c3').classList.toggle('on',n===3);render()}
+function swapOrder(){order=[order[1],order[0],order[2]];render();toast('出场顺序已修改 ⇄')}
+let tt;function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),1700)}
+function toggleMenu(){document.getElementById('menudd').classList.toggle('open')}
+document.addEventListener('click',e=>{const w=e.target.closest('.menuwrap');
+ if(!w)document.getElementById('menudd').classList.remove('open')});
+function go(){location.href='fight.html?mode='+encodeURIComponent(mode)}
+const q=new URLSearchParams(location.search);if(q.get('mode')){const m=q.get('mode');
+ document.querySelectorAll('.topbar [data-m]').forEach(b=>{if(b.dataset.m===m)b.click()})}
+render();
+</script>
+</body>
+</html>

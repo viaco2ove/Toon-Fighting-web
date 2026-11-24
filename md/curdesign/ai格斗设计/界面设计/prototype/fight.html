@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>战斗界面 · Toon-Fighting</title>
+<style>
+:root{--bg:#07080b;--panel:#11141b;--line:#262c38;--txt:#e7ecf3;--dim:#8b96a8;--hot:#ff3b30;--gold:#ffc233;--cyan:#3ad1ff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:var(--txt);font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;height:100vh;overflow:hidden}
+#stage{position:absolute;inset:0;background:
+  linear-gradient(180deg,#2a2320 0%,#3a2c22 46%,#4a3a28 62%,#241a12 100%)}
+#stage::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 34px,transparent 34px 68px)}
+#stage::after{content:'';position:absolute;left:8%;right:8%;bottom:0;height:34%;
+  background:repeating-linear-gradient(0deg,#1d150e 0 26px,#150e09 26px 28px);opacity:.9}
+.fwrap{position:absolute;bottom:15%;}
+.fwrap.p1{left:30%}
+.fwrap.p2{right:28%}
+.fighter{width:120px;height:170px;image-rendering:pixelated}
+.fighter.p1{background:linear-gradient(180deg,#5a4a2f 0 18%,#26262c 18% 78%,#1a1a20 78%);border:2px solid #0c0c10;
+  box-shadow:inset -12px 0 0 rgba(0,0,0,.25)}
+.fighter.p1::before{content:'';position:absolute;top:6px;left:26px;width:44px;height:30px;background:#c9a17a;border:2px solid #0c0c10;border-radius:6px 6px 3px 3px}
+.fighter.p1::after{content:'';position:absolute;top:2px;left:22px;width:52px;height:16px;background:#232327;border-radius:8px 8px 0 0}
+.fighter.p2{transform:scaleX(-1);background:linear-gradient(180deg,#7a2020 0 18%,#3a3a42 18% 78%,#24242a 78%);border:2px solid #0c0c10}
+.fighter.p2::before{content:'';position:absolute;top:6px;left:26px;width:44px;height:30px;background:#d8b48c;border:2px solid #0c0c10;border-radius:6px 6px 3px 3px}
+.fighter.p2::after{content:'';position:absolute;top:2px;left:22px;width:52px;height:16px;background:#2a2a30;border-radius:8px 8px 0 0}
+/* 头顶悬浮头像（TF_HEAD 坐标包驱动的示意） */
+.headav{position:absolute;left:50%;top:-58px;transform:translateX(-50%);width:46px;height:46px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#fff;
+  border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.5);animation:bob 2.4s ease-in-out infinite;z-index:12}
+.headav::after{content:'';position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:#fff}
+@keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-7px)}}
+/* 引擎血条（示意，facebar 位于其下 108px 起） */
+.hud{position:absolute;top:12px;left:14px;right:14px;display:flex;gap:18px;align-items:flex-start;pointer-events:none}
+.hp{flex:1;height:20px;border:2px solid #0a0a0c;background:#3a3f46;position:relative;overflow:hidden}
+.hp i{position:absolute;inset:0;background:linear-gradient(180deg,#7be27b,#2f9e44)}
+.hp.r i{right:0;left:auto}
+.hp .pw{position:absolute;top:0;bottom:0;width:52px;background:#d6d626}
+.hp.p1 .pw{right:0}.hp.p2 .pw{left:0}
+.clock{flex:none;width:74px;height:44px;background:#101418;border:2px solid #0a0a0c;color:#fff;font-family:Consolas,monospace;
+  font-size:26px;font-weight:900;display:flex;align-items:center;justify-content:center;letter-spacing:.06em}
+/* facebar：引擎血条下方（top:108px），双头像并排 */
+.facebar{position:absolute;top:108px;left:14px;right:14px;display:flex;justify-content:space-between;gap:12px;pointer-events:none}
+.fb{display:flex;gap:9px;align-items:center;background:rgba(7,8,11,.72);border:1px solid #2a3140;border-radius:10px;padding:7px 12px}
+.fb.rev{flex-direction:row-reverse;text-align:right}
+.fb img,.fb .ph{width:44px;height:44px;border-radius:8px;flex:none}
+.fb .ph{background:linear-gradient(135deg,#31435f,#1b2436);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px}
+.fb .px{width:44px;height:44px;border-radius:8px;flex:none;background:
+  repeating-conic-gradient(#1c2230 0 25%,#10141c 0 50%) 0 0/12px 12px;border:1px solid #2a3140}
+.fb .who{font-size:12.5px;font-weight:900}
+.fb .who small{display:block;font-size:9.5px;color:var(--dim);font-weight:400;font-family:Consolas,monospace;margin-top:2px}
+.fb .who .jb{color:var(--gold);font-size:9.5px;letter-spacing:.1em}
+.fb .rec{font-size:9.5px;color:#5a6478;font-family:Consolas,monospace}
+/* 换人重订 */
+#rebind{position:absolute;top:14px;right:14px;font-size:11.5px;color:var(--dim);background:rgba(7,8,11,.72);
+  border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;z-index:30}
+#rebind:hover{color:var(--txt);border-color:var(--cyan)}
+/* 菜单按钮 */
+#btn-menu{position:absolute;top:52px;right:14px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:900;letter-spacing:.24em;
+  padding:10px 22px;border-radius:9px;border:1px solid #3a4558;background:rgba(13,16,23,.85);color:var(--txt);z-index:30}
+#btn-menu:hover{border-color:var(--gold);color:var(--gold)}
+/* 快捷技能（攻击键上方，点击释放） */
+#skills{position:absolute;right:14px;bottom:264px;display:grid;grid-template-columns:1fr 1fr;gap:7px;z-index:25;width:200px}
+#skills button{cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:800;letter-spacing:.02em;padding:10px 10px;border-radius:9px;
+  border:1px solid #3a4558;background:rgba(13,16,23,.85);color:var(--txt);text-align:center;line-height:1.5}
+#skills button b{display:block;color:var(--gold);font-family:Consolas,monospace;font-weight:700;font-size:10px;margin-top:2px}
+#skills button:hover{border-color:var(--cyan);transform:translateY(-2px)}
+#skills button:active{transform:scale(.94);border-color:var(--gold)}
+/* 攻击键：格斗 6 键 */
+#pad .bt{position:absolute;right:18px;bottom:22px;width:170px;height:238px}
+#pad .bt button{cursor:pointer;font-family:inherit;position:absolute;color:#fff;border:0;
+  width:76px;height:76px;border-radius:50%;font-size:20px;font-weight:900;
+  background:radial-gradient(circle at 35% 30%,rgba(90,102,120,.6),rgba(16,20,28,.72));
+  border:1px solid rgba(255,255,255,.35);box-shadow:0 6px 14px rgba(0,0,0,.5)}
+#pad .bt button small{display:block;font-size:9px;font-weight:700;letter-spacing:.1em;margin-top:1px;opacity:.85}
+#pad .bt button:active{transform:scale(.92);filter:brightness(1.3)}
+#pad .bt .a{left:0;bottom:158px}
+#pad .bt .b{right:0;bottom:158px}
+#pad .bt .c{left:0;bottom:78px}
+#pad .bt .x{right:0;bottom:78px}
+#pad .bt .y{left:0;bottom:0}
+#pad .bt .z{right:0;bottom:0}
+/* START：底部中间 */
+#pad .k{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);cursor:pointer;font-family:inherit;
+  width:64px;height:40px;border-radius:9px;font-size:11px;font-weight:900;letter-spacing:.12em;color:#fff;
+  background:rgba(200,160,40,.5);border:1px solid #7a6420}
+#pad .joyu{position:absolute;left:30px;bottom:230px;font-size:10.5px;color:var(--dim);letter-spacing:.1em}
+/* 虚拟手柄 */
+#pad{position:absolute;inset:0;pointer-events:none;z-index:20}
+/* 摇杆 */
+.joy{pointer-events:auto;position:absolute;left:0;bottom:0;width:170px;height:170px;border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,rgba(30,36,48,.55),rgba(6,8,12,.78));
+  border:1px solid #2a3140;box-shadow:inset 0 4px 18px rgba(0,0,0,.5);touch-action:none;cursor:grab}
+.joy::before{content:'';position:absolute;inset:14px;border-radius:50%;border:1px dashed #39414f}
+.joy .tick{position:absolute;color:#4c5670;font-size:12px;font-weight:900;pointer-events:none}
+.joy .tick.u{left:50%;top:4px;transform:translateX(-50%)}
+.joy .tick.d{left:50%;bottom:4px;transform:translateX(-50%)}
+.joy .tick.l{left:6px;top:50%;transform:translateY(-50%)}
+.joy .tick.r{right:6px;top:50%;transform:translateY(-50%)}
+.joy .stick{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#5a6678,#232a36 70%);
+  border:1px solid #4c5670;box-shadow:0 6px 14px rgba(0,0,0,.55),inset 0 3px 6px rgba(255,255,255,.15);
+  pointer-events:none;transition:transform .05s linear}
+.joy .stick .cap{position:absolute;inset:16px;border-radius:50%;background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.25),transparent)}
+.joy .dir{position:absolute;left:50%;top:-22px;transform:translateX(-50%);font-family:Consolas,monospace;font-size:11px;
+  color:var(--gold);white-space:nowrap;pointer-events:none}
+#pad .bt{position:absolute;right:26px;bottom:26px;width:210px;height:170px}
+#pad button{pointer-events:auto;cursor:pointer;border:0;font-family:inherit;position:absolute;color:#fff;
+  background:rgba(6,8,12,.72);border:1px solid #2a3140;font-weight:900}
+#pad .bt button{width:62px;height:62px;border-radius:50%;font-size:14px}
+#pad .bt .a{left:0;bottom:0;background:rgba(180,40,40,.55);border-color:#7a2828}
+#pad .bt .b{left:56px;bottom:52px;background:rgba(40,120,40,.5);border-color:#2a7a2a}
+#pad .bt .c{left:112px;bottom:0;background:rgba(40,60,180,.5);border-color:#2a3a7a}
+#pad .bt .k{right:0;bottom:104px;width:52px;height:34px;border-radius:8px;font-size:10px;background:rgba(200,160,40,.4);border-color:#7a6420}
+#pad .joyu{position:absolute;left:30px;bottom:230px;font-size:10.5px;color:var(--dim);letter-spacing:.1em}
+.padhide #pad{display:none}
+/* 发言条 */
+#speech{position:absolute;left:50%;bottom:236px;transform:translateX(-50%);max-width:620px;display:none;
+  background:rgba(7,8,11,.82);border:1px solid #2a3140;border-left:3px solid var(--cyan);border-radius:9px;padding:10px 16px;
+  font-size:13.5px;line-height:1.7;z-index:26}
+#speech .who{color:var(--cyan);font-weight:900;margin-right:10px}
+/* 倒计时 */
+#countdown{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:40;
+  font-size:150px;font-weight:900;color:var(--gold);text-shadow:0 0 40px rgba(255,194,51,.5);font-family:Consolas,monospace}
+/* 战斗菜单面板 */
+#bmenu{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:50}
+#bmenu .panel{width:min(560px,92vw);background:var(--panel);border:1px solid #2a3140;border-radius:14px;overflow:hidden}
+.sthead{padding:15px 18px;font-size:14px;font-weight:900;letter-spacing:.24em;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.sthead span{color:var(--dim);font-size:11px;letter-spacing:.08em;font-weight:400}
+.mrow{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid #1a1f29;cursor:pointer;font-size:13.5px}
+.mrow:hover{background:#141926}
+.mrow .st{margin-left:auto;font-size:11px;color:var(--dim)}
+.mrow.on .st{color:var(--cyan)}
+.moves{padding:8px 18px 14px;max-height:230px;overflow:auto}
+.moverow{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #1a1f29;font-size:12.5px}
+.moverow .keys{font-family:Consolas,monospace;font-size:12px;color:var(--gold);margin-left:auto}
+.mvtab{display:flex;gap:8px;padding:12px 18px 0}
+.mvtab button{cursor:pointer;font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.12em;padding:6px 16px;border-radius:16px;
+  background:#0d1017;border:1px solid var(--line);color:var(--dim)}
+.mvtab button.on{color:#fff;border-color:var(--hot)}
+.stfoot{display:flex;gap:10px;padding:13px 18px}
+.stfoot button{flex:1;cursor:pointer;font-family:inherit;font-size:13px;font-weight:800;letter-spacing:.2em;padding:11px 0;border-radius:9px;
+  border:1px solid var(--line);background:#0d1017;color:var(--txt)}
+.stfoot button:hover{border-color:var(--cyan)}
+.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#0d1017;border:1px solid var(--cyan);
+  font-size:13px;padding:10px 22px;border-radius:22px;opacity:0;transition:.3s;pointer-events:none;z-index:99}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div class="fwrap p1"><div class="fighter p1"></div><div class="headav" style="background:linear-gradient(135deg,#31435f,#1b2436)">林</div></div>
+<div class="fwrap p2"><div class="fighter p2"></div><div class="headav" style="background:linear-gradient(135deg,#5f3141,#361b24)">苏</div></div>
+
+<div class="hud">
+  <div class="hp p1"><i style="width:78%"></i><span class="pw"></span></div>
+  <div class="clock">90</div>
+  <div class="hp r p2"><i style="width:64%"></i><span class="pw"></span></div>
+</div>
+
+<div class="facebar">
+  <div class="fb">
+    <div class="ph">林</div><div class="px" title="MUGEN 头像 9000,0"></div>
+    <div class="who">林羽 <span class="jb">武道家</span><small>P1 · LinYu (98Ryo)</small></div>
+    <div class="rec">12胜 3负</div>
+  </div>
+  <div class="fb rev">
+    <div class="ph" style="background:linear-gradient(135deg,#5f3141,#361b24)">苏</div><div class="px" title="MUGEN 头像 9000,0"></div>
+    <div class="who">苏晚晴 <span class="jb">异能者</span><small>P2 · 98Athena</small></div>
+    <div class="rec">8胜 5负</div>
+  </div>
+</div>
+
+<button id="rebind" onclick="toast('回主界面 · 角色实体绑定')">换人重订</button>
+<button id="btn-menu" onclick="openMenu()">菜单</button>
+
+<div id="skills">
+  <button onclick="cast('波动拳')">⚡ 波动拳<b>↓↘→ A</b></button>
+  <button onclick="cast('升龙拳')">🔥 升龙拳<b>→↓↘ A</b></button>
+  <button onclick="cast('龙卷旋风脚')">🌀 龙卷旋风脚<b>↓↙← B</b></button>
+  <button onclick="cast('猛袭连打')">💥 猛袭连打<b>↓↘→ C</b></button>
+  <button onclick="cast('极道连击')">☠ 极道连击<b>↓↘→↓↘→ A</b></button>
+  <button onclick="cycleSkills(this)">🔁 切换<b>技能组 1/2</b></button>
+</div>
+
+<div id="pad">
+  <span class="joyu">虚拟摇杆 · 拖动注入方向键</span>
+  <div class="joy" id="joy">
+    <span class="dir" id="joydir"></span>
+    <span class="tick u">▲</span><span class="tick d">▼</span><span class="tick l">◀</span><span class="tick r">▶</span>
+    <div class="stick" id="stick"><div class="cap"></div></div>
+  </div>
+  <button class="k" onclick="pad('Start')">START</button>
+  <div class="bt">
+    <button class="a" onclick="pad('A')">A<small>轻拳</small></button>
+    <button class="b" onclick="pad('B')">B<small>中拳</small></button>
+    <button class="c" onclick="pad('C')">C<small>重拳</small></button>
+    <button class="x" onclick="pad('X')">X<small>攻击</small></button>
+    <button class="y" onclick="pad('Y')">Y<small>攻击</small></button>
+    <button class="z" onclick="pad('Z')">Z<small>攻击</small></button>
+  </div>
+</div>
+
+<div id="speech"><span class="who">林羽</span><span id="sp-txt"></span></div>
+<div id="countdown">3</div>
+
+<div id="bmenu">
+  <div class="panel">
+    <div class="sthead" id="bm-title">战斗菜单 <span id="bm-mode">练习</span></div>
+    <div id="dummy-rows">
+      <div class="mrow" onclick="dummy(this,'站桩')"><span>🧍 练习假人 · 站桩</span><span class="st">当前</span></div>
+      <div class="mrow" onclick="dummy(this,'跳跃')"><span>🤸 练习假人 · 跳跃</span><span class="st">切换</span></div>
+      <div class="mrow" onclick="dummy(this,'防守')"><span>🛡 练习假人 · 防守</span><span class="st">切换</span></div>
+      <div class="mrow" onclick="dummy(this,'自由攻击')"><span>🥊 练习假人 · 电脑自由攻击</span><span class="st">切换</span></div>
+    </div>
+    <div class="mvtab"><button class="on" onclick="mvtab(this,0)">招式查看</button><button onclick="mvtab(this,1)">出招表（简）</button></div>
+    <div class="moves" id="mv0"></div>
+    <div class="moves" id="mv1" style="display:none"></div>
+    <div class="stfoot"><button onclick="closeMenu()">返回战斗</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const q=new URLSearchParams(location.search);const mode=q.get('mode')||'练习';
+document.getElementById('bm-mode').textContent=mode;
+document.getElementById('dummy-rows').style.display=mode==='练习'?'block':'none';
+if(mode!=='练习')document.querySelector('.mrow').insertAdjacentHTML('afterend','<div class="mrow" onclick="toast(\'正式对战/生存：菜单仅查看招式\')"><span>⚔ 当前模式 · '+(mode==='生存'?'生存 · Stage 3':'正式对战')+'</span><span class="st">菜单仅可查看招式</span></div>');
+
+const mv0=[['波动拳','↓ ↘ → + A'],['升龙拳','→ ↓ ↘ + A'],['龙卷旋风脚','↓ ↙ ← + B'],['猛袭连打','↓ ↘ → + C'],['极道连击','↓ ↘ → ↓ ↘ → + A'],['虎煌拳','↓ ↘ → + A（远程）']];
+const mv1=[['前冲','→ →'],['疾退','← ←'],['受身','倒地瞬间 A+B'],['挑拨','Start（嘲讽）'],['防御','← 按住']];
+document.getElementById('mv0').innerHTML=mv0.map(m=>`<div class="moverow"><span>${m[0]}</span><span class="keys">${m[1]}</span></div>`).join('');
+document.getElementById('mv1').innerHTML=mv1.map(m=>`<div class="moverow"><span>${m[0]}</span><span class="keys">${m[1]}</span></div>`).join('');
+function mvtab(btn,i){document.querySelectorAll('.mvtab button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+ document.getElementById('mv0').style.display=i===0?'block':'none';document.getElementById('mv1').style.display=i===1?'block':'none'}
+function openMenu(){document.getElementById('bmenu').style.display='flex'}
+function closeMenu(){document.getElementById('bmenu').style.display='none'}
+function dummy(btn,name){document.querySelectorAll('#dummy-rows .mrow').forEach(r=>r.classList.remove('on'));btn.classList.add('on');
+ toast('练习假人 → '+name+'（前端周期注入 P2 键实现）')}
+let tt;function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),1500)}
+function cast(n){toast('释放技能：'+n+'（INI2CODE 反查按键序列注入）');flash();hit()}
+function flash(){const f=document.createElement('div');
+ f.style.cssText='position:fixed;inset:0;background:rgba(255,214,110,.16);z-index:60;pointer-events:none';
+ document.body.appendChild(f);setTimeout(()=>f.remove(),140)}
+function cycleSkills(btn){const g2=[['🌊 霸王翔吼拳','↓↘→↓↘→ C'],['🌪 真空波动拳','↓↙←↓↙← A'],['☄ 天雷破','←↙↓↘→ C'],['✨ 凤凰脚','↓↙←↙→ B'],['💫 暗黑破碎','→←↙↓↘→ A'],['🔁 切换','技能组 1/1']];
+ const g1=[['⚡ 波动拳','↓↘→ A'],['🔥 升龙拳','→↓↘ A'],['🌀 龙卷旋风脚','↓↙← B'],['💥 猛袭连打','↓↘→ C'],['☠ 极道连击','↓↘→↓↘→ A'],['🔁 切换','技能组 1/2']];
+ const g=btn.dataset.g==='2'?g1:g2;btn.dataset.g=btn.dataset.g==='2'?'1':'2';
+ [...document.querySelectorAll('#skills button')].forEach((b,i)=>{b.innerHTML=g[i][0]+'<b>'+g[i][1]+'</b>';
+  b.onclick=i===5?cycleSkills:()=>cast(g[i][0].slice(2))})}
+function pad(k){toast('注入按键 '+k)}
+
+/* 虚拟摇杆：拖动 → 八方向键注入 */
+const joy=document.getElementById('joy'),stick=document.getElementById('stick'),dirLbl=document.getElementById('joydir');
+const R=46, DEAD=13;
+let lastKeys='';
+function injectKeys(keys){const sig=keys.join('+');
+ if(sig===lastKeys)return;lastKeys=sig;
+ dirLbl.textContent=keys.length?keys.join('+'):'';
+ if(keys.length)toast('摇杆注入 '+keys.join('+'));}
+function joyMove(e){
+ const r=joy.getBoundingClientRect();
+ let dx=e.clientX-(r.left+r.width/2), dy=e.clientY-(r.top+r.height/2);
+ const d=Math.hypot(dx,dy);
+ if(d>R){dx*=R/d;dy*=R/d}
+ stick.style.transform=`translate(${dx}px,${dy}px)`;
+ if(d<DEAD){injectKeys([]);return}
+ const a=Math.atan2(-dy,dx)*180/Math.PI; // 上=+90
+ const keys=[];
+ if(a>22.5&&a<157.5)keys.push('↑');
+ if(a>-157.5&&a<-22.5)keys.push('↓');
+ if(a<-67.5||a>67.5)keys.push(dx>0?'→':'←');
+ injectKeys(keys);}
+joy.addEventListener('pointerdown',e=>{joy.setPointerCapture(e.pointerId);joy.style.cursor='grabbing';joyMove(e)});
+joy.addEventListener('pointermove',e=>{if(joy.hasPointerCapture(e.pointerId))joyMove(e)});
+joy.addEventListener('pointerup',()=>{joy.style.cursor='grab';stick.style.transform='';injectKeys([])});
+joy.addEventListener('pointercancel',()=>{joy.style.cursor='grab';stick.style.transform='';injectKeys([])});
+function hit(){const f=document.querySelector('.fighter.p2');f.style.transition='transform .1s';f.style.transform='scaleX(-1) translateX(14px)';
+ setTimeout(()=>f.style.transform='scaleX(-1)',110)}
+
+/* 开场流程：发言 agent（打字机）→ 3 秒倒计时 → 正式开打 */
+const lines=[['林羽','末世第三天。你身上，有神明的味道。'],['苏晚晴','哼，解析吧。看你怎么拆解我这一句「雷霆」。']];
+const sp=document.getElementById('speech'),txt=document.getElementById('sp-txt');
+let li=0;
+function speak(){if(li>=lines.length){sp.style.display='none';countdown();return}
+ const[who,s]=lines[li++];sp.querySelector('.who').textContent=who;sp.style.display='block';txt.textContent='';
+ let i=0;const tk=setInterval(()=>{txt.textContent=s.slice(0,++i);if(i>=s.length){clearInterval(tk);setTimeout(speak,900)}},55)}
+function countdown(){const c=document.getElementById('countdown');c.style.display='flex';let n=3;
+ c.textContent=n;const t=setInterval(()=>{if(--n>0)c.textContent=n;else{clearInterval(t);c.style.display='none';toast('开打！过程随机触发发言 · 结束触发胜利发言 agent')}},900)}
+speak();
+</script>
+</body>
+</html>

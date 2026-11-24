@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>角色实体绑定 · Toon-Fighting</title>
+<style>
+:root{--bg:#07080b;--panel:#11141b;--line:#262c38;--txt:#e7ecf3;--dim:#8b96a8;--hot:#ff3b30;--gold:#ffc233;--cyan:#3ad1ff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:radial-gradient(1100px 640px at 50% -12%,#101a2a 0%,var(--bg) 62%);color:var(--txt);
+  font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px}
+.stage{width:min(780px,100%)}
+.head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.head a{color:var(--cyan);font-size:13px;text-decoration:none}
+.head h1{font-size:18px;font-weight:900;letter-spacing:.24em}
+.sub{font-size:12px;color:var(--dim);margin-bottom:18px;letter-spacing:.06em}
+.row{display:grid;grid-template-columns:1fr 30px 1fr;gap:0 10px;align-items:center;
+  background:rgba(17,20,27,.88);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:9px}
+.tf,.mg{display:flex;gap:12px;align-items:center;min-width:0}
+.ava{width:46px;height:46px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:18px;color:#fff}
+.mava{width:46px;height:46px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:18px;color:#dfe6f0;border:1px solid var(--line);
+  background:repeating-conic-gradient(#1c2230 0 25%,#10141c 0 50%) 0 0/12px 12px}
+.nm{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.job{display:inline-block;font-size:9.5px;letter-spacing:.12em;color:var(--gold);border:1px solid #4d3d12;border-radius:12px;padding:1.5px 8px;margin-top:3px}
+.mid{color:#39414f;text-align:center;font-size:15px}
+select{font-family:inherit;font-size:13px;padding:7px 9px;border-radius:7px;background:#0d1017;border:1px solid var(--line);
+  color:var(--txt);cursor:pointer;flex:1;min-width:0}
+select:hover{border-color:var(--cyan)}
+.foot{display:flex;margin-top:18px}
+.foot button{flex:1;cursor:pointer;font-family:inherit;font-size:14px;font-weight:900;letter-spacing:.24em;text-indent:.24em;
+  padding:14px 0;border-radius:11px;border:1px solid #4d3d12;background:linear-gradient(180deg,#1d1708,#120e05);color:var(--gold);transition:.16s}
+.foot button:hover{box-shadow:0 6px 18px rgba(255,194,51,.15)}
+.toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);background:#0d1017;border:1px solid var(--gold);
+  font-size:13px;padding:10px 22px;border-radius:22px;opacity:0;transition:.3s;pointer-events:none}
+.toast.on{opacity:1}
+.crumb{position:fixed;top:18px;left:22px;font-size:12px}
+.crumb a{color:var(--cyan);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="index.html">← 原型导航</a> · 角色实体绑定</div>
+<div class="stage">
+  <div class="head"><a href="home.html">← 返回主界面</a><h1>角色实体绑定</h1></div>
+  <div class="sub">故事：末世选择，从解析神明开始成神 · 共 6 名角色（/api/conn/sessions/:sid/roles）</div>
+  <div id="rows"></div>
+  <div class="foot"><button id="save" onclick="save()">保 存</button></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const chars=[
+ {n:'林羽',j:'武道家',g:'linear-gradient(135deg,#31435f,#1b2436)',e:'LinYu (98Ryo)'},
+ {n:'苏晚晴',j:'异能者',g:'linear-gradient(135deg,#5f3141,#361b24)',e:'98Athena'},
+ {n:'陈铁山',j:'摔跤力量',g:'linear-gradient(135deg,#2f5f4a,#1b3628)',e:'98Big'},
+ {n:'白鸦',j:'忍者刺客',g:'linear-gradient(135deg,#5a4a2f,#332b18)',e:'98Eiji'},
+ {n:'老周',j:'军人佣兵',g:'linear-gradient(135deg,#4a3a5f,#241b36)',e:'kof_ralf'},
+ {n:'小满',j:'辅助医疗',g:'linear-gradient(135deg,#3a5f5f,#1b3030)',e:'98Athena'}];
+const ents=['LinYu (98Ryo)','98Athena','98Big','98Eiji','kof_ralf','Hinako','Leona','K\'','Rugal2nd'];
+document.getElementById('rows').innerHTML=chars.map((c,i)=>
+ `<div class="row">
+   <div class="tf"><div class="ava" style="background:${c.g}">${c.n[0]}</div>
+     <div style="min-width:0"><div class="nm">${c.n}</div><span class="job">${c.j}</span></div></div>
+   <div class="mid">:</div>
+   <div class="mg">
+     <select data-r="${i}">${ents.map(e=>`<option ${e===c.e?'selected':''}>${e}</option>`).join('')}</select>
+     <div class="mava">${c.e[0]}</div>
+   </div></div>`).join('');
+document.querySelectorAll('.row select').forEach(s=>s.onchange=()=>{
+ const i=+s.dataset.r;chars[i].e=s.value;
+ const row=s.closest('.row');row.querySelector('.mava').textContent=s.value[0];
+});
+let tt;function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),1800)}
+function save(){toast('已保存（PUT session-data · tf_fight_roster 持久化）')}
+</script>
+</body>
+</html>
