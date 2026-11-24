@@ -8,114 +8,243 @@
 :root{--bg:#0b0f1a;--panel:#121826;--line:#262c38;--txt:#e7ecf3;--dim:#8b96a8;--hot:#ff3b30;--gold:#ffc233;--cyan:#4dc3ff}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--txt);font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;
-  min-height:100vh;padding:34px 0 60px}
-.wrap{width:min(1080px,92vw);margin:0 auto}
+  min-height:100vh;padding:34px 0 20px}
+.wrap{width:min(880px,94vw);margin:0 auto}
 .crumb{font-size:12px;margin-bottom:14px}
 .crumb a{color:var(--cyan);text-decoration:none}
 h1{font-size:26px;font-weight:900;letter-spacing:.06em}
-.sub{color:var(--dim);font-size:13px;margin:8px 0 22px}
-.tabs{display:flex;gap:12px;margin-bottom:22px}
-.tabs button{cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;padding:9px 26px;border-radius:24px;
+.sub{color:var(--dim);font-size:13px;margin:8px 0 20px}
+.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.tabs button{cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:800;letter-spacing:.08em;padding:9px 22px;border-radius:22px;
   background:transparent;border:1px solid #2a3346;color:var(--dim)}
 .tabs button.on{color:#ff5a50;border-color:var(--hot);background:rgba(255,59,48,.07)}
-.sec{margin-bottom:8px;color:var(--cyan);font-size:14px;font-weight:800;letter-spacing:.04em;padding:10px 0 4px}
+.pane{display:none}.pane.on{display:block}
+.ptitle{margin-bottom:8px;color:var(--cyan);font-size:14px;font-weight:800;letter-spacing:.04em}
+.hint{font-size:12px;color:#6f7b8d;line-height:1.8;margin-top:12px}
+.hint b{color:var(--gold)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
 .krow{display:flex;align-items:center;background:#10141f;border:1px solid #1e2534;border-radius:8px;padding:9px 8px 9px 16px}
-.krow span{font-size:14px}
+.krow span{font-size:13.5px;color:#c3ccd9}
 .krow button{margin-left:auto;cursor:pointer;font-family:Consolas,monospace;font-weight:700;font-size:13px;min-width:130px;
   padding:8px 0;border-radius:6px;background:#1a2130;border:1px solid #2a3346;color:var(--txt);text-align:center}
-.krow button:hover{border-color:var(--cyan)}
+.krow button:hover{border-color:#3b4557}
 .krow button.listen{border-color:var(--gold);color:var(--gold);animation:bl .8s infinite}
+.krow button.dup{border-color:var(--hot);color:#ffb4ad}
 @keyframes bl{50%{opacity:.45}}
-.set-line{display:flex;align-items:center;background:#10141f;border:1px solid #1e2534;border-radius:8px;padding:12px 16px;margin-bottom:10px}
-.set-line span{font-size:14px}
-.set-line .hint{font-size:11px;color:var(--dim);margin-left:10px}
-.set-line select,.set-line input{margin-left:auto;font-family:inherit;font-size:13px;padding:7px 12px;border-radius:7px;
+.presetrow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.preset{cursor:pointer;text-align:left;padding:14px 16px;border-radius:10px;font-family:inherit;color:var(--txt);
+  background:#10141f;border:1px solid #2a3346;transition:.15s}
+.preset:hover{border-color:#3b4557}
+.preset.on{border-color:var(--gold);background:rgba(255,194,51,.06)}
+.preset b{font-size:14px;font-weight:900}
+.preset .d{font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7}
+.preset .tag{float:right;font-size:10px;color:var(--gold);letter-spacing:.1em}
+.sline{display:flex;align-items:center;background:#10141f;border:1px solid #1e2534;border-radius:8px;padding:12px 16px;margin-bottom:10px;gap:10px}
+.sline label{font-size:13.5px;flex:none}
+.sline .hintin{font-size:11px;color:var(--dim)}
+.sline select,.sline input[type=text],.sline input[type=password]{font-family:inherit;font-size:13px;padding:7px 12px;border-radius:7px;
   background:#1a2130;border:1px solid #2a3346;color:var(--txt)}
+.sline select{margin-left:auto}
+.sline input[type=range]{margin-left:auto;width:180px}
+.sline .val{font-family:Consolas,monospace;font-size:12px;color:var(--cyan);width:34px;text-align:right}
 .seg{margin-left:auto;display:flex;border:1px solid #2a3346;border-radius:7px;overflow:hidden}
-.seg button{cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;padding:7px 16px;border:0;background:#1a2130;color:var(--dim)}
+.seg button{cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;padding:7px 14px;border:0;background:#1a2130;color:var(--dim)}
 .seg button.on{background:#223052;color:var(--cyan)}
-.connbox{border:1px solid #1e2534;border-radius:10px;padding:16px;margin-top:6px}
+.connbox{border:1px solid #1e2534;border-radius:10px;padding:16px}
 .connrow{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-.connrow label{font-size:13px;color:var(--dim);width:88px;flex:none}
 .connrow input{flex:1;font-family:inherit;font-size:13px;padding:8px 12px;border-radius:7px;background:#1a2130;border:1px solid #2a3346;color:var(--txt)}
 .connrow button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:800;padding:8px 20px;border-radius:7px;
   background:#1a2130;border:1px solid #2a3346;color:var(--txt)}
 .connrow button:hover{border-color:var(--cyan)}
-.st{font-size:12px;color:#2ecc71}
+.connrow button.primary{background:rgba(255,59,48,.14);border-color:#5a2a28;color:#ffb4ad}
+.connstate{font-size:12px;padding:3px 10px;border-radius:12px;border:1px solid #2a3346;color:var(--dim)}
+.connstate.ok{color:#2ecc71;border-color:#1f5c38}
+.connstate.err{color:#ff5a50;border-color:#5a2a28}
+.tab2{display:flex;gap:8px;margin-bottom:10px}
+.tab2 button{cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;padding:6px 18px;border-radius:16px;
+  background:#10141f;border:1px solid #2a3346;color:var(--dim)}
+.tab2 button.on{color:#fff;border-color:var(--cyan)}
+.formmsg{font-size:12.5px;color:var(--cyan);min-height:18px;margin-top:10px}
+.stfoot{display:flex;gap:12px;margin-top:22px;padding-top:16px;border-top:1px solid #1e2534}
+.stfoot button{flex:1;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:800;letter-spacing:.14em;padding:12px 0;border-radius:9px;
+  border:1px solid #2a3346;background:#10141f;color:var(--txt)}
+.stfoot button:hover{border-color:var(--cyan)}
+.stfoot .primary{border-color:#5a2a28;background:rgba(255,59,48,.1);color:#ffb4ad}
 .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#10141f;border:1px solid var(--cyan);
-  font-size:13px;padding:10px 22px;border-radius:22px;opacity:0;transition:.3s;pointer-events:none}
+  font-size:13px;padding:10px 22px;border-radius:22px;opacity:0;transition:.3s;pointer-events:none;z-index:99}
 .toast.on{opacity:1}
-.panel{display:none}.panel.on{display:block}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="crumb"><a href="index.html">← 原型导航</a> · 系统设置</div>
   <h1>系统设置</h1>
-  <div class="sub">所有设置自动保存在浏览器里，下次进来不用再调（toonfight:settings-v1 · 引擎经 save/user-config.ini 注入）</div>
+  <div class="sub">所有设置自动保存到浏览器（toonfight:settings-v1），下次进来不用再调 · 经 save/user-config.ini 注入引擎</div>
+
   <div class="tabs">
-    <button class="on" onclick="tab(this,0)">键位配置</button>
-    <button onclick="tab(this,1)">性能配置</button>
-    <button onclick="tab(this,2)">个性化配置</button>
+    <button class="on" data-p="keys" onclick="tab(this)">键位配置</button>
+    <button data-p="perf" onclick="tab(this)">性能配置</button>
+    <button data-p="personal" onclick="tab(this)">个性化配置</button>
+    <button data-p="battle" onclick="tab(this)">战斗开场</button>
+    <button data-p="account" onclick="tab(this)">账号与服务器</button>
   </div>
 
-  <div class="panel on" id="p0">
-    <div class="sec">玩家 1（P1）</div>
+  <!-- 键位配置 -->
+  <div class="pane on" id="pane-keys">
+    <div class="ptitle">玩家 1（P1）</div>
     <div class="grid" id="keysP1"></div>
-    <div class="sec">玩家 2（P2 · 本地双人时使用）</div>
+    <div class="ptitle" style="margin-top:16px">玩家 2（P2 · 本地双人时使用）</div>
     <div class="grid" id="keysP2"></div>
+    <div class="hint">点一下按键框，再按你想要的键即可改绑。<span style="color:#ffb4ad">红色</span>表示这个键被两个动作同时占用，请改开。
+      键名枚举见引擎 KeyToStringLUT（UP/DOWN/LEFT/RIGHT/RETURN/RSHIFT 等）。</div>
   </div>
 
-  <div class="panel" id="p1">
-    <div class="sec">分辨率</div>
-    <div class="set-line"><span>游戏分辨率</span><span class="hint">[Video] GameWidth / GameHeight</span>
-      <select><option>320 × 240（引擎原生）</option><option selected>640 × 480</option><option>960 × 720</option><option>1280 × 960</option></select></div>
-    <div class="sec">音量</div>
-    <div class="set-line"><span>主音量</span><span class="hint">[Sound] MasterVolume</span><input type="range" value="80" style="width:180px"></div>
-    <div class="set-line"><span>音效</span><span class="hint">WavVolume</span><input type="range" value="90" style="width:180px"></div>
-    <div class="set-line"><span>背景音乐</span><span class="hint">BGMVolume</span><input type="range" value="60" style="width:180px"></div>
-    <div class="sec">对局</div>
-    <div class="set-line"><span>对局回合数</span><select><option>1</option><option selected>2</option><option>3</option><option>5</option></select></div>
+  <!-- 性能配置 -->
+  <div class="pane" id="pane-perf">
+    <div class="ptitle">性能 ↔ 质量（默认最佳性能）</div>
+    <div class="presetrow" id="presetrow"></div>
+    <div class="hint">渲染分辨率越低，同一台机器帧率越高。默认按「最佳性能」启动：640×480 + 像素锐利渲染，
+      老机器 / 内嵌浏览器也能跑满帧。画质档适合独显 + 独立浏览器全屏。</div>
   </div>
 
-  <div class="panel" id="p2">
-    <div class="sec">战斗开场</div>
-    <div class="set-line"><span>开场发言</span><span class="hint">agent 流式发言，接口出错/超时自动跳过</span>
-      <div class="seg"><button>文字</button><button class="on">语音</button><button>关闭</button></div></div>
-    <div class="set-line"><span>3 秒倒计时</span><span class="hint">#countdown 开场遮罩</span>
-      <div class="seg"><button class="on">开</button><button>关</button></div></div>
-    <div class="set-line"><span>胜利发言</span><span class="hint">结束一场后触发，符合人设与世界观</span>
-      <div class="seg"><button class="on">开</button><button>关</button></div></div>
-    <div class="sec">虚拟手柄</div>
-    <div class="set-line"><span>虚拟手柄</span><span class="hint">默认显示 · 触屏设备 auto</span>
-      <div class="seg"><button class="on">显示</button><button>隐藏</button><button>自动</button></div></div>
-    <div class="set-line"><span>实体头顶悬浮头像</span><span class="hint">TF_HEAD 坐标包驱动</span>
-      <div class="seg"><button class="on">开</button><button>关</button></div></div>
-    <div class="sec">后端服务连接配置和登录</div>
+  <!-- 个性化配置 -->
+  <div class="pane" id="pane-personal">
+    <div class="ptitle">画面与声音</div>
+    <div class="sline"><label>渲染分辨率</label><span class="hintin">[Video] GameWidth / GameHeight</span>
+      <select id="st-res">
+        <option value="auto">跟随性能档位</option>
+        <option value="640x480">640×480（4:3）</option>
+        <option value="854x480">854×480</option>
+        <option value="960x540">960×540</option>
+        <option value="1280x720">1280×720（16:9）</option>
+        <option value="1920x1080">1920×1080（1080P）</option>
+      </select></div>
+    <div class="sline"><label>画面滤镜</label><span class="hintin">立即生效</span>
+      <select id="st-filter">
+        <option value="pixelated">锐利像素（放大不糊，性能更好）</option>
+        <option value="smooth">平滑缩放（观感柔和，稍吃性能）</option>
+      </select></div>
+    <div class="sline"><label>虚拟手柄</label><span class="hintin">默认显示 · auto=仅触屏显示</span>
+      <select id="st-pad">
+        <option value="auto">跟随设备（触屏显示，桌面隐藏）</option>
+        <option value="show">始终显示</option>
+        <option value="hide">始终隐藏</option>
+      </select></div>
+    <div class="sline"><label>主音量</label><span class="hintin">MasterVolume</span>
+      <input type="range" min="0" max="100" value="80" oninput="vol(this)"><span class="val">80</span></div>
+    <div class="sline"><label>音效音量</label><span class="hintin">WavVolume</span>
+      <input type="range" min="0" max="100" value="90" oninput="vol(this)"><span class="val">90</span></div>
+    <div class="sline"><label>音乐音量</label><span class="hintin">BGMVolume</span>
+      <input type="range" min="0" max="100" value="60" oninput="vol(this)"><span class="val">60</span></div>
+    <div class="hint">键位 / 分辨率 / 音量在<b>下一次开打</b>时生效（重开一局即可）；滤镜立即生效。</div>
+  </div>
+
+  <!-- 战斗开场 -->
+  <div class="pane" id="pane-battle">
+    <div class="ptitle">战斗开场与发言</div>
+    <div class="sline"><label>开场发言</label><span class="hintin">agent 流式生成，出错/超时自动跳过</span>
+      <select id="st-speech">
+        <option value="text">文字气泡</option>
+        <option value="voice">文字 + 语音朗读</option>
+        <option value="off">关闭</option>
+      </select></div>
+    <div class="sline"><label>3 秒倒计时</label><span class="hintin">开场 3-2-1</span>
+      <select id="st-countdown">
+        <option value="on">开（开场 3-2-1）</option>
+        <option value="off">关（直接开打）</option>
+      </select></div>
+    <div class="sline"><label>头顶悬浮头像</label><span class="hintin">TF_HEAD 坐标包驱动</span>
+      <select id="st-headavatar">
+        <option value="on">显示（实体头顶挂头像）</option>
+        <option value="off">隐藏</option>
+      </select></div>
+    <div class="hint">发言 agent 在页面内实现、调用后端大模型接口生成符合角色人设与故事世界观的台词；
+      接口出错 / 超时会自动跳过，不影响战斗。发言按角色绑定与职业信息构造提示词。</div>
+  </div>
+
+  <!-- 账号与服务器 -->
+  <div class="pane" id="pane-account">
+    <div class="ptitle">后端服务连接</div>
     <div class="connbox">
-      <div class="connrow"><label>服务器连接</label><input value="http://localhost:60002" readonly style="color:var(--dim)"><span class="st">● 已连接</span></div>
-      <div class="connrow"><label>当前账号</label><input value="viaco" readonly style="color:var(--dim)"><span class="st">已登录（HttpOnly cookie tf_sid）</span></div>
-      <div class="connrow"><label>登录 / 注册</label>
-        <input placeholder="账号"><input placeholder="密码" type="password">
-        <button onclick="toast('POST /api/conn/login · token 只存服务端内存')">登录</button>
-        <button onclick="toast('POST /api/conn/register')">注册</button></div>
+      <div class="connrow">
+        <input type="text" value="http://127.0.0.1:60002" placeholder="后端服务地址，例如 http://127.0.0.1:60002">
+        <button onclick="setState('ok','● 连接正常')">保存</button>
+        <button onclick="setState('ok','● 连接正常（/api/conn/status 200）')">测试连接</button>
+      </div>
+      <div><span class="connstate idle" id="st-server-state">未测试</span></div>
     </div>
+    <div class="ptitle" style="margin-top:18px">账号</div>
+    <div class="tab2">
+      <button class="on" onclick="authTab(this,0)">登录</button>
+      <button onclick="authTab(this,1)">注册</button>
+    </div>
+    <div class="connbox">
+      <div class="connrow">
+        <input type="text" placeholder="账号（2–32 个字符）">
+        <input type="password" placeholder="密码（6–64 个字符）">
+      </div>
+      <div class="connrow">
+        <button class="primary" id="btn-login" onclick="authMsg('登录成功 · token 只存本地代理内存（HttpOnly cookie tf_sid）')">登 录</button>
+        <button class="primary" id="btn-register" onclick="authMsg('注册成功，请登录')">注 册</button>
+        <button onclick="authMsg('已退出登录')">退出登录</button>
+      </div>
+      <div class="formmsg" id="auth-msg"></div>
+    </div>
+    <div class="hint">账号用于拉取你的故事会话与角色。密码只在本机提交给本页的本地代理，
+      由代理转交后端——页面与浏览器存储都不会留下后端 token。</div>
+  </div>
+
+  <div class="stfoot">
+    <button onclick="resetAll()">恢复默认</button>
+    <button class="primary" onclick="location.href='home.html'">完成，返回主界面</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
+
 <script>
-const P1=[['上移','↑'],['下移','↓'],['左移','←'],['右移','→'],['轻拳 A','Z'],['中拳 B','X'],['重拳 C','C'],['X 攻击','A'],['Y 攻击','S'],['Z 攻击','D'],['确认 / Start','Enter'],['辅助键 D','Q'],['辅助键 W','W']];
-const P2=[['上移','I'],['下移','K'],['左移','J'],['右移','L'],['轻拳 A','F'],['中拳 B','G'],['重拳 C','H'],['X 攻击','R'],['Y 攻击','T'],['Z 攻击','Y'],['确认 / Start','RShift'],['Back','Tab']];
-function keyRows(list){return list.map(k=>`<div class="krow"><span>${k[0]}</span><button onclick="listen(this)">${k[1]}</button></div>`).join('')}
-document.getElementById('keysP1').innerHTML=keyRows(P1);
-document.getElementById('keysP2').innerHTML=keyRows(P2);
-function listen(btn){btn.textContent='按任意键…';btn.classList.add('listen');
- const h=e=>{e.preventDefault();btn.textContent=e.key==='Escape'?'Esc':(e.key.length===1?e.key.toUpperCase():e.key);
-  btn.classList.remove('listen');window.removeEventListener('keydown',h,true)};
+/* 键位：与引擎 Keys_P1/Keys_P2 对齐的 13 个动作 */
+const P1=[['上移','UP','↑'],['下移','DOWN','↓'],['左移','LEFT','←'],['右移','RIGHT','→'],
+ ['轻拳 A','z'],['中拳 B','x'],['重拳 C','c'],['X 攻击','a'],['Y 攻击','s'],['Z 攻击','d'],
+ ['确认 / Start','RETURN'],['辅助键 D','q'],['辅助键 W','w']];
+const P2=[['上移','i'],['下移','k'],['左移','j'],['右移','l'],
+ ['轻拳 A','f'],['中拳 B','g'],['重拳 C','h'],['X 攻击','r'],['Y 攻击','t'],['Z 攻击','y'],
+ ['确认 / Start','RSHIFT'],['辅助键 D','['],['辅助键 W',']']];
+const label=(t)=>({UP:'↑',DOWN:'↓',LEFT:'←',RIGHT:'→',RETURN:'Enter',RSHIFT:'RShift'})[t]||t;
+function keyRows(list,side){return list.map(k=>
+ `<div class="krow"><span>${side} ${k[0]}</span><button onclick="listen(this,'${side}')">${label(k[1])}</button></div>`).join('')}
+document.getElementById('keysP1').innerHTML=keyRows(P1,'P1');
+document.getElementById('keysP2').innerHTML=keyRows(P2,'P2');
+function listen(btn,side){btn.textContent='按任意键…';btn.classList.add('listen');
+ const h=e=>{e.preventDefault();e.stopPropagation();
+  const tok=e.key==='Escape'?'ESC':(e.key==='Enter'?'RETURN':e.key==='Shift'?'RSHIFT':(e.key.length===1?e.key.toUpperCase():e.key.toUpperCase()));
+  btn.textContent=label(tok);btn.classList.remove('listen');btn.classList.remove('dup');
+  window.removeEventListener('keydown',h,true);
+  // 冲突检测：同侧两个动作绑同键 → 标红
+  const grid=btn.closest('.grid');
+  const btns=[...grid.querySelectorAll('button')];
+  const same=btns.filter(b=>b!==btn&&b.textContent===btn.textContent);
+  if(same.length){[btn,...same].forEach(b=>b.classList.add('dup'));toast('⚠ 按键冲突：该键已被同侧另一动作占用')}};
  window.addEventListener('keydown',h,true)}
-function tab(btn,i){document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
- document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('on',j===i))}
+/* 性能预设 */
+const PRESETS=[
+ ['fast','最佳性能','640×480 · 像素锐利','最低渲染负载，老机器 / 内嵌浏览器也能满帧'],
+ ['balanced','平衡','960×540 · 平滑缩放','清晰度和帧率折中'],
+ ['quality','高画质','1280×720 · 平滑缩放','最清晰，建议独立浏览器 + 前台窗口']];
+document.getElementById('presetrow').innerHTML=PRESETS.map((p,i)=>
+ `<button class="preset ${i===0?'on':''}" onclick="preset(this)">
+   <b>${p[1]}</b><span class="tag">${p[2]}</span><div class="d">${p[3]}</div></button>`).join('');
+function preset(btn){document.querySelectorAll('.preset').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+ document.getElementById('st-res').value='auto';toast('性能档位：'+btn.querySelector('b').textContent+' · 渲染分辨率跟随档位')}
+function vol(r){r.nextElementSibling.textContent=r.value}
+function tab(btn){document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+ document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='pane-'+btn.dataset.p))}
+function authTab(btn,i){document.querySelectorAll('.tab2 button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+ document.getElementById('btn-login').style.display=i===0?'':'none';
+ document.getElementById('btn-register').style.display=i===0?'none':''}
+function setState(cls,msg){const s=document.getElementById('st-server-state');s.className='connstate '+cls;s.textContent=msg}
+function authMsg(m){document.getElementById('auth-msg').textContent=m;toast(m)}
+function resetAll(){toast('已恢复默认设置（含键位 / 性能 / 音量 / 开场）');
+ document.querySelectorAll('.krow button').forEach(b=>b.classList.remove('dup','listen'))}
 let tt;function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),1800)}
 </script>
 </body>
