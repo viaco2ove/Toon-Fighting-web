@@ -5,6 +5,7 @@ Lin/Lin.def
 K'/K'.def
 Leona/Leona.def
 LinYu/LinYu.def
+LinYuAI/LinYuAI.def
 
 [ExtraStages]
 stages/kfm.def

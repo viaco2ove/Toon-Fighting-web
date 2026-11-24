@@ -66,3 +66,6 @@ readActPalette，实测验证）。
 建议组合：**日常查看用 VSelect 或 ff-studio sheet，交互式修图/编动画用 Fighter Factory Studio，批量改造（贴头/换色/量产 NPC 包）用 ff-studio 脚本**。
 
 要我把 Fighter Factory Studio 3.7 下载装到本机吗？装好后可以直接用它打开 LinYu 包核对每一帧。
+
+## 自研
+http://localhost:8100/ff-studio/src/viewer.html

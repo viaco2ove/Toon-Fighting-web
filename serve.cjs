@@ -227,11 +227,26 @@ async function handleApi(req, res, urlPath) {
         let input;
         try { input = JSON.parse(body || '{}'); } catch { return json(res, 200, { ok: false, error: 'body 需为 JSON' }); }
         try {
+          // 后端 sprite 分支要求 systemPrompt（提示词由插件自带，宿主不持有），
+          // 少了它会直接报「提示词缺失」。
+          const sys = String(input.systemPrompt || '').trim();
+          if (!sys) return json(res, 200, { ok: false, error: '缺少 systemPrompt（生图 agent 必须带风格/画风约束）' });
           const r = await bfAuth('/plugin/agentRun', {
             agentName: SPRITE_AGENT,
-            input: { prompt: String(input.prompt || '').slice(0, 800), refImages: (input.refImages || []).slice(0, 3), size: input.size || '1K' },
+            input: {
+              prompt: String(input.prompt || '').slice(0, 800),
+              systemPrompt: sys.slice(0, 600),
+              style: String(input.style || '2.5d-topdown-pixel').slice(0, 60),
+              refImages: (input.refImages || []).slice(0, 3),
+              size: input.size || '1K',
+              aspectRatio: String(input.aspectRatio || '1:1').trim(),
+            },
           });
-          json(res, 200, { ok: !!(r && r.ok), image: r && r.image, error: r && r.error });
+          // 后端 agentRun 的返回是 { ok, output: { image } }；
+          // bf() 会剥掉外层 {code,data,message}，这里再剥一层 output。
+          const out = (r && r.output) ? r.output : r;
+          const image = out && (out.image || out.data || out.url);
+          json(res, 200, { ok: !!(r && r.ok && image), image: image || null, error: (r && r.error) || (image ? undefined : '生图 agent 没返回图片') });
         } catch (e) { fail(res, e, 'agentRun'); }
       });
       return;
