@@ -68,48 +68,74 @@
 
   /* ---------- 选人屏（KOF 式） ---------- */
   #select{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;
-    align-items:center;justify-content:center;gap:12px;padding:20px;
+    align-items:center;justify-content:center;gap:10px;padding:16px;overflow:auto;
     background:radial-gradient(1000px 520px at 50% 8%,#161a23 0%,#07080b 72%)}
   #select.on{display:flex}
-  #select h1{margin:0;font-size:24px;font-weight:900;letter-spacing:.06em}
+  #select h1{margin:0;font-size:22px;font-weight:900;letter-spacing:.06em;text-align:center}
   #select h1 em{color:var(--hot);font-style:normal}
-  #teamsz,#sel-actions{display:flex;gap:8px;align-items:center}
+  #teamsz,#sel-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
   #teamsz b,#difficulty b{font-size:12px;letter-spacing:.14em;color:var(--dim);margin-right:4px}
   .chip{cursor:pointer;font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;
     background:#121722;border:1px solid var(--line);color:var(--dim);transition:.15s}
   .chip:hover{border-color:#3b4557;color:var(--txt)}
   .chip.on{background:rgba(255,59,48,.14);border-color:var(--hot);color:#fff}
-  #slots{width:min(920px,94vw);display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-  .slot{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 8px;border-radius:22px;
+  /* 出场顺序条 */
+  #slots{width:min(960px,96vw);display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center}
+  .slot{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border-radius:22px;
     background:#0d1017;border:1px solid var(--line);cursor:pointer;font-family:inherit;color:var(--txt);transition:.15s}
   .slot:hover{border-color:#3b4557}
   .slot.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
-  .slot .sg{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-    font-size:14px;font-weight:900;background:linear-gradient(160deg,#2a3140,#12161f);border:1px solid #3b4557}
+  .slot .sg{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:15px;font-weight:900;background:linear-gradient(160deg,#2a3140,#12161f);border:1px solid #3b4557;
+    overflow:hidden;flex-shrink:0}
+  .slot .sg img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
   .slot.p2side .sg{background:linear-gradient(160deg,#20344a,#0d1015)}
-  .slot .sn{line-height:1.25;text-align:left}
+  .slot .sn{line-height:1.25;text-align:left;min-width:0}
   .slot .sn b{display:block;font-size:12px;font-weight:700;max-width:130px;overflow:hidden;
     white-space:nowrap;text-overflow:ellipsis}
-  .slot .sn i{font-style:normal;font-size:10px;color:var(--dim);letter-spacing:.08em}
+  .slot .sn i{font-style:normal;font-size:10px;color:var(--dim);letter-spacing:.08em;display:block;
+    max-width:130px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .slot .side-tag{font-size:10px;color:var(--cyan);letter-spacing:.1em}
-  #kgrid{width:min(920px,94vw);display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
-  @media (max-width:760px){#kgrid{grid-template-columns:repeat(3,1fr)}}
-  .kcard{position:relative;text-align:left;cursor:pointer;padding:12px 10px 10px;
+  .slot .rm{font-size:15px;color:#6f7b8d;padding:0 2px;line-height:1}
+  .slot .rm:hover{color:#ff7b72}
+  /* 选人时的双人大预览 */
+  #selbig{width:min(960px,96vw);display:flex;gap:10px;align-items:stretch;justify-content:center}
+  #selbig .side{flex:1;max-width:230px;display:flex;gap:10px;align-items:center;
+    padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:#0d1017}
+  #selbig .side .ava{width:52px;height:52px;border-radius:9px;overflow:hidden;flex-shrink:0;
+    background:linear-gradient(160deg,#2a3140,#12161f);border:1px solid #3b4557;
+    display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff}
+  #selbig .side .ava img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+  #selbig .side .tx{min-width:0}
+  #selbig .side .tx b{display:block;font-size:14px}
+  #selbig .side .tx i{font-style:normal;font-size:11px;color:var(--dim);display:block;margin-top:2px}
+  #selbig .vs{align-self:center;font-weight:900;color:var(--gold);letter-spacing:.1em;font-size:16px}
+  /* 角色网格 */
+  #kgrid{width:min(960px,96vw);display:grid;grid-template-columns:repeat(6,1fr);gap:9px}
+  @media (max-width:900px){#kgrid{grid-template-columns:repeat(4,1fr)}}
+  @media (max-width:560px){#kgrid{grid-template-columns:repeat(3,1fr)}}
+  .kcard{position:relative;text-align:left;cursor:pointer;padding:10px 9px 9px;
     background:linear-gradient(160deg,#161b24,#0d1015);border:1px solid var(--line);
-    border-radius:10px;color:var(--txt);font-family:inherit;transition:.16s;overflow:hidden;min-height:86px}
+    border-radius:10px;color:var(--txt);font-family:inherit;transition:.16s;overflow:hidden}
   .kcard:hover{transform:translateY(-2px);border-color:#3b4557}
   .kcard.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 8px 26px -12px rgba(255,194,51,.7)}
   .kcard.rand{background:linear-gradient(160deg,#1d1626,#0d1015);border-style:dashed}
   .kcard.rand.sel{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
-  .kcard .glyph{font-size:26px;font-weight:900;line-height:1.1}
-  .kcard .name{margin-top:2px;font-size:12px;color:#c3ccd9;font-weight:700}
-  .kcard .tag{font-size:11px;color:var(--dim)}
-  .kcard .bind{position:absolute;top:8px;right:8px;font-size:10px;color:var(--cyan);
-    border:1px solid rgba(58,209,255,.35);border-radius:4px;padding:0 5px}
+  .kcard .pic{width:100%;aspect-ratio:1/1;border-radius:7px;overflow:hidden;margin-bottom:6px;
+    background:linear-gradient(160deg,#232a37,#0d1015);border:1px solid #2a3140;
+    display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#6b7688}
+  .kcard .pic img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
+  .kcard .pic > div{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  .kcard .name{margin-top:2px;font-size:12px;color:#c3ccd9;font-weight:700;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .kcard .tag{font-size:10.5px;color:var(--dim);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .kcard .bind{position:absolute;top:7px;right:7px;font-size:10px;color:#0b0c10;
+    background:var(--cyan);border-radius:4px;padding:1px 5px;font-weight:700;max-width:70%;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .kcard .used{position:absolute;inset:0;background:rgba(7,8,11,.72);display:flex;
     align-items:center;justify-content:center;font-size:11px;color:var(--dim);letter-spacing:.1em}
   #difficulty{display:flex;gap:8px;align-items:center}
-  #sel-actions{margin-top:4px}
+  #sel-actions{margin-top:2px}
   #btn-fight{cursor:pointer;font-family:inherit;font-size:15px;font-weight:900;letter-spacing:.22em;
     padding:13px 34px;border-radius:8px;border:0;color:#0b0c10;
     background:linear-gradient(180deg,#ffd45e,#ff9c1a);box-shadow:0 10px 30px -12px rgba(255,156,26,.9)}
@@ -118,6 +144,64 @@
     border-radius:8px;border:1px solid var(--line);background:#12161f;color:var(--txt)}
   #btn-back-home:hover{border-color:#3b4557}
   #select .note{font-size:11.5px;color:#6f7b8d;max-width:min(920px,94vw);text-align:center;line-height:1.7}
+
+  /* ---------- 故事列表 ---------- */
+  .storylist{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:720px){.storylist{grid-template-columns:1fr}}
+  /* min-width:0：网格项默认 min-width:auto，卡片里那条 nowrap 的「最后一句」
+     会把整列的 min-content 撑到 550px，导致两列超出弹窗出现横向滚动条 */
+  .storycard{min-width:0;cursor:pointer;text-align:left;padding:12px 14px;border-radius:9px;font-family:inherit;
+    background:#0d1017;border:1px solid var(--line);color:var(--txt);transition:.15s;
+    display:flex;gap:10px;align-items:flex-start}
+  .storycard:hover{border-color:#3b4557;transform:translateY(-2px)}
+  .storycard.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+  .storycard .t{font-size:14px;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .storycard .ch{font-size:12px;color:var(--cyan);margin-top:2px}
+  .storycard .intro{font-size:12px;color:var(--dim);margin-top:6px;display:-webkit-box;
+    -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .storycard .last{font-size:11px;color:#6f7b8d;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .storycard .mark{flex-shrink:0;width:34px;height:34px;border-radius:8px;display:flex;
+    align-items:center;justify-content:center;font-size:16px;font-weight:900;
+    background:linear-gradient(160deg,#2a3140,#12161f);border:1px solid #3b4557}
+
+  /* ---------- 角色的实体绑定 ---------- */
+  .bindrow{display:grid;grid-template-columns:1fr 34px 1fr auto;gap:10px;align-items:center;
+    padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#0d1017;margin-bottom:8px}
+  @media (max-width:720px){.bindrow{grid-template-columns:1fr 1fr;gap:8px}}
+  .bindrow .side{display:flex;align-items:center;gap:9px;min-width:0}
+  .bindrow .ava{width:44px;height:44px;border-radius:9px;flex-shrink:0;overflow:hidden;
+    background:linear-gradient(160deg,#2a3140,#12161f);border:1px solid #3b4557;
+    display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#fff}
+  .bindrow .ava img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+  .bindrow .meta{min-width:0}
+  .bindrow .meta b{display:block;font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .bindrow .meta i{font-style:normal;font-size:11px;color:var(--dim);display:block;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:1px}
+  .bindrow .arr{text-align:center;color:var(--gold);font-weight:900;font-size:14px}
+  .bindrow select{font-family:inherit;font-size:13px;padding:5px 8px;border-radius:6px;
+    background:#161b26;border:1px solid var(--line);color:var(--txt);max-width:100%}
+  /* 徽章是 <i>：`.bindrow .meta i{display:block}` 的优先级 (0,2,1) 高于
+    `.bindrow .badge` (0,2,0)，所以这里必须写到 (0,3,1) 才压得住，
+    否则每个徽章会变成撑满一行的边框块 */
+  .bindrow .meta i.badge{display:inline-block;font-style:normal;font-size:10px;padding:1px 5px;border-radius:4px;margin-left:5px;vertical-align:1px}
+  .bindrow .badge.player{color:#ffd98a;border:1px solid rgba(255,194,51,.4)}
+  .bindrow .badge.npc{color:#9fb6d8;border:1px solid rgba(58,209,255,.3)}
+  .bindrow .badge.prof{color:#c9a7ff;border:1px solid rgba(201,167,255,.35)}
+  .bindrow .rec{font-size:12px;color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  /* ---------- 资产集选择器 ---------- */
+  #packpick{position:fixed;inset:0;z-index:71;display:none;align-items:center;justify-content:center;
+    background:rgba(4,5,8,.82);backdrop-filter:blur(5px)}
+  #packpick.on{display:flex}
+  #packpick .box{width:min(720px,94vw);max-height:88vh;overflow:auto;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:24px 28px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
+  #packpick h2{margin:0 0 4px;font-size:20px;font-weight:900;letter-spacing:.08em}
+  #packpick .sub{font-size:12px;color:var(--dim);margin-bottom:14px}
+  #packpick .stfoot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px}
+  #packpick .stfoot .hint{font-size:12px;color:#6f7b8d}
+  #packpick .stfoot button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;padding:8px 18px;
+    border-radius:7px;border:1px solid var(--line);background:#121722;color:var(--txt)}
+  #packpick .stfoot button:hover{border-color:#3b4557}
 
   /* ---------- 对局中的浮层 ---------- */
   #hud{position:fixed;top:12px;left:14px;z-index:30;padding:7px 11px;border-radius:7px;
@@ -138,7 +222,8 @@
   #warn.on{display:block}
 
   /* 对局头像条（双头像版） */
-  #facebar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:30;display:none;
+  /* 108px：引擎血条/计时器画在画布最上方（实测底边 ≈80px），12px 会压住血条 */
+  #facebar{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;display:none;
     align-items:center;gap:10px;pointer-events:none}
   #facebar.on{display:flex}
   #facebar .face{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 6px;border-radius:22px;
@@ -334,6 +419,27 @@
   .stfoot button:hover{border-color:#3b4557}
   #st-reset{color:#ffb4ad}
   #st-done{background:rgba(255,59,48,.16);border-color:rgba(255,59,48,.5)}
+  /* 设置里的「服务器连接 / 登录」 */
+  .connrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .connrow input[type=text],.connrow input[type=password],.connrow input[type=url]{
+    font-family:inherit;font-size:13px;padding:8px 10px;border-radius:7px;
+    background:#161b26;border:1px solid var(--line);color:var(--txt);flex:1;min-width:150px}
+  .connrow input:focus{outline:none;border-color:var(--cyan)}
+  .connrow button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;padding:8px 16px;
+    border-radius:7px;border:1px solid var(--line);background:#121722;color:var(--txt)}
+  .connrow button:hover{border-color:#3b4557}
+  .connrow button.primary{background:rgba(255,59,48,.16);border-color:rgba(255,59,48,.5);color:#fff}
+  .connstate{font-size:12px;padding:7px 11px;border-radius:6px;display:inline-block}
+  .connstate.ok{background:rgba(63,185,80,.14);border:1px solid rgba(63,185,80,.4);color:#7ee2a8}
+  .connstate.err{background:rgba(248,81,73,.14);border:1px solid rgba(248,81,73,.4);color:#ffb4ad}
+  .connstate.idle{background:#161b26;border:1px solid var(--line);color:var(--dim)}
+  .tab2{display:flex;gap:6px;margin-top:10px}
+  .tab2 button{cursor:pointer;font-family:inherit;font-size:12px;padding:6px 14px;border-radius:16px;
+    background:#121722;border:1px solid var(--line);color:var(--dim)}
+  .tab2 button.on{background:rgba(58,209,255,.14);border-color:var(--cyan);color:#fff}
+  .formmsg{font-size:12px;margin-top:8px;min-height:1.3em}
+  .formmsg.err{color:#ffb4ad}
+  .formmsg.ok{color:#7ee2a8}
 
   /* ---------- 故事联动 ---------- */
   #btn-story{position:relative;cursor:pointer;font-family:inherit;font-size:15px;font-weight:900;
@@ -378,6 +484,13 @@
   #sr-rand{color:#ffd98a}
   #sr-save{border-color:rgba(58,209,255,.5)!important;color:var(--cyan)!important}
   #sr-fight{background:rgba(255,59,48,.16)!important;border-color:rgba(255,59,48,.5)!important}
+  /* 角色多时列表会很长：让列表自己滚，底部的【保存】按钮固定可见 */
+  #story .box{max-height:88vh;display:flex;flex-direction:column}
+  #story #story-roster{flex:1;min-height:0;display:none;flex-direction:column}
+  #story #story-roster.flexon{display:flex}
+  #story #charrows{overflow-y:auto;flex:1;min-height:0;padding-right:4px}
+  #story #story-roster .stfoot{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);
+    flex-shrink:0;background:var(--panel)}
 
   /* 失焦/切后台遮罩 */
   #cover{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
@@ -423,10 +536,10 @@
     </button>
   </div>
   <div class="modes">
-    <button class="modebtn practice" data-mode="practice">练 习<small>对手站桩 · 可改行为</small></button>
-    <button class="modebtn versus" data-mode="versus">对 战<small>正式 CPU 对局</small></button>
-    <button class="modebtn survival" data-mode="survival">生 存<small>车轮战 · 越打越强</small></button>
-    <button class="modebtn" id="home-settings">设 置<small>键位 · 性能 · 战斗开场</small></button>
+    <button class="modebtn practice" data-mode="practice">练 习<small>选人 · 假人可改行为</small></button>
+    <button class="modebtn versus" data-mode="versus">对 战<small>选人 · 正式 CPU 对局</small></button>
+    <button class="modebtn survival" data-mode="survival">生 存<small>选我方 · 对手随机</small></button>
+    <button class="modebtn" id="home-settings">设 置<small>键位 · 性能 · 账号</small></button>
   </div>
   <div class="rowbtns">
     <button id="btn-settings" style="display:none">系 统 设 置</button>
@@ -443,6 +556,7 @@
     <button class="chip" data-n="3">3 人（编队）</button>
   </div>
   <div id="slots"></div>
+  <div id="selbig"></div>
   <div id="kgrid"></div>
   <div id="difficulty"><b>强度</b>
     <button class="chip" data-ai="1">简单</button>
@@ -453,7 +567,7 @@
     <button id="btn-fight">开 始</button>
     <button id="btn-back-home">← 主界面</button>
   </div>
-  <div class="note">点卡片选人、再点一下取消重选；「?」随机。点上方槽位切换当前编辑位；3 人模式自动切换为编队战。<br>
+  <div class="note">点卡片选人、再点一下取消重选；「?」随机。点上方槽位切换当前编辑位（出场顺序）。<br>
     提示：把浏览器窗口保持在最前台，切走 / 最小化会像卡死——那是浏览器省电，不是游戏卡。</div>
 </div>
 
@@ -527,6 +641,7 @@
       <button data-pane="perf">性能配置</button>
       <button data-pane="personal">个性化配置</button>
       <button data-pane="battle">战斗开场</button>
+      <button data-pane="account">账号与服务器</button>
     </div>
 
     <div class="stpane on" id="pane-keys">
@@ -592,6 +707,35 @@
         接口出错 / 超时会自动跳过，不影响战斗。发言按角色绑定与职业信息构造提示词。</div>
     </div>
 
+    <div class="stpane" id="pane-account">
+      <div class="pane-title">后端服务连接</div>
+      <div class="connrow">
+        <input type="text" id="st-server" placeholder="后端服务地址，例如 http://127.0.0.1:60002">
+        <button id="st-server-save">保存</button>
+        <button id="st-server-test">测试连接</button>
+      </div>
+      <div style="margin-top:8px"><span class="connstate idle" id="st-server-state">未测试</span></div>
+
+      <div class="pane-title" style="margin-top:18px">账号</div>
+      <div class="tab2">
+        <button id="st-tab-login" class="on">登录</button>
+        <button id="st-tab-register">注册</button>
+      </div>
+      <div class="connrow" style="margin-top:10px">
+        <input type="text" id="st-user" placeholder="账号（2–32 个字符）" autocomplete="username">
+        <input type="password" id="st-pass" placeholder="密码（6–64 个字符）" autocomplete="current-password">
+      </div>
+      <div class="connrow" style="margin-top:8px">
+        <button class="primary" id="st-login">登 录</button>
+        <button class="primary" id="st-register">注 册</button>
+        <button id="st-logout">退出登录</button>
+      </div>
+      <div class="formmsg" id="st-auth-msg"></div>
+      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.7;margin-top:10px">
+        账号用于拉取你的故事会话与角色。密码只在本机提交给本页的本地代理，
+        由代理转交后端——页面与浏览器存储都不会留下后端 token。</div>
+    </div>
+
     <div class="stfoot">
       <div class="hint">键位 / 分辨率 / 音量在<b>下一次开打</b>时生效（重开一局即可）；滤镜立即生效。</div>
       <div style="display:flex;gap:8px">
@@ -602,13 +746,25 @@
   </div>
 </div>
 
+<div id="packpick">
+  <div class="box">
+    <h2>选择资产集</h2>
+    <div class="sub">资产集是一套「角色映射 + 场景 + 文案」，装在终端本地，不上传后端。</div>
+    <div class="storylist" id="packpick-list"></div>
+    <div class="stfoot">
+      <span class="hint">选择后会同步角色池与主题文案。</span>
+      <button id="packpick-close">关 闭</button>
+    </div>
+  </div>
+</div>
+
 <div id="story">
   <div class="box">
-    <h2>故 事 联 动</h2>
+    <h2 id="story-title-el">故 事 列 表</h2>
     <div class="sub" id="story-status">检测联动服务…</div>
     <div id="story-list">
       <div class="pane-title">你的故事会话 <span style="color:#6f7b8d;font-weight:400">（点一个绑定故事并自动分配角色）</span></div>
-      <div class="sesslist" id="sesslist"></div>
+      <div class="storylist" id="sesslist"></div>
     </div>
     <div id="story-roster" style="display:none">
       <div class="pane-title" id="story-title"></div>
@@ -622,6 +778,10 @@
           <button id="sr-fight">用此分配开打</button>
         </span>
       </div>
+    </div>
+    <div class="stfoot" id="story-foot">
+      <span class="hint">选择会话后会自动给角色随机分配默认资产，并持久化保存。</span>
+      <button id="story-close">关 闭</button>
     </div>
   </div>
 </div>
@@ -704,8 +864,9 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
   // ---------------- 资产集（本地 pack：map_design/<dir>/pack.json） ----------------
+  // 注意：/api/assetpacks 与 /api/packs/:dir 不依赖 --conn，纯本地模式也有。
   const PACK_KEY = 'toonfight:pack-v1';
-  const PACKS = { list: [], cur: null, mapping: null };
+  const PACKS = { list: [], cur: null, mapping: null, roster: null };
 
   function packCharPool() {
     // mapping.charPool ∩ 本地可跑集合
@@ -718,11 +879,15 @@
     let r = null;
     try { r = await fetch('/api/assetpacks', { signal: AbortSignal.timeout(8000) }).then((x) => x.json()); } catch { /* 纯本地模式 */ }
     PACKS.list = (r && r.ok && Array.isArray(r.packs)) ? r.packs : [];
+    if (r && Array.isArray(r.localChars)) {
+      // 服务端给出的可跑角色（已过滤资源残缺的包）
+      for (const id of r.localChars) if (!LOCAL_OK.includes(id)) LOCAL_OK.push(id);
+    }
     let id = null;
     try { id = localStorage.getItem(PACK_KEY); } catch { /* 私密模式 */ }
     if (PACKS.cur) return;
-    // ?pack= 直选 / 存档 / 唯一包自动选
-    const want = q.get('pack') || id || (PACKS.list.length === 1 ? PACKS.list[0].dir : null);
+    // ?pack= 直选 / 存档 / --story 指定的资产集 / 唯一包自动选
+    const want = q.get('pack') || id || (r && r.story ? r.story : null) || (PACKS.list.length === 1 ? PACKS.list[0].dir : null);
     if (want) {
       const p = PACKS.list.find((x) => x.dir === want || x.id === want);
       if (p) await usePack(p.dir);
@@ -735,27 +900,48 @@
     PACKS.cur = p;
     try { localStorage.setItem(PACK_KEY, dir); } catch { /* 私密模式 */ }
     try {
-      const m = await fetch('/workshops/toon-fighting-web/map_design/' + encodeURIComponent(dir) + '/mapping.json', { signal: AbortSignal.timeout(8000) }).then((x) => x.json());
-      PACKS.mapping = (m && m.charPool) ? m : null;
-    } catch { PACKS.mapping = null; }
+      const m = await fetch('/api/packs/' + encodeURIComponent(dir), { signal: AbortSignal.timeout(8000) }).then((x) => x.json());
+      const meta = m && m.ok ? m.meta : null;
+      PACKS.mapping = meta && meta.mapping ? meta.mapping : null;
+      PACKS.roster = meta && meta.roster ? meta.roster : null;
+    } catch { PACKS.mapping = null; PACKS.roster = null; }
     renderPackLine();
     return true;
   }
   function renderPackLine() {
     const el = document.getElementById('home-pack-name');
-    if (!PACKS.list.length) { el.textContent = '无可用资产集（map_design 里没有 pack.json）'; return; }
+    if (!PACKS.list.length) { el.textContent = '无可用资产集（map_design 里没有 pack.json）'; el.classList.add('free'); return; }
     el.textContent = PACKS.cur ? (PACKS.cur.name + '（' + PACKS.cur.dir + '）')
       : '未选择（共 ' + PACKS.list.length + ' 个可用）';
     el.classList.toggle('free', !PACKS.cur);
   }
   document.getElementById('home-pack').addEventListener('click', async () => {
     if (!PACKS.list.length) return;
-    const names = PACKS.list.map((p) => p.dir + '（' + p.name + '）');
-    const pick = prompt('选择资产集（输入序号）：\n' + names.map((n, i) => (i + 1) + '. ' + n).join('\n'));
-    if (!pick) return;
-    const p = PACKS.list[Number(pick) - 1];
-    if (p) { await usePack(p.dir); buildCharGrid(); }
+    openPackPicker();
   });
+
+  // 资产集选择器（设计文档：选择资产集文件夹）
+  function openPackPicker() {
+    const dlg = document.getElementById('packpick');
+    const list = document.getElementById('packpick-list');
+    list.innerHTML = '';
+    for (const p of PACKS.list) {
+      const b = document.createElement('button');
+      b.className = 'storycard' + (PACKS.cur && PACKS.cur.dir === p.dir ? ' on' : '');
+      const stories = Array.isArray(p.stories) && p.stories.length ? p.stories.join('、') : '（未声明故事）';
+      b.innerHTML = '<div class="mark">' + esc(String(p.name || p.dir).slice(0, 1)) + '</div>' +
+        '<div style="min-width:0"><div class="t">' + esc(p.name || p.dir) + '</div>' +
+        '<div class="ch">' + esc(p.id || p.dir) + ' · ' + esc(stories) + '</div>' +
+        '<div class="intro">' + esc(p.notes || '资产集（映射与文案）') + '</div></div>';
+      b.addEventListener('click', async () => {
+        await usePack(p.dir);
+        buildCharGrid();
+        dlg.classList.remove('on');
+      });
+      list.appendChild(b);
+    }
+    dlg.classList.add('on');
+  }
 
   // ---------------- 故事 / 联动状态 ----------------
   // 红线：对局进行中不发阻塞式 /api 请求（发言 agent 全部 fire-and-forget）。
@@ -765,15 +951,21 @@
     storyName: '',
     worldId: 0,
     roster: null,          // {storyChars:[{name,roleType,side,charId,profession,win,lose}]}
+    storyRoles: [],        // 故事的全部角色（后端 world.settings.roles）
+    storyIntro: '',        // 故事简介（世界观文案之一）
     sessions: null,
+    user: null,
+    backendVersion: '',
   };
   const storyEl = document.getElementById('story');
+  window.__tfConn = CONN; // 供自动化探针读取联动状态（不参与业务逻辑）
   const storyStatusEl = document.getElementById('story-status');
   const sessListEl = document.getElementById('sesslist');
   const storyListEl = document.getElementById('story-list');
   const storyRosterEl = document.getElementById('story-roster');
   const storyTitleEl = document.getElementById('story-title');
   const charRowsEl = document.getElementById('charrows');
+  const storyFootEl = document.getElementById('story-foot');
   document.getElementById('btn-story').style.display = 'none'; // 探测通过再显示
 
   async function connApi(path, opt) {
@@ -786,11 +978,14 @@
   async function probeConn() {
     const r = await connApi('/api/conn/status');
     CONN.on = !!(r && r.ok && r.connected);
+    CONN.user = (r && r.user) ? r.user : null;
+    CONN.backendVersion = (r && r.backendVersion) ? r.backendVersion : '';
     const dot = document.getElementById('home-conn-dot');
     dot.className = 'dot ' + (CONN.on ? 'on' : 'off');
     if (CONN.on) {
       document.getElementById('btn-story').style.display = '';
-      storyStatusEl.textContent = '联动服务已连接 · 后端 v' + (r.backendVersion || '?') + ' · ' + r.sessions + ' 个会话';
+      storyStatusEl.textContent = '联动服务已连接 · 后端 v' + (r.backendVersion || '?') + ' · ' + r.sessions + ' 个会话'
+        + (CONN.user ? ' · 已登录：' + CONN.user.name : ' · 未登录');
       storyStatusEl.className = 'sub ok';
     } else {
       document.getElementById('btn-story').style.display = 'none';
@@ -847,12 +1042,14 @@
     sessListEl.innerHTML = '';
     for (const s of list) {
       const b = document.createElement('button');
-      b.className = 'sess';
+      b.className = 'storycard' + (CONN.sessionId === s.sessionId ? ' on' : '');
       const last = s.latestMessage ? (s.latestMessage.role + '：' + String(s.latestMessage.content || '').slice(0, 40)) : '';
-      b.innerHTML = '<div class="t">' + esc(s.title || s.worldName || s.sessionId) + '</div>' +
+      const title = s.title || s.worldName || s.sessionId;
+      b.innerHTML = '<div class="mark">' + esc(String(title).slice(0, 1)) + '</div>' +
+        '<div style="min-width:0"><div class="t">' + esc(title) + '</div>' +
         '<div class="ch">' + esc(s.chapterTitle || '') + ' · ' + esc(fmtTime(s.updateTime)) + '</div>' +
         '<div class="intro">' + esc(s.worldIntro || '') + '</div>' +
-        (last ? '<div class="last">' + esc(last) + '</div>' : '');
+        (last ? '<div class="last">' + esc(last) + '</div>' : '') + '</div>';
       b.addEventListener('click', () => pickSession(s.sessionId));
       sessListEl.appendChild(b);
     }
@@ -861,14 +1058,21 @@
   function showListView() {
     storyListEl.style.display = '';
     storyRosterEl.style.display = 'none';
+    storyRosterEl.classList.remove('flexon');
+    storyFootEl.style.display = '';
+    document.getElementById('story-title-el').textContent = '故 事 列 表';
   }
   function showRosterView() {
     storyListEl.style.display = 'none';
     storyRosterEl.style.display = '';
+    storyRosterEl.classList.add('flexon');
+    storyFootEl.style.display = 'none';
+    document.getElementById('story-title-el').textContent = '角色的实体绑定';
   }
 
-  // 从消息里提取故事角色：roleType 非 narrator/system 的去重，按出场次数排序，最多 6 个
-  function extractStoryChars(messages) {
+  // 故事角色来源：优先后端的世界角色表（settings.roles，含人设与头像）；
+  // 取不到时退回「从会话消息里提取」（老会话没有 roles）。
+  function rolesFromMessages(messages) {
     const byName = new Map();
     for (const m of messages || []) {
       const name = String(m.role || '').trim();
@@ -878,7 +1082,7 @@
       e.count++; e.roleType = roleType;
       byName.set(name, e);
     }
-    return [...byName.values()].sort((a, b) => b.count - a.count).slice(0, 6);
+    return [...byName.values()].sort((a, b) => b.count - a.count).slice(0, 12);
   }
 
   function randomCharId(avoid) {
@@ -888,9 +1092,13 @@
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  // 资产集 roster.json 的职业表：给消息提取出的角色配职业
+  // 职业：资产集 roster.json 的同名角色 → mapping.rosterProfessions → 角色卡自带
   function professionFor(name, saved) {
     if (saved && saved.profession) return saved.profession;
+    if (PACKS.roster && Array.isArray(PACKS.roster.chars)) {
+      const hit = PACKS.roster.chars.find((r) => r && r.name === name);
+      if (hit) return hit.profession || '';
+    }
     if (PACKS.mapping && Array.isArray(PACKS.mapping.rosterProfessions)) {
       const hit = PACKS.mapping.rosterProfessions.find((r) => r && r.name === name);
       if (hit) return hit.profession || '';
@@ -906,15 +1114,17 @@
       const fallbackSide = i === 0 ? 'p1' : (i === 1 ? 'p2' : 'bench');
       return {
         name: c.name,
-        roleType: c.roleType,
+        roleType: c.roleType || 'npc',
         side: s ? s.side : fallbackSide,
         charId: s && packCharPool().includes(s.charId) ? s.charId : randomCharId(),
-        profession: professionFor(c.name, s),
+        profession: professionFor(c.name, s) || c.profession || '',
+        avatarPath: c.avatarPath || (s && s.avatarPath) || '',
+        description: c.description || '',
         win: s ? Number(s.win || 0) : 0,
         lose: s ? Number(s.lose || 0) : 0,
       };
     });
-    if (!out.some((c) => c.side === 'p1')) out[0].side = 'p1';
+    if (out.length && !out.some((c) => c.side === 'p1')) out[0].side = 'p1';
     if (!out.some((c) => c.side === 'p2') && out.length > 1) {
       const cand = out.find((c) => c.side !== 'p1');
       if (cand) cand.side = 'p2';
@@ -922,46 +1132,117 @@
     return { storyChars: out };
   }
 
+  // 选中一个会话 → 拉角色 → 随机分配 → 持久化 → 角色实体绑定视图
   async function pickSession(sid) {
     const s = (CONN.sessions || []).find((x) => x.sessionId === sid);
     CONN.sessionId = sid;
     CONN.storyName = (s && (s.title || s.worldName)) || '';
     CONN.worldId = (s && s.worldId) || 0;
     storyStatusEl.textContent = '读取会话「' + CONN.storyName + '」…';
-    const [msgR, rosterR] = await Promise.all([
-      connApi('/api/conn/sessions/' + encodeURIComponent(sid) + '/messages'),
+    storyStatusEl.className = 'sub';
+
+    const [rolesR, rosterR] = await Promise.all([
+      connApi('/api/conn/sessions/' + encodeURIComponent(sid) + '/roles'),
       connApi('/api/conn/session-data/' + encodeURIComponent(sid) + '/tf_fight_roster'),
     ]);
-    if (!msgR || !msgR.ok) {
-      storyStatusEl.textContent = '消息拉取失败：' + ((msgR && msgR.error) || '?');
-      storyStatusEl.className = 'sub err';
-      return;
+
+    // 角色来源：后端世界角色表 > 会话消息提取
+    let chars = [];
+    CONN.storyRoles = [];
+    if (rolesR && rolesR.ok && Array.isArray(rolesR.roles) && rolesR.roles.length) {
+      CONN.storyRoles = rolesR.roles;
+      CONN.worldId = Number(rolesR.worldId) || CONN.worldId;
+      CONN.storyName = rolesR.worldName || CONN.storyName;
+      CONN.storyIntro = String(rolesR.intro || '');
+      chars = rolesR.roles.map((r) => ({
+        name: r.name, roleType: r.roleType, profession: r.profession || '',
+        avatarPath: r.avatarPath || '', description: r.description || '',
+      }));
+    } else {
+      const msgR = await connApi('/api/conn/sessions/' + encodeURIComponent(sid) + '/messages');
+      if (msgR && msgR.ok) chars = rolesFromMessages(msgR.messages);
     }
-    const chars = extractStoryChars(msgR.messages);
+
     if (!chars.length) {
-      storyStatusEl.textContent = '这个会话还没有可分配的故事角色（没有 NPC/玩家发言）。';
+      storyStatusEl.textContent = '这个会话还没有可分配的故事角色。';
       storyStatusEl.className = 'sub err';
       return;
     }
-    CONN.roster = composeRoster(chars, rosterR && rosterR.ok ? rosterR.value : null);
+
+    const saved = rosterR && rosterR.ok ? rosterR.value : null;
+    CONN.roster = composeRoster(chars, saved);
     storyTitleEl.textContent = CONN.storyName + ' · 角色实体绑定';
-    storyStatusEl.textContent = (rosterR && rosterR.ok && rosterR.value ? '已载入上次保存的绑定（可修改）' : '已按出场次数自动随机分配') + ' · 共 ' + chars.length + ' 个角色';
+    storyStatusEl.textContent = (saved ? '已载入上次保存的绑定（可修改）' : '已自动随机分配默认资产角色')
+      + ' · 共 ' + chars.length + ' 个角色';
     storyStatusEl.className = 'sub ok';
     renderRosterEditor();
     showRosterView();
     renderHomeStory();
+
     // 资产集跟随故事：pack 声明了这个故事就自动选用
     if (!PACKS.cur && PACKS.list.length) {
       const hit = PACKS.list.find((p) => (p.stories || []).includes(CONN.storyName));
       if (hit) await usePack(hit.dir);
     }
+
+    // 设计文档：点击会话后「给角色随机分配默认资产，分配的数据持久化」——
+    // 没有存档时立刻存一次；有存档则等用户改完点【保存】。
+    if (!saved) {
+      const ok = await saveRoster(true);
+      if (ok) {
+        storyStatusEl.textContent = '已随机分配并保存 · 共 ' + chars.length + ' 个角色';
+        storyStatusEl.className = 'sub ok';
+      }
+    }
   }
+
 
   function renderRosterEditor() {
     charRowsEl.innerHTML = '';
+    if (!CONN.roster) return;
     for (const c of CONN.roster.storyChars) {
       const row = document.createElement('div');
-      row.className = 'charrow';
+      row.className = 'bindrow';
+
+      // 左：故事角色（toonflow 名 + 头像 + 职业）
+      const left = document.createElement('div');
+      left.className = 'side';
+      const roleMeta = CONN.storyRoles.find((r) => r.name === c.name);
+      left.appendChild(avatarNode(rolePortraitUrl(roleMeta || c), c.name.slice(0, 1), 'ava'));
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const badge = c.roleType === 'player' ? '<i class="badge player">主角</i>' : '<i class="badge npc">NPC</i>';
+      const prof = c.profession ? '<i class="badge prof">' + esc(c.profession) + '</i>' : '';
+      meta.innerHTML = '<b>' + esc(c.name) + badge + prof + '</b><i>' + esc(c.description || '—') + '</i>';
+      left.appendChild(meta);
+      row.appendChild(left);
+
+      const arr = document.createElement('div');
+      arr.className = 'arr';
+      arr.textContent = '→';
+      row.appendChild(arr);
+
+      // 右：MUGEN 实体（头像 + 下拉选择）
+      const right = document.createElement('div');
+      right.className = 'side';
+      right.appendChild(avatarNode(mugPortraitUrl(c.charId), (MUGEN[c.charId] || {}).glyph || c.charId.slice(0, 1), 'ava'));
+      const charSel = document.createElement('select');
+      for (const id of packCharPool()) {
+        const m = MUGEN[id] || { cn: id };
+        const o = document.createElement('option');
+        o.value = id;
+        o.textContent = id + '（' + m.cn + '）';
+        if (c.charId === id) o.selected = true;
+        charSel.appendChild(o);
+      }
+      charSel.addEventListener('change', () => {
+        c.charId = charSel.value;
+        renderRosterEditor();   // 换绑后头像跟着变
+      });
+      right.appendChild(charSel);
+      row.appendChild(right);
+
+      // 站位 + 战绩
       const sideSel = document.createElement('select');
       for (const [v, t] of [['p1', '我方 P1'], ['p2', '对手 P2'], ['bench', '未上场']]) {
         const o = document.createElement('option'); o.value = v; o.textContent = t;
@@ -975,29 +1256,21 @@
           renderRosterEditor();
         }
       });
-      const charSel = document.createElement('select');
-      for (const id of packCharPool()) {
-        const m = MUGEN[id] || { cn: id };
-        const o = document.createElement('option'); o.value = id; o.textContent = id + '（' + m.cn + '）';
-        if (c.charId === id) o.selected = true;
-        charSel.appendChild(o);
-      }
-      charSel.addEventListener('change', () => { c.charId = charSel.value; });
-      const prof = c.profession ? '<i class="badge prof">' + esc(c.profession) + '</i>' : '';
-      const badge = c.roleType === 'player' ? '<i class="badge player">主角</i>' : '<i class="badge npc">NPC</i>';
-      row.innerHTML = '<span class="cname">' + esc(c.name) + badge + prof + '</span>';
       row.appendChild(sideSel);
-      row.appendChild(charSel);
+
       const rec = document.createElement('span');
-      rec.className = 'rec'; rec.textContent = c.win + '胜 ' + c.lose + '负';
+      rec.className = 'rec';
+      rec.textContent = c.win + '胜 ' + c.lose + '负';
       row.appendChild(rec);
+
       charRowsEl.appendChild(row);
     }
   }
 
-  async function saveRoster() {
-    if (!CONN.sessionId || !CONN.roster) return;
-    document.getElementById('sr-save').textContent = '保存中…';
+  async function saveRoster(silent) {
+    if (!CONN.sessionId || !CONN.roster) return false;
+    const btn = document.getElementById('sr-save');
+    if (!silent) btn.textContent = '保存中…';
     const [r1, r2] = await Promise.all([
       connApi('/api/conn/session-data/' + encodeURIComponent(CONN.sessionId) + '/tf_fight_roster', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -1008,12 +1281,14 @@
         body: JSON.stringify({ value: { storyName: CONN.storyName, sessionId: CONN.sessionId, worldId: CONN.worldId, packId: PACKS.cur ? PACKS.cur.dir : undefined } }),
       }),
     ]);
-    document.getElementById('sr-save').textContent = '保 存';
+    btn.textContent = '保 存';
     const ok = r1 && r1.ok && r2 && r2.ok;
-    storyStatusEl.textContent = ok ? '已保存到会话（下次进入自动载入）' : '保存失败：' + ((r1 && r1.error) || (r2 && r2.error) || '?');
-    storyStatusEl.className = 'sub ' + (ok ? 'ok' : 'err');
+    if (!silent) {
+      storyStatusEl.textContent = ok ? '已保存到会话（下次进入自动载入）' : '保存失败：' + ((r1 && r1.error) || (r2 && r2.error) || '?');
+      storyStatusEl.className = 'sub ' + (ok ? 'ok' : 'err');
+    }
     renderHomeStory();
-    return ok;
+    return !!ok;
   }
 
   // 「用此分配开打」：进对战模式的选人屏（预填绑定）
@@ -1049,9 +1324,15 @@
     storyStatusEl.textContent = '已重新随机分配（记得保存）';
     storyStatusEl.className = 'sub ok';
   });
-  document.getElementById('sr-save').addEventListener('click', saveRoster);
+  document.getElementById('sr-save').addEventListener('click', () => saveRoster());
   document.getElementById('sr-fight').addEventListener('click', fightWithRoster);
   storyEl.addEventListener('click', (e) => { if (e.target === storyEl) storyEl.classList.remove('on'); });
+  document.getElementById('story-close').addEventListener('click', () => storyEl.classList.remove('on'));
+
+  // 资产集选择器的关闭（按钮 + 点遮罩）
+  const packpickEl = document.getElementById('packpick');
+  document.getElementById('packpick-close').addEventListener('click', () => packpickEl.classList.remove('on'));
+  packpickEl.addEventListener('click', (e) => { if (e.target === packpickEl) packpickEl.classList.remove('on'); });
 
   // ---------------- 系统设置（键位 / 性能 / 个性化 / 战斗开场） ----------------
   // 落地方式：把设置生成一份「只含覆盖项」的 save/user-config.ini，
@@ -1100,7 +1381,8 @@
       perf: PERF_PRESETS[s.perf] ? s.perf : 'fast',
       resMode: RES_CHOICES.some((r) => r[0] === s.resMode) ? s.resMode : 'auto',
       filter: s.filter === 'smooth' ? 'smooth' : 'pixelated',
-      pad: (s.pad === 'show' || s.pad === 'hide') ? s.pad : 'auto',
+      // 设计文档《虚拟手柄》：默认显示，可在系统设置里设为隐藏（auto = 仅触屏显示）
+      pad: (s.pad === 'auto' || s.pad === 'hide') ? s.pad : 'show',
       volume: {
         master: clampNum(s.volume && s.volume.master, 0, 100, 100),
         wav:    clampNum(s.volume && s.volume.wav, 0, 100, 80),
@@ -1109,6 +1391,7 @@
       battle: {
         speech: (s.battle && ['off', 'text', 'voice'].includes(s.battle.speech)) ? s.battle.speech : 'text',
         countdown: s.battle && s.battle.countdown === 'off' ? 'off' : 'on',
+        headAvatar: !(s.battle && s.battle.headAvatar === 'off'),
         headAvatar: !(s.battle && s.battle.headAvatar === 'off'),
       },
       keys: {
@@ -1356,6 +1639,82 @@
     settings.battle.headAvatar = e.target.value !== 'off'; saveSettings();
     if (settings.battle.headAvatar) renderHeadAvatars(); else { headavEl.classList.remove('on'); headavEl.innerHTML = ''; }
   });
+
+  // ---------------- 账号与服务器 ----------------
+  const SERVER_KEY = 'toonfight:server-v1';
+  function savedServer() {
+    try { return localStorage.getItem(SERVER_KEY) || ''; } catch { return ''; }
+  }
+  function syncAccountControls() {
+    const srv = document.getElementById('st-server');
+    if (srv) srv.value = savedServer();
+    const st = document.getElementById('st-server-state');
+    if (!st) return;
+    if (CONN.on) {
+      st.className = 'connstate ok';
+      st.textContent = '已连接 · 后端 v' + (CONN.backendVersion || '?') + (CONN.user ? ' · ' + CONN.user.name : '');
+    } else {
+      st.className = 'connstate idle';
+      st.textContent = '未连接（后端不可达时可离线游玩全部模式）';
+    }
+    document.getElementById('st-auth-msg').textContent = '';
+  }
+  document.getElementById('st-server-save').addEventListener('click', () => {
+    const v = document.getElementById('st-server').value.trim();
+    try { v ? localStorage.setItem(SERVER_KEY, v) : localStorage.removeItem(SERVER_KEY); } catch { /* 私密模式 */ }
+    const st = document.getElementById('st-server-state');
+    st.className = 'connstate ok';
+    st.textContent = '已保存：' + (v || '（默认）');
+  });
+  document.getElementById('st-server-test').addEventListener('click', async () => {
+    const st = document.getElementById('st-server-state');
+    st.className = 'connstate idle';
+    st.textContent = '测试中…';
+    const ok = await probeConn();
+    syncAccountControls();
+    if (!ok) { st.className = 'connstate err'; st.textContent = '连不上后端：' + (storyStatusEl.textContent || '未知错误'); }
+  });
+  for (const [btnId, mode] of [['st-tab-login', 'login'], ['st-tab-register', 'register']]) {
+    document.getElementById(btnId).addEventListener('click', () => {
+      document.getElementById('st-tab-login').classList.toggle('on', mode === 'login');
+      document.getElementById('st-tab-register').classList.toggle('on', mode === 'register');
+      document.getElementById('st-pass').setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+    });
+  }
+  async function authAction(kind) {
+    const msg = document.getElementById('st-auth-msg');
+    const user = document.getElementById('st-user').value.trim();
+    const pass = document.getElementById('st-pass').value;
+    if (!user || !pass) { msg.className = 'formmsg err'; msg.textContent = '请填写账号与密码'; return; }
+    msg.className = 'formmsg';
+    msg.textContent = kind === 'login' ? '登录中…' : '注册中…';
+    try {
+      const r = await fetch('/api/conn/' + kind, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass }),
+      }).then((x) => x.json());
+      if (!r || !r.ok) {
+        msg.className = 'formmsg err';
+        msg.textContent = (kind === 'login' ? '登录失败：' : '注册失败：') + ((r && r.error) || '未知错误');
+        return;
+      }
+      msg.className = 'formmsg ok';
+      msg.textContent = (kind === 'login' ? '登录成功：' : '注册成功：') + (r.user && r.user.name || user);
+      document.getElementById('st-pass').value = '';
+      await probeConn();
+      syncAccountControls();
+    } catch (e) {
+      msg.className = 'formmsg err';
+      msg.textContent = '请求失败：' + String((e && e.message) || e);
+    }
+  }
+  document.getElementById('st-login').addEventListener('click', () => authAction('login'));
+  document.getElementById('st-register').addEventListener('click', () => authAction('register'));
+  document.getElementById('st-logout').addEventListener('click', () => {
+    const msg = document.getElementById('st-auth-msg');
+    msg.className = 'formmsg';
+    msg.textContent = '要退出登录，请清除本站的 Cookie（浏览器设置 → 站点数据）。';
+  });
   for (const k of ['master', 'wav', 'bgm']) {
     document.getElementById('st-vol-' + k).addEventListener('input', (e) => {
       settings.volume[k] = clampNum(e.target.value, 0, 100, 100); saveSettings();
@@ -1375,6 +1734,7 @@
     renderKeyGrid('p2', 'keygrid-p2');
     renderPerfPresets();
     syncPersonalControls();
+    syncAccountControls();
     settingsEl.classList.add('on');
   }
   document.getElementById('btn-settings').addEventListener('click', openSettings);
@@ -1527,12 +1887,28 @@
         const info = slotInfo(side, i);
         const b = document.createElement('button');
         b.className = 'slot ' + side + 'side' + (activeSlot === side + '-' + i ? ' active' : '');
-        const g = info.isRand ? '<div class="sg">?</div>' : (info.m ? '<div class="sg">' + esc(info.m.glyph) + '</div>' : '<div class="sg">—</div>');
+        b.appendChild(avatarNode(info.isRand ? null : mugPortraitUrl(info.real),
+          info.isRand ? '?' : (info.m ? info.m.glyph : '—'), 'sg'));
         const label = info.isRand ? '随机' : (info.m ? info.m.cn : '空');
         const sub = info.tc ? esc(info.tc.name) + (info.tc.profession ? ' · ' + esc(info.tc.profession) : '') : (info.m ? esc(info.m.tag) : '点击选人');
-        b.innerHTML = g + '<div class="sn"><b>' + label + '</b><i>' + sub + '</i></div>' +
-          '<span class="side-tag">' + (side === 'p1' ? 'P1' : 'P2') + '-' + (i + 1) + '</span>';
-        b.addEventListener('click', () => { activeSlot = side + '-' + i; renderSlots(); });
+        const sn = document.createElement('div');
+        sn.className = 'sn';
+        sn.innerHTML = '<b>' + label + '</b><i>' + sub + '</i>';
+        b.appendChild(sn);
+        const tag = document.createElement('span');
+        tag.className = 'side-tag';
+        tag.textContent = (side === 'p1' ? 'P1' : 'P2') + '-' + (i + 1);
+        b.appendChild(tag);
+        // 出场顺序：点 ⇄ 与同侧下一个已占位置交换
+        if (teamSize > 1) {
+          const mv = document.createElement('span');
+          mv.className = 'rm';
+          mv.textContent = '⇄';
+          mv.title = '交换出场顺序';
+          mv.addEventListener('click', (e) => { e.stopPropagation(); swapSlotOrder(side, i); });
+          b.appendChild(mv);
+        }
+        b.addEventListener('click', () => { activeSlot = side + '-' + i; renderSlots(); renderCharGrid(); renderSelBig(); });
         root.appendChild(b);
       }
       if (MODE !== 'survival' && side === 'p1') {
@@ -1541,6 +1917,49 @@
         vs.textContent = 'VS';
         root.appendChild(vs);
       }
+    }
+    renderSelBig();
+  }
+  // 交换同一侧两个位置的出场顺序
+  function swapSlotOrder(side, i) {
+    const arr = slots[side];
+    for (let j = 0; j < arr.length; j++) {
+      if (j === i) continue;
+      if (arr[j]) { const t = arr[i]; arr[i] = arr[j]; arr[j] = t; break; }
+    }
+    renderSlots(); renderCharGrid();
+  }
+
+  // 选人时的双人大预览（设计文档：选人屏显示双方信息）
+  function renderSelBig() {
+    const root = document.getElementById('selbig');
+    if (!root) return;
+    root.innerHTML = '';
+    const mk = (side) => {
+      const info = slotInfo(side, 0);
+      const box = document.createElement('div');
+      box.className = 'side';
+      box.appendChild(avatarNode(info.isRand ? null : mugPortraitUrl(info.real),
+        info.isRand ? '?' : (info.m ? info.m.glyph : '—'), 'ava'));
+      const tx = document.createElement('div');
+      tx.className = 'tx';
+      const tc = info.tc;
+      const name = tc ? tc.name : (info.m ? info.m.cn : '—');
+      const sub = tc
+        ? (info.real ? info.real + '（' + (info.m ? info.m.cn : info.real) + '）' : '未选实体')
+          + (tc.profession ? ' · ' + tc.profession : '')
+        : (info.m ? (info.m.tag || '') + (info.m.style ? ' · ' + info.m.style : '') : '点下面的卡片选人');
+      tx.innerHTML = '<b>' + esc(name) + '</b><i>' + esc(sub) + '</i>';
+      box.appendChild(tx);
+      return box;
+    };
+    root.appendChild(mk('p1'));
+    if (MODE !== 'survival') {
+      const vs = document.createElement('div');
+      vs.className = 'vs';
+      vs.textContent = 'VS';
+      root.appendChild(vs);
+      root.appendChild(mk('p2'));
     }
   }
 
@@ -1561,11 +1980,30 @@
       const tc = CONN.roster && CONN.roster.storyChars.find((c) => c.charId === id);
       const b = document.createElement('button');
       b.className = 'kcard' + (slots[actSide][actIdx] === id ? ' sel' : '');
-      b.innerHTML = '<div class="glyph">' + esc(m.glyph) + '</div>' +
-        '<div class="name">' + esc(id) + '</div>' +
-        '<div class="tag">' + esc(m.cn) + (m.tag ? ' · ' + esc(m.tag) : '') + '</div>' +
-        (tc ? '<div class="bind">' + esc(tc.name) + '</div>' : '') +
-        (usedIds[id] ? '<div class="used">已被选用</div>' : '');
+      const pic = document.createElement('div');
+      pic.className = 'pic';
+      pic.appendChild(avatarNode(mugPortraitUrl(id), m.glyph, ''));
+      b.appendChild(pic);
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = id;
+      b.appendChild(name);
+      const tag = document.createElement('div');
+      tag.className = 'tag';
+      tag.textContent = m.cn + (m.tag ? ' · ' + m.tag : '');
+      b.appendChild(tag);
+      if (tc) {
+        const bind = document.createElement('div');
+        bind.className = 'bind';
+        bind.textContent = tc.name;
+        b.appendChild(bind);
+      }
+      if (usedIds[id]) {
+        const used = document.createElement('div');
+        used.className = 'used';
+        used.textContent = '已被选用';
+        b.appendChild(used);
+      }
       b.addEventListener('click', () => {
         // 再点同一个取消选中
         if (slots[actSide][actIdx] === id) { slots[actSide][actIdx] = null; }
@@ -1577,7 +2015,18 @@
     // 「?」随机卡
     const r = document.createElement('button');
     r.className = 'kcard rand' + (slots[actSide][actIdx] === '?' ? ' sel' : '');
-    r.innerHTML = '<div class="glyph">?</div><div class="name">随机</div><div class="tag">开打时随机抽一个</div>';
+    const rpic = document.createElement('div');
+    rpic.className = 'pic';
+    rpic.textContent = '?';
+    r.appendChild(rpic);
+    const rname = document.createElement('div');
+    rname.className = 'name';
+    rname.textContent = '随机';
+    r.appendChild(rname);
+    const rtag = document.createElement('div');
+    rtag.className = 'tag';
+    rtag.textContent = '开打时随机抽一个';
+    r.appendChild(rtag);
     r.addEventListener('click', () => {
       if (slots[actSide][actIdx] === '?') slots[actSide][actIdx] = null;
       else slots[actSide][actIdx] = '?';
@@ -1725,21 +2174,40 @@
     while (speechEl.children.length > 2) speechEl.removeChild(speechEl.firstChild);
     setTimeout(() => { line.remove(); if (!speechEl.children.length) speechEl.classList.remove('on'); }, 6000);
   }
+  // 世界观上下文（发言 agent 的「# 世界观」一节）：故事名 + 简介 + 登场角色
+  function worldText() {
+    const parts = [];
+    if (CONN.storyName) parts.push('故事：《' + CONN.storyName + '》');
+    if (CONN.storyIntro) parts.push(String(CONN.storyIntro).slice(0, 600));
+    const cs = (CONN.roster && CONN.roster.storyChars) || [];
+    if (cs.length) {
+      parts.push('登场角色：' + cs.slice(0, 8)
+        .map((x) => x.name + (x.profession ? '（' + x.profession + '）' : '')).join('、'));
+    }
+    return parts.join('\n');
+  }
   async function agentSay(side, kind) {
     try {
+      // 红线：对局中只允许非阻塞的 fire-and-forget 请求（本函数即「随机发言」例外）
       if (!CONN.on || settings.battle.speech === 'off' || !CONN.roster) return;
       const c = CONN.roster.storyChars.find((x) => x.side === side);
       if (!c) return;
-      const ask = kind === 'win'
-        ? '你刚赢得一场生死斗。用一句符合人设与世界观的话庆祝（30 字以内）。'
-        : kind === 'intro'
-          ? '生死斗即将开始。说一句符合人设与世界观的开场白（30 字以内）。'
-          : '战斗正酣。随机喊一句短促的战斗台词（20 字以内）。';
-      const prompt = '你是文字冒险《' + (CONN.storyName || '末世选择') + '》中的角色「' + c.name + '」' +
-        '（职业：' + (c.profession || '冒险者') + '，' + (c.roleType === 'player' ? '主角' : 'NPC') + '）。' + ask;
-      const r = await fetch('/api/conn/agent/chat', {
+      // 提示词由 BFF（server/lib/speech-agent.cjs）按人设+世界观组装，这里只给素材
+      const roleMeta = CONN.storyRoles.find((r) => r.name === c.name) || {};
+      const r = await fetch('/api/conn/agent/speech', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          side, kind,
+          storyName: CONN.storyName,
+          worldText: worldText(),
+          role: {
+            name: c.name,
+            profession: c.profession || roleMeta.profession || '',
+            description: c.description || roleMeta.description || '',
+            roleType: c.roleType || roleMeta.roleType || 'npc',
+            skills: roleMeta.skills || [],
+          },
+        }),
       }).then((x) => x.json());
       if (r && r.ok && r.text) {
         showSpeech(side, String(r.text).slice(0, 120));
@@ -1869,6 +2337,7 @@
     showResult(msg, side);
     renderFacebar();
     agentSay(side === 1 ? 'p1' : 'p2', 'win');
+    agentSay(side === 1 ? 'p2' : 'p1', 'lose');
     connApi('/api/conn/session-data/' + encodeURIComponent(CONN.sessionId) + '/tf_fight_roster', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: CONN.roster }),
@@ -1893,34 +2362,43 @@
   })();
 
   // ---------------- 实体头顶悬浮头像（field-survival 同款） ----------------
-  // 引擎侧（external/script/headavatar.lua）每 4 帧输出一次双方的屏幕坐标：
-  //   TF_HEAD:1:<x>,<y>|2:<x>,<y>
-  // 坐标是**引擎渲染分辨率**下的（默认 640×480），这里按画布 CSS 尺寸换算。
+  // 引擎侧（external/script/headavatar.lua）每 4 帧输出一次：
+  //   TF_HEAD:g=<zoom>,<gameW>,<gameH>|1:<x>,<y>|2:<x>,<y>
+  // 坐标是「游戏分辨率像素」（引擎内部 gameWidth×gameHeight，实测默认 320×240，
+  // 不是 canvas 的 640×480 —— 中间隔着 widthScale），且已由 Lua 侧抵消相机缩放。
+  // 这里按 canvas 元素的 contain-fit 内容区换算成 CSS 像素。
   const headavEl = document.getElementById('headav');
   const headPos = { 1: null, 2: null };
+  const headCam = { zoom: 1, gw: 320, gh: 240 };
   let headNodes = {};
 
   function onHeadPos(payload) {
     if (!settings.battle.headAvatar) return;
     for (const part of String(payload).split('|')) {
-      const m = /^(\d+):(-?[\d.]+),(-?[\d.]+),(\d+),(\d+)$/.exec(part.trim());
+      const g = /^g=([\d.]+),(\d+),(\d+)$/.exec(part.trim());
+      if (g) {
+        headCam.zoom = Math.max(0.01, parseFloat(g[1]) || 1);
+        headCam.gw = Number(g[2]) || 320;
+        headCam.gh = Number(g[3]) || 240;
+        continue;
+      }
+      const m = /^(\d+):(-?[\d.]+),(-?[\d.]+)(?:,(\d+),(\d+))?$/.exec(part.trim());
       if (!m) continue;
-      headPos[Number(m[1])] = { x: parseFloat(m[2]), y: parseFloat(m[3]), h: Number(m[4]), w: Number(m[5]) };
+      headPos[Number(m[1])] = { x: parseFloat(m[2]), y: parseFloat(m[3]) };
     }
     layoutHeadAvatars();
   }
 
-  // 引擎渲染分辨率 → 画布 CSS 尺寸的换算系数
+  // 游戏分辨率 → 画布 CSS 尺寸的换算系数（object-fit:contain 的内容区）
   function headScale() {
     const cv = canvas.getBoundingClientRect();
-    const r = effectiveRes();
-    const engW = r.w, engH = r.h;
-    // 画布是 object-fit:contain，实际内容区可能小于元素框 → 用宽高比推
+    // 注意：contain 是按 canvas 的**后备存储**尺寸算的（canvas.width/height），
+    // 不是设置面板里的分辨率——引擎实际 gameWidth 可能不同（如 320）
     const boxAspect = cv.width / cv.height;
-    const engAspect = engW / engH;
+    const engAspect = canvas.width / canvas.height;
     let w = cv.width, h = cv.height;
     if (boxAspect > engAspect) { w = h * engAspect; } else { h = w / engAspect; }
-    return { sx: w / engW, sy: h / engH, ox: cv.left + (cv.width - w) / 2, oy: cv.top + (cv.height - h) / 2 };
+    return { sx: w / headCam.gw, sy: h / headCam.gh, ox: cv.left + (cv.width - w) / 2, oy: cv.top + (cv.height - h) / 2 };
   }
 
   function layoutHeadAvatars() {
@@ -1935,13 +2413,21 @@
       if (!pos || !node) continue;
       const x = sc.ox + pos.x * sc.sx;
       const y = sc.oy + pos.y * sc.sy;
-      // 头顶 = 角色所在点往上抬「当前帧精灵高」
-      // 引擎给的 spriteVar('height') 就是屏幕上真实画出的高度，倒地/跳跃时会变
-      const lift = Math.max(24, (pos.h || 120) * sc.sy);
+      // 头顶位置：角色轴点（≈脚底）往上抬。精灵高度带透明边距不可信（实测
+      // Hinako 站立 sprH=126、实际只画出 ~70 游戏像素），改用固定抬升。
+      // 实测本池角色身高 70~100 游戏像素（320×240 下）。
+      // 注：.ha 有 translate(-50%,-100%)，style.top 是**渲染盒的底边**；
+      // 盒内自上而下是 圆片44px + 间隙2px + 名字~16px，所以圆片底部
+      // = top − 18px。抬升 84 → 圆片底 ≈ 轴点上 90 游戏像素：
+      // 高个（Lin/Rugal ≈100）圆片搭在发顶，矮个（Hinako ≈70）上浮 ~20 像素。
+      const liftPx = 84 * sc.sy;
       node.style.left = x.toFixed(1) + 'px';
-      node.style.top = (y - lift).toFixed(1) + 'px';
+      node.style.top = (y - liftPx).toFixed(1) + 'px';
     }
   }
+
+  // 窗口尺寸变化时画布 content 区会变，坐标包没来之前先按旧游戏坐标重排
+  window.addEventListener('resize', () => { if (headavEl.classList.contains('on')) layoutHeadAvatars(); });
 
   // 建/更新两个头像节点（内容：toonflow 角色头像 + 名字）
   function renderHeadAvatars() {
@@ -2059,6 +2545,8 @@
       ' · <span class="vs">' + esc((p1List || []).join('+')) + ' VS ' + esc((p2List || []).join('+')) + '</span>' +
       ' · 渲染 ' + r.w + '×' + r.h;
     hudEl.classList.add('on');
+    // 键位提示只在对局开头有用；12 秒后淡出，避免长期压住引擎左上角的角色头像/名字
+    setTimeout(() => hudEl.classList.remove('on'), 12000);
     toolsEl.classList.add('on');
     renderFacebar();
     renderSkills();

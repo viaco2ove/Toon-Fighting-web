@@ -426,7 +426,8 @@ async function handleApi(req, res, urlPath) {
       return;
     }
 
-    // 发言 agent（文本）：走后端 agentRun，agentName 由前端指定；
+    // 通用文本通道：后端 `plugin-llm` 只要 systemPrompt + userPrompt，
+// 返回纯文本时落在 output.text（JSON 输出则原样直通 output）。
     // 失败/超时静默跳过（前端约定），不缓存。注意：对局中的调用都是
     // fire-and-forget 异步请求，不阻塞帧循环。
     if (urlPath === '/api/conn/agent/chat' && req.method === 'POST') {
@@ -435,16 +436,21 @@ async function handleApi(req, res, urlPath) {
       req.on('end', async () => {
         let input;
         try { input = JSON.parse(body || '{}'); } catch { return json(res, 200, { ok: false, error: 'body 需为 JSON' }); }
-        const prompt = String(input.prompt || '').slice(0, 1500);
-        if (!prompt) return json(res, 200, { ok: false, error: 'prompt 为空' });
+        // 后端要求必须有 systemPrompt（插件自带提示词，宿主不持有）
+        const systemPrompt = String(input.systemPrompt || input.system || '').trim();
+        const userPrompt = String(input.userPrompt || input.prompt || '').slice(0, 2000);
+        if (!systemPrompt) return json(res, 200, { ok: false, error: 'systemPrompt 必填（后端 plugin-llm 通道要求）' });
+        if (!userPrompt) return json(res, 200, { ok: false, error: 'userPrompt 为空' });
         try {
           const r = await bfAuth('/plugin/agentRun', {
-            agentName: String(input.agentName || 'toon-fighting-speech'),
-            input: { prompt, system: input.system ? String(input.system).slice(0, 800) : undefined },
-          });
-          // 后端返回形态未知（文本 agent 可能回 data.text/message/content 任一），统一取字符串
-          const text = r && (r.text || r.message || r.content || (typeof r.data === 'string' ? r.data : (r.data && (r.data.text || r.data.message || r.data.content)))) || '';
-          json(res, 200, { ok: !!text, text: String(text).slice(0, 400), raw: r });
+            agentName: 'plugin-llm',
+            aiConfigKey: String(input.aiConfigKey || 'storyMiniGameModel'),
+            input: { systemPrompt, userPrompt },
+          }, { authTokenOverride: authTok, timeoutMs: 70000 });
+          if (r && r.ok === false) return json(res, 200, { ok: false, error: r.error || '模型调用失败' });
+          const out = (r && r.output) ? r.output : r;
+          const text = String((out && (out.text || out.content)) || '').trim();
+          json(res, 200, text ? { ok: true, text: text.slice(0, 400) } : { ok: false, error: '模型返回为空', output: out || null });
         } catch (e) { fail(res, e, 'agentChat'); }
       });
       return;
@@ -497,11 +503,13 @@ async function handleApi(req, res, urlPath) {
             agentName: req0.agentName,
             aiConfigKey: req0.aiConfigKey,
             input: req0.input,
-          }, { authTokenOverride: authTok });
-          // plugin-llm 返回 { ok, output:{ text } }
+          }, { authTokenOverride: authTok, timeoutMs: 70000 });
+          // plugin-llm 返回 { ok, output:{ text } }；失败时 output 为空、error 带原因
+          // （例如模型额度用尽），要如实透出，不能假装「台词为空」
+          if (r && r.ok === false) return json(res, 200, { ok: false, error: r.error || '模型调用失败' });
           const out = (r && r.output) ? r.output : r;
           const text = cleanLine(out && (out.text || out.content) || '');
-          if (!text) return json(res, 200, { ok: false, error: '台词为空' });
+          if (!text) return json(res, 200, { ok: false, error: (r && r.error) || '台词为空' });
           json(res, 200, { ok: true, text });
         } catch (e) { fail(res, e, 'speech'); }
       });

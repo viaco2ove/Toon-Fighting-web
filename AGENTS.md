@@ -18,7 +18,7 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
 
 ## 目录结构
 
-- `index.html` —— 唯一页面外壳，**已按 `md/curdesign/ai格斗设计/界面设计/` 10 份设计文档重构**（2026-11-24）：主界面 `#home`（当前故事/资产集/角色绑定三行 + 练习·对战·生存·设置四按钮 + 联动状态点）、故事列表 `#story`（会话卡片 → 点选 → 拉故事全部角色 → 自动随机分配默认资产 → **持久化** → 角色实体绑定视图 `#story-roster`（左：toonflow 角色头像+名字+职业徽章+人设描述；右：MUGEN 实体头像+下拉换绑；每行两个下拉=站位(p1/p2/bench)+实体；底部【随机分配】【保存】【用此分配开打】固定可见）、资产集选择器 `#packpick`、KOF 式选人 `#select`（1/3 人编队、`?`随机、可取消、出场顺序⇄、双人大预览 `#selbig`、头像网格 `#kgrid`、对战难度、开始按钮；练习/对战模式自动预填绑定）、战斗层（双头像 facebar=toonflow 头像+名+职业+战绩 与 MUGEN 头像并排，**top 108px 避开引擎血条**；快捷技能 `#skills`（最多 5 个，发键走 INI2CODE 反查，**bottom 266px 避开虚拟手柄攻击区**）；战斗菜单 `#bmenu`（练习假人 站桩/跳跃/防守/自由攻击 四行为=前端周期注入 P2 键实现；招式查看）；`#countdown` 3 秒倒计时；`#speech` 发言条**打字机式逐字显示**）、生存模式链（胜→`?mode=survival&stage=N+1&ai+1&auto=1` reload 续关，负→回主界面，best 存 localStorage）。`startEngine(p1List, p2List, aiVal)` 多编队签名，3 人走 `-p1/-p3/-p5 -tmode1 1`；`?auto=1&p1=&p2=&ai=` 直启路径保留。前端 localStorage：`toonfight:settings-v1`（+battle:{speech,countdown}；pad 默认 **show**——设计文档要求虚拟手柄默认显示）、`toonfight:pack-v1`、`toonfight:survival`、`toonfight:server-v1`。
+- `index.html` —— 唯一页面外壳，**已按 `md/curdesign/ai格斗设计/界面设计/` 10 份设计文档重构**（2026-11-24）：主界面 `#home`（当前故事/资产集/角色绑定三行 + 练习·对战·生存·设置四按钮 + 联动状态点）、故事列表 `#story`（会话卡片 → 点选 → 拉故事全部角色 → 自动随机分配默认资产 → **持久化** → 角色实体绑定视图 `#story-roster`（左：toonflow 角色头像+名字+职业徽章+人设描述；右：MUGEN 实体头像+下拉换绑；每行两个下拉=站位(p1/p2/bench)+实体；底部【随机分配】【保存】【用此分配开打】固定可见）、资产集选择器 `#packpick`、KOF 式选人 `#select`（1/3 人编队、`?`随机、可取消、出场顺序⇄、双人大预览 `#selbig`、头像网格 `#kgrid`、对战难度、开始按钮；练习/对战模式自动预填绑定）、战斗层（双头像 facebar=toonflow 头像+名+职业+战绩 与 MUGEN 头像并排，**top 108px 避开引擎血条**；快捷技能 `#skills`（最多 5 个，发键走 INI2CODE 反查，**bottom 266px 避开虚拟手柄攻击区**）；战斗菜单 `#bmenu`（练习假人 站桩/跳跃/防守/自由攻击 四行为=前端周期注入 P2 键实现；招式查看）；`#countdown` 3 秒倒计时；`#speech` 发言条**打字机式逐字显示**，发言 agent 走 `/api/conn/agent/speech`（人设/世界观提示词在 `server/lib/speech-agent.cjs` 组装，fire-and-forget 不阻塞对局，接口挂了静默跳过）；实体头顶悬浮头像 `#headav`（引擎 TF_HEAD 坐标包驱动，系统设置可隐藏，坐标口径见机制 10））、生存模式链（胜→`?mode=survival&stage=N+1&ai+1&auto=1` reload 续关，负→回主界面，best 存 localStorage）。`startEngine(p1List, p2List, aiVal)` 多编队签名，3 人走 `-p1/-p3/-p5 -tmode1 1`；`?auto=1&p1=&p2=&ai=` 直启路径保留。前端 localStorage：`toonfight:settings-v1`（+battle:{speech,countdown}；pad 默认 **show**——设计文档要求虚拟手柄默认显示）、`toonfight:pack-v1`、`toonfight:survival`、`toonfight:server-v1`。
 - `serve.cjs` —— 静态服务器，no-store + Range 支持 + 正确的 wasm MIME。**兼做 BFF**：
   - 不依赖 `--conn` 的本地接口：`GET /api/assetpacks`（扫 `workshops/toon-fighting-web/map_design/*/pack.json`，返回包列表+本地可跑角色+`--story` 指定的资产集）、`GET /api/packs/:dir`（资产集元数据 pack/story/roster/mapping）、`GET /api/portrait/:charId`（**从角色包 sff 解出头像 PNG**，见 server/lib/portrait.cjs）、`GET /api/role-avatar/*`（toonflow 角色头像代理，OSS 相对路径→图片字节，**用后端项目的 sharp 缩到 192px webp**，8MB→7KB；无 sharp 时降级返回原图）。
   - `--conn` 时的 `/api/conn/*`：`status`（联通自检+当前登录用户）、`sessions`（会话列表，60s 缓存）、`sessions/:sid/messages`（NDJSON 重组）、**`sessions/:sid/roles`**（会话→故事全部角色：先 getSessionMeta 取 worldId 再 getWorld 取 `settings.roles`，含 name/roleType/description/avatarPath/skills）、`session-data/:sid/:key` 读写（PUT 800ms 同 key 合并）、`agent/generate`（生图）、`agent/chat`（通用文本）、**`agent/speech`**（格斗台词，提示词由本项目构造）、**`login`**/**`register`**（账号登录/注册，**后端 token 只存服务端内存表**，页面只拿到 HttpOnly cookie `tf_sid`，页面 JS 永远接触不到后端 token）。
@@ -36,7 +36,7 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
   - `chars/{Hinako, K', Lin, Rugal2nd, Leona, 98-kim, MasterRyu}`（后两者资源残缺，缺 sff/cns，跑不起来；Leona=KOFA 版，var(59) 天然惰性免 AI 闸）
   - `stages/` 9 个 def
   - `data/`：`system.def`、`select.def`、`common.*`、`fight.*`、`training.zss`
-  - `external/script/`：`main.lua`、`start.lua`、`menu.lua`、`options.lua`、`debug.lua`、`default.lua`
+  - `external/script/`：`main.lua`、`start.lua`、`menu.lua`、`options.lua`、`debug.lua`、`default.lua`、`headavatar.lua`（实体头顶悬浮头像的坐标输出，见机制 10）
   - `save/{config.json, stats.json}`（引擎运行时会回写）
   - `font/`、`sound/`
 - `workshops/toon-fighting-web/{map_design, map_design_pre}` —— 美术资源工作区，未参与运行。
@@ -92,6 +92,12 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
 9. **引擎的选人/VS 画面要按确认键才进对局。**
    引擎启动后先走自己的选人流程（`select.def` 里列的角色），不是直接进战斗。headless 验证脚本必须模拟按 Enter 推进（旧脚本 `verify-result.mjs` 就是这么做的）。这不是 bug。
 
+10. **TF_HEAD 头顶头像的坐标口径（2026-11-24 实测标定，勿凭直觉改）。**
+   `external/script/headavatar.lua` 每 4 帧输出 `TF_HEAD:g=<zoom>,<gameW>,<gameH>|1:<x>,<y>|2:<x>,<y>`，index.html 的 `#headav` 据此定位。三个坑都实测过：
+   - 引擎的 `screenPosX()/screenPosY()` **不含相机缩放**（char.go:6131 的 TODO 注释），Lua 侧已按 `anim.go:1456` 的渲染管线反推补偿：`x += gameWidth/2*(1-1/zoom)`、`y += cameraPosY*(1-1/zoom)`；zoom=1 时退化为原值。
+   - `gameWidth()` 实测返回 **320**（不是 canvas 的 640×480，中间隔着 `widthScale`）。前端缩放必须用坐标包里的 gameW/gameH 除以 canvas 的 contain-fit 内容区，**不要**用设置面板的分辨率。
+   - `spriteVar("height")` 是精灵位图尺寸、**含透明边距**（Hinako 站立 sprH=126，实际画出 ~70 游戏像素），不能拿来当抬升量。前端用固定抬升 84 游戏像素（角色实测身高 70~100）。
+
 ## 键位
 
 - P1：`←↑↓→`，A=`z` B=`x` C=`c` X=`a` Y=`s` Z=`d`，Start=`Enter`，D=`q` W=`w`，Esc
@@ -112,8 +118,8 @@ CDP 探针脚本统一在 `.cache/scripts/`，运行方式 `node .cache/scripts/
 - `node .cache/scripts/patch-char-ai.mjs` —— 给角色包 AI Start 块加 `Ailevel > 0` 闸（新角色包入库后跑一遍）。
 - `node .cache/scripts/verify-settings.mjs <outDir> <port> panel|match` —— 系统设置面板截图 + user-config.ini 注入/引擎回写验证（panel 走 home-settings 开面板；match 走 `?auto=1` 直启等 boot ready，不等主界面）。
 - `node .cache/scripts/lib/cdp.mjs` —— **共用的轻量 CDP 客户端**（`launchEdge`/`connect`/`checker`）：起独立 user-data-dir 的 Edge、真实鼠标事件点击（`clickSel`）、视口模拟、断言收集。`--user-data-dir` 必须是绝对路径（相对路径 Edge 起不来）；清理进程时按 profile 目录名过滤，**不要误杀用户自己开着的 Edge**。
-- `node .cache/scripts/verify-ui.mjs <outDir> <url> [cdpPort] [w] [h]` —— **界面全链冒烟（22 项）**：主界面→资产集→选人（选中/取消/随机/3 人编队）→练习开局→facebar/skills/pad/bmenu→设置账号页。桌面 1280×800 与手机 390×844 都全绿。
-- `node .cache/scripts/verify-conn.mjs <outDir> <url> [cdpPort] [w] [h]` —— **联动端到端（17 项）**：需 `node serve.cjs --conn`。故事列表→点会话→角色实体绑定（双头像/职业/换绑/保存可见）→自动分配并持久化→回主界面→用此分配开打。需真实后端（.env）。
+- `node .cache/scripts/verify-ui.mjs <outDir> <cdpPort>` —— **界面全链冒烟**（连到已起的 Edge）：主界面→选人（预填/3 人编队）→练习开局（引擎起帧）→facebar/skills/pad/bmenu→无 JS 异常。起 Edge 用 `node .cache/tmp-launch.mjs <cdpPort>`（launchEdge 封装）。
+- `node .cache/scripts/verify-conn.mjs <outDir> <cdpPort>` —— **联动端到端（14 断言）**：需 8100 跑 `node serve.cjs -- --story <名> --conn` + 已起的 Edge。故事列表→点会话→角色实体绑定（双头像加载/职业徽章/换绑头像跟随/随机分配/保存）→服务端读回持久化→用此分配开打→选人预填→引擎起帧→facebar 双人→无 JS 异常。需真实后端（.env）。
 - `node .cache/scripts/repro-30.mjs <outDir> <url> [cdpPort] [w] [h]` —— 「卡在 30%」回归：读 boot/home 的类名 + 中心点命中元素 + 截图。
 - `node .cache/scripts/sff-inspect.mjs` —— 逐个角色包 dump SFF 目录（版本/精灵数/目录链/9000 系列尺寸），验证 `server/lib/sff.cjs` 的解析。
 - `node .cache/scripts/probe-layout.mjs <url> [cdpPort] [w] [h]` —— 量各 UI 元素的几何位置，查重叠（技能按钮 vs 手柄、facebar vs 引擎血条）。
