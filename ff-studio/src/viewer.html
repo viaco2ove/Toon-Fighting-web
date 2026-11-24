@@ -958,12 +958,20 @@ function loadFiles(fileMap, defPath) {
       // AI 关键帧预览开关的可用性（没有 keyframes/ 资产就禁用）
       const hasAI = !!(state.keyAssets && state.keyAssets.frames.length);
       $('aiPreview').disabled = !hasAI;
-      $('aiPreview').checked = hasAI && state.aiPreview;
       $('aiPreviewHint').textContent = hasAI
         ? '（' + state.keyAssets.frames.length + ' 类：' + AI_CATEGORIES.map((c) => c.label).join('/') + '）'
         : '（该角色无 keyframes/ 资产）';
       // 动作列表要带「→ 类别」标记，所以必须在 keyAssets 就绪之后渲染
       renderAnimList();
+      // 恢复上次的 AI 预览开关状态（刷新后保持）
+      if (hasAI && loadAiPreview() && !state.aiPreview) {
+        $('aiPreview').checked = true;
+        await preloadAiFrames();
+        state.aiPreview = true;
+        aiFitCache.clear();
+        $('aiPreviewHint').textContent = '（已启用 ' + state.keyAssets.frames.length + ' 类）';
+        redrawCurrent();
+      }
       // 默认播放第一个动作（优先 0 站立）
       const first = state.actions && (state.actions.has(0) ? 0 : [...state.actions.keys()][0]);
       if (first !== undefined) playAction(first);
@@ -1358,13 +1366,14 @@ $('aiPreview').onchange = async (e) => {
   if (e.target.checked) {
     $('aiPreviewHint').textContent = '（正在加载 AI 帧…）';
     const n = await preloadAiFrames();
-    if (!n) { e.target.checked = false; $('aiPreviewHint').textContent = '（AI 帧加载失败）'; return; }
+    if (!n) { e.target.checked = false; $('aiPreviewHint').textContent = '（AI 帧加载失败）'; saveAiPreview(false); return; }
     state.aiPreview = true;
     aiFitCache.clear();
   } else {
     state.aiPreview = false;
     aiFitCache.clear();
   }
+  saveAiPreview(state.aiPreview);
   $('aiPreviewHint').textContent = state.aiPreview
     ? '（已启用 ' + (state.keyAssets ? state.keyAssets.frames.length : 0) + ' 类）'
     : '（已关闭）';
@@ -1434,6 +1443,24 @@ window.addEventListener('drop', async (e) => {
 });
 
 /* ---------- 服务器模式（经 http://localhost:8100/ff-studio/src/viewer.html 打开时） ---------- */
+// 记住上次选的资产集+角色：刷新页面自动恢复并直接载入，不用重新点一遍
+const VIEWER_LAST_KEY = 'ffstudio:last-asset';
+const VIEWER_AIPREVIEW_KEY = 'ffstudio:ai-preview';
+function saveLastAsset(pack, charId) {
+  try { localStorage.setItem(VIEWER_LAST_KEY, JSON.stringify({ pack, charId, at: Date.now() })); }
+  catch (e) { /* 私密模式 */ }
+}
+function loadLastAsset() {
+  try { return JSON.parse(localStorage.getItem(VIEWER_LAST_KEY) || 'null'); }
+  catch (e) { return null; }
+}
+function saveAiPreview(on) {
+  try { localStorage.setItem(VIEWER_AIPREVIEW_KEY, on ? '1' : '0'); } catch (e) { /* 私密模式 */ }
+}
+function loadAiPreview() {
+  try { return localStorage.getItem(VIEWER_AIPREVIEW_KEY) === '1'; } catch (e) { return false; }
+}
+
 (async () => {
   if (location.protocol === 'file:') return;
   try {
@@ -1441,11 +1468,14 @@ window.addEventListener('drop', async (e) => {
     const box = $('serverBox');
     box.style.display = '';
     const list = $('packList');
+    const ids = (packs.localChars || []).slice().sort();
+    const last = loadLastAsset();
+    // 展开上次选中的资产集（并把角色列表一次性铺好，便于再次切换）
     for (const p of (packs.packs || packs || [])) {
       const name = typeof p === 'string' ? p : (p.dir || p.name || '');
       if (!name) continue;
       const row = document.createElement('div');
-      row.className = 'pRow';
+      row.className = 'pRow' + (last && last.pack === name ? ' on' : '');
       row.innerHTML = '📦 ' + name;
       list.appendChild(row);
       row.onclick = async () => {
@@ -1455,20 +1485,32 @@ window.addEventListener('drop', async (e) => {
           // 角色清单直接用 /api/assetpacks 的 localChars（引擎侧真实角色目录）。
           // 不用 roster——那是故事角色名（林羽/苏晚晴），不是 charId；
           // 也不用 mapping.charPool——新入库的角色常常还没登记进去。
-          const ids = (packs.localChars || []).slice().sort();
           const sub = document.createElement('div');
           sub.style.margin = '4px 0 8px 16px';
           sub.innerHTML = '<div class="kv">载入角色（点击）：</div>';
           list.appendChild(sub);
           for (const cid of ids) {
             const crow = document.createElement('div');
-            crow.className = 'pRow';
+            crow.className = 'pRow' + (last && last.charId === cid ? ' on' : '');
             crow.innerHTML = '👤 ' + cid;
             sub.appendChild(crow);
-            crow.onclick = () => loadFromServer(name, cid);
+            crow.onclick = () => { saveLastAsset(name, cid); loadFromServer(name, cid); };
           }
         } catch (err) { $('warn').textContent = '读取资产集失败：' + err.message; }
       };
+      // 上次选的资产集：自动展开（不自动载入角色，等 autoRestore 决定）
+      if (last && last.pack === name) row.click();
+    }
+    // 自动恢复上次载入的角色（不再要求用户重新点一遍）
+    if (last && last.pack && last.charId) {
+      const canRestore = ids.includes(last.charId);
+      if (canRestore) {
+        $('warn').textContent = '正在恢复上次载入：' + last.pack + ' / ' + last.charId + ' …';
+        await loadFromServer(last.pack, last.charId);
+        $('warn').textContent = '';
+      } else {
+        $('warn').textContent = '上次载入的角色「' + last.charId + '」已不在引擎里，请重新选择';
+      }
     }
   } catch (e) { /* 非 8100 环境静默 */ }
 })();
