@@ -18,13 +18,22 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
 
 ## 目录结构
 
-- `index.html` —— 唯一页面外壳：加载屏、进度条、中文选人屏、「练 习 · 对手站桩」「正 式 对 战」「系 统 设 置」三颗按钮、首局等待遮罩、失焦暂停遮罩、按键回显、键位条。引擎参数由它按 URL query 拼出来。
-- `serve.cjs` —— 静态服务器，no-store + Range 支持 + 正确的 wasm MIME。
+- `index.html` —— 唯一页面外壳，**已按 `md/curdesign/ai格斗设计/界面设计/` 10 份设计文档重构**（2026-11-24）：主界面 `#home`（当前故事/资产集/角色绑定三行 + 练习·对战·生存·设置四按钮 + 联动状态点）、故事列表 `#story`（会话卡片 → 点选 → 拉故事全部角色 → 自动随机分配默认资产 → **持久化** → 角色实体绑定视图 `#story-roster`（左：toonflow 角色头像+名字+职业徽章+人设描述；右：MUGEN 实体头像+下拉换绑；每行两个下拉=站位(p1/p2/bench)+实体；底部【随机分配】【保存】【用此分配开打】固定可见）、资产集选择器 `#packpick`、KOF 式选人 `#select`（1/3 人编队、`?`随机、可取消、出场顺序⇄、双人大预览 `#selbig`、头像网格 `#kgrid`、对战难度、开始按钮；练习/对战模式自动预填绑定）、战斗层（双头像 facebar=toonflow 头像+名+职业+战绩 与 MUGEN 头像并排，**top 108px 避开引擎血条**；快捷技能 `#skills`（最多 5 个，发键走 INI2CODE 反查，**bottom 266px 避开虚拟手柄攻击区**）；战斗菜单 `#bmenu`（练习假人 站桩/跳跃/防守/自由攻击 四行为=前端周期注入 P2 键实现；招式查看）；`#countdown` 3 秒倒计时；`#speech` 发言条**打字机式逐字显示**）、生存模式链（胜→`?mode=survival&stage=N+1&ai+1&auto=1` reload 续关，负→回主界面，best 存 localStorage）。`startEngine(p1List, p2List, aiVal)` 多编队签名，3 人走 `-p1/-p3/-p5 -tmode1 1`；`?auto=1&p1=&p2=&ai=` 直启路径保留。前端 localStorage：`toonfight:settings-v1`（+battle:{speech,countdown}；pad 默认 **show**——设计文档要求虚拟手柄默认显示）、`toonfight:pack-v1`、`toonfight:survival`、`toonfight:server-v1`。
+- `serve.cjs` —— 静态服务器，no-store + Range 支持 + 正确的 wasm MIME。**兼做 BFF**：
+  - 不依赖 `--conn` 的本地接口：`GET /api/assetpacks`（扫 `workshops/toon-fighting-web/map_design/*/pack.json`，返回包列表+本地可跑角色+`--story` 指定的资产集）、`GET /api/packs/:dir`（资产集元数据 pack/story/roster/mapping）、`GET /api/portrait/:charId`（**从角色包 sff 解出头像 PNG**，见 server/lib/portrait.cjs）、`GET /api/role-avatar/*`（toonflow 角色头像代理，OSS 相对路径→图片字节，**用后端项目的 sharp 缩到 192px webp**，8MB→7KB；无 sharp 时降级返回原图）。
+  - `--conn` 时的 `/api/conn/*`：`status`（联通自检+当前登录用户）、`sessions`（会话列表，60s 缓存）、`sessions/:sid/messages`（NDJSON 重组）、**`sessions/:sid/roles`**（会话→故事全部角色：先 getSessionMeta 取 worldId 再 getWorld 取 `settings.roles`，含 name/roleType/description/avatarPath/skills）、`session-data/:sid/:key` 读写（PUT 800ms 同 key 合并）、`agent/generate`（生图）、`agent/chat`（通用文本）、**`agent/speech`**（格斗台词，提示词由本项目构造）、**`login`**/**`register`**（账号登录/注册，**后端 token 只存服务端内存表**，页面只拿到 HttpOnly cookie `tf_sid`，页面 JS 永远接触不到后端 token）。
+  - 会话 token 优先于 .env token；会话 token 失效时**不**用 .env token 顶替（那是另一个账号），直接报「登录已过期」。
+- `server/lib/` —— 本项目自带的 BFF 支撑模块（零依赖，Node 直接 require）：
+  - `sff.cjs` —— **MUGEN SFF/ACT 解码器**：SFF v1（PCX+RLE）与 v2（raw/RLE8/RLE5/LZ5/PNG）的精灵目录、调色板、像素→RGBA。字节布局以本项目引擎 `../Toon-WebMUGEN-2.0/ikemen-go-web/src/image.go` 为准（`SffHeader.Read`/`readHeader`/`readHeaderV2`/`readV2`/`loadPalettes`/`readActPalette`/`RlePcxDecode`/`sffv1PalState`），并与 bitcraft/mugen-tools 的 `sff.py` 交叉核对。
+  - `portrait.cjs` —— 从角色包提取头像：候选精灵 `9000,0`（引擎 portrait.spr，选人格 25×25）→ `9000,10`/`9000,222` → `9000,3` → `9000,2` → `0,0`，按 `portraitScore`（不透明占比/长宽比/颜色数）择优；**排除 9000,1**（那是动画帧横向拼贴图，不是头像）。
+  - `png.cjs` —— 最小 PNG 编码器（RGBA8，node:zlib + 自带 CRC32）。
+  - `packs.cjs` —— 资产集扫描与元数据读取。
+  - `speech-agent.cjs` —— **发言 agent（写在本项目）**：按角色人设+故事世界观构造 system/user 提示词，走后端 `plugin-llm` 通道；输出清洗（剥围栏/引号/「角色名：」前缀）。
 - `ikemen.wasm`（约 24MB）/ `wasm_exec.js` —— 引擎本体与 Go runtime 胶水层。
 - `vfs.js` —— 引擎虚拟文件系统。入口 `ikemenVfsInit(manifestUrl, preloadList, onProgress)`，懒加载 + localStorage 覆盖层。
 - `ikemen-fs/manifest.json` —— `{"stamp": "...", "files": {"<相对 file/ 的路径>": <字节数>}}`。
 - `ikemen-fs/file/` —— 336 个游戏资源文件：
-  - `chars/{Hinako, K', Lin, Rugal2nd, 98-kim, MasterRyu}`（后两者资源残缺，缺 sff/cns，跑不起来）
+  - `chars/{Hinako, K', Lin, Rugal2nd, Leona, 98-kim, MasterRyu}`（后两者资源残缺，缺 sff/cns，跑不起来；Leona=KOFA 版，var(59) 天然惰性免 AI 闸）
   - `stages/` 9 个 def
   - `data/`：`system.def`、`select.def`、`common.*`、`fight.*`、`training.zss`
   - `external/script/`：`main.lua`、`start.lua`、`menu.lua`、`options.lua`、`debug.lua`、`default.lua`
@@ -55,7 +64,7 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
 
 1. **manifest.json 按文件大小登记，不同步就等于没改。**
    只要动了 `ikemen-fs/file/` 下任何文件（尤其 `.lua`），必须重建 `ikemen-fs/manifest.json`，否则引擎会静默加载旧内容——这是本项目最容易踩的坑，表现为「代码明明改了，引擎行为一点没变」。
-   重建方式：遍历 `ikemen-fs\file` 递归所有文件、排除 `*.bak*`、key 取相对 `file/` 的路径并把 `\` 换成 `/`、值取字节数，写成 `{stamp, files}`。当前 stamp `local30`。
+   重建方式：遍历 `ikemen-fs\file` 递归所有文件、排除 `*.bak*`、key 取相对 `file/` 的路径并把 `\` 换成 `/`、值取字节数，写成 `{stamp, files}`。重建脚本 `node .cache/scripts/rebuild-manifest.mjs`。当前 stamp `local38`。
 
 2. **AI 等级 0 = 人类控制，但角色包自带"野 AI"必须用 Ailevel 闸关掉。**
    两层缺一不可：
@@ -70,6 +79,18 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
 
 5. **系统设置（键位/性能/个性化）经 mod overlay 注入为 `save/user-config.ini`。**
    index.html 的设置面板把设置存 localStorage `toonfight:settings-v1`，boot() 时用 vfs.js 的公共 API `ikemenMods.add('save/user-config.ini', bytes)` 写进 IndexedDB overlay（必须在 `ikemenVfsInit` 之前，overlay 在其内部装载），argv 带 `-config save/user-config.ini` 让引擎优先读它（config.go 会把内置 defaultConfig.ini 叠在下面，first-wins，所以只写覆盖项）。键位段是 `[Keys_P1]`/`[Keys_P2]`（up/down/left/right/a/b/c/x/y/z/start/d/w），分辨率是 `[Video] GameWidth/GameHeight`，音量是 `[Sound] MasterVolume/WavVolume/BGMVolume`。键名枚举见 `ikemen-go-web/src/input_js.go` 的 `KeyToStringLUT`。引擎启动时会把合并后的完整配置回写到该文件（经 vfs 持久化到 localStorage `ikemen-vfs11:save/user-config.ini`），但下次 boot 仍会被设置面板的 overlay 覆盖——**设置面板是键位/分辨率/音量的唯一真源**。验证脚本：`.cache/scripts/verify-settings.mjs <outDir> <port> panel|match`。
+
+6. **加载屏必须在主界面出现时收起（2026-11-24 踩过）。**
+   `#boot` 是 `z-index:50` 的全屏遮罩，压在 `z-index:40` 的 `#home` 上面。boot() 的主界面路径里那句 `bootEl.classList.add('done')` 一旦丢了，**主界面其实渲染好了却被加载屏盖住**，表现就是永远停在「30% · 清单就绪」（清单已就绪、引擎没起、没报错）。重构 boot() 时这条最容易丢。复现/回归脚本：`.cache/scripts/repro-30.mjs <outDir> <url>`（读 DOM 类名 + 中心点命中元素 + 截图）。
+
+7. **MUGEN 头像只能从 9000,0 取；9000,1 是动画帧拼贴图。**
+   引擎 `system.def` 的 `portrait.spr = 9000,0`（各角色都是 25×25 选人格头像）；`9000,1` 是 `p1.face.spr`，是**多帧横向拼接**的 374×480 大图，直接当头像会显示成一堆重复画面。取色有两条完全不同的路径（引擎 `Sprite.read` 的预载路径 vs `sffv1PalState` 状态机），把两者混用会让「9000,0 恰好是该包目录首个精灵」的角色（Hinako/K'/Leona）拿到错误调色板或解不出像素。`server/lib/sff.cjs` 是按引擎逐行移植的，改动前先读 `../Toon-WebMUGEN-2.0/ikemen-go-web/src/image.go`。
+
+8. **toonflow 的角色头像是 1024 级的 webp/png（8–10MB），必须缩。**
+   角色 `avatarPath` 指向 OSS（`/1/game/scene/<uuid>.webp`），直接 `<img src>` 会把页面拖死。BFF 用**后端项目里的 sharp**（`../../toonflow-game-app/node_modules/sharp`）缩到 192px webp（8.4MB → 7.4KB），找不到 sharp 时降级返回原图。sharp 是后端的依赖、不是本项目的——本项目仍无 package.json。
+
+9. **引擎的选人/VS 画面要按确认键才进对局。**
+   引擎启动后先走自己的选人流程（`select.def` 里列的角色），不是直接进战斗。headless 验证脚本必须模拟按 Enter 推进（旧脚本 `verify-result.mjs` 就是这么做的）。这不是 bug。
 
 ## 键位
 
@@ -89,7 +110,15 @@ CDP 探针脚本统一在 `.cache/scripts/`，运行方式 `node .cache/scripts/
 - `node .cache/scripts/probe-p2.mjs <outDir> <port>` —— 按住 P2 左键 1.4 秒前后各拍一张，验证 P2 吃键盘。
 - `node .cache/scripts/watch-loop.mjs <outDir> <port> <secs> <interval>` —— 定时连拍不退出，低帧率长观察必用。
 - `node .cache/scripts/patch-char-ai.mjs` —— 给角色包 AI Start 块加 `Ailevel > 0` 闸（新角色包入库后跑一遍）。
-- `node .cache/scripts/verify-settings.mjs <outDir> <port> panel|match` —— 系统设置面板截图 + user-config.ini 注入/引擎回写验证。
+- `node .cache/scripts/verify-settings.mjs <outDir> <port> panel|match` —— 系统设置面板截图 + user-config.ini 注入/引擎回写验证（panel 走 home-settings 开面板；match 走 `?auto=1` 直启等 boot ready，不等主界面）。
+- `node .cache/scripts/lib/cdp.mjs` —— **共用的轻量 CDP 客户端**（`launchEdge`/`connect`/`checker`）：起独立 user-data-dir 的 Edge、真实鼠标事件点击（`clickSel`）、视口模拟、断言收集。`--user-data-dir` 必须是绝对路径（相对路径 Edge 起不来）；清理进程时按 profile 目录名过滤，**不要误杀用户自己开着的 Edge**。
+- `node .cache/scripts/verify-ui.mjs <outDir> <url> [cdpPort] [w] [h]` —— **界面全链冒烟（22 项）**：主界面→资产集→选人（选中/取消/随机/3 人编队）→练习开局→facebar/skills/pad/bmenu→设置账号页。桌面 1280×800 与手机 390×844 都全绿。
+- `node .cache/scripts/verify-conn.mjs <outDir> <url> [cdpPort] [w] [h]` —— **联动端到端（17 项）**：需 `node serve.cjs --conn`。故事列表→点会话→角色实体绑定（双头像/职业/换绑/保存可见）→自动分配并持久化→回主界面→用此分配开打。需真实后端（.env）。
+- `node .cache/scripts/repro-30.mjs <outDir> <url> [cdpPort] [w] [h]` —— 「卡在 30%」回归：读 boot/home 的类名 + 中心点命中元素 + 截图。
+- `node .cache/scripts/sff-inspect.mjs` —— 逐个角色包 dump SFF 目录（版本/精灵数/目录链/9000 系列尺寸），验证 `server/lib/sff.cjs` 的解析。
+- `node .cache/scripts/probe-layout.mjs <url> [cdpPort] [w] [h]` —— 量各 UI 元素的几何位置，查重叠（技能按钮 vs 手柄、facebar vs 引擎血条）。
+- `node .cache/scripts/shot-fight.mjs <outDir> <url> [cdpPort]` / `shot-series.mjs` —— 对局画面单张 / 连续采样。
+- `node .cache/scripts/verify-leona.mjs <outDir> <port>` —— Leona 入库验证（?auto 直启 Phase A AI 对打→settled；Phase B 人控对照）。
 - `cdp-stance.mjs` / `cdp-dummy.mjs` / `cdp-probe.mjs` / `cdp-mini.mjs` —— 针对特定实验的观察探针。
 
 起一个可调试的 Edge：

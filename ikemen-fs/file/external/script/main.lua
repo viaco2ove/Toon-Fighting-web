@@ -638,6 +638,8 @@ end
 
 main.pauseMenuActive = false
 require('external.script.debug')
+--; [toon] 实体头顶悬浮头像：每帧输出双方屏幕坐标给前端摆头像 DOM
+require('external.script.headavatar')
 
 loadDebugFont(gameOption('Debug.Font'), gameOption('Debug.FontScale'))
 

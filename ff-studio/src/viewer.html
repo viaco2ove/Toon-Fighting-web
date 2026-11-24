@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ff-studio 角色资产查看器</title>
+<style>
+:root { --bg:#1b1f26; --panel:#232830; --panel2:#2a303b; --line:#3a4250; --fg:#dde3ea; --dim:#8b94a3; --acc:#4aa3df; --ok:#6ecf8e; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--fg); font:13px/1.5 "Segoe UI",system-ui,sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+header { display:flex; align-items:center; gap:10px; padding:8px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+header h1 { font-size:15px; color:var(--acc); font-weight:600; }
+header .sep { width:1px; height:20px; background:var(--line); }
+button, select { background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:5px; padding:4px 10px; cursor:pointer; font:inherit; }
+button:hover { border-color:var(--acc); }
+button.primary { background:#2b5f8a; border-color:#3f7fb5; }
+button.on { background:#2b5f8a; }
+#dropHint { font-size:12px; color:var(--dim); }
+main { flex:1; display:flex; min-height:0; }
+aside { width:300px; background:var(--panel); border-right:1px solid var(--line); overflow-y:auto; padding:10px; }
+aside h2 { font-size:13px; color:var(--acc); margin:10px 0 6px; font-weight:600; }
+aside .kv { font-size:12px; color:var(--dim); margin:2px 0; word-break:break-all; }
+aside .kv b { color:var(--fg); font-weight:500; }
+#infoBox:empty::after { content:'拖入角色文件夹（含 .def/.sff/.air/.act），或点击上方按钮选择。也支持把多个文件一起拖入。'; color:var(--dim); font-size:12px; }
+#center { flex:1; display:flex; flex-direction:column; min-width:0; }
+#stageWrap { flex:1; display:flex; align-items:center; justify-content:center; position:relative; min-height:0; background:
+  linear-gradient(45deg,#20242c 25%,transparent 25%,transparent 75%,#20242c 75%),
+  linear-gradient(45deg,#20242c 25%,#1b1f26 25%,#1b1f26 75%,#20242c 75%), #1b1f26;
+  background-size:24px 24px; background-position:0 0,12px 12px; overflow:hidden; }
+#stage { image-rendering:pixelated; background:#12151a; box-shadow:0 0 24px rgba(0,0,0,.5); }
+#stageBar { display:flex; gap:8px; align-items:center; padding:6px 12px; background:var(--panel); border-top:1px solid var(--line); flex-wrap:wrap; }
+#stageInfo { color:var(--dim); font-size:12px; margin-left:auto; }
+#playCtl { display:flex; gap:4px; }
+#playCtl button { min-width:34px; }
+#speed { width:56px; }
+#right { width:330px; background:var(--panel); border-left:1px solid var(--line); display:flex; flex-direction:column; }
+#tabs { display:flex; border-bottom:1px solid var(--line); }
+#tabs div { flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--dim); font-size:13px; }
+#tabs div.on { color:var(--acc); background:var(--panel2); font-weight:600; }
+#paneAnim, #paneSprite { flex:1; overflow-y:auto; padding:8px; }
+#paneSprite { display:none; }
+.actRow { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:5px; cursor:pointer; border:1px solid transparent; }
+.actRow:hover { background:var(--panel2); }
+.actRow.on { background:#2b5f8a33; border-color:#3f7fb5; }
+.actRow .no { color:var(--acc); font-weight:600; min-width:46px; }
+.actRow .meta { color:var(--dim); font-size:11px; margin-left:auto; }
+#searchAnim { width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--fg); border-radius:5px; padding:4px 8px; margin-bottom:6px; font:inherit; }
+#gridSprite { display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:6px; }
+.cell { background:#12151a; border:1px solid var(--line); border-radius:5px; padding:4px; text-align:center; cursor:pointer; }
+.cell:hover { border-color:var(--acc); }
+.cell.on { border-color:var(--acc); background:#2b5f8a33; }
+.cell canvas { image-rendering:pixelated; max-width:100%; }
+.cell .cap { font-size:10px; color:var(--dim); }
+#packList { margin-top:4px; }
+#packList .pRow { padding:4px 8px; cursor:pointer; border-radius:5px; font-size:12px; color:var(--fg); }
+#packList .pRow:hover { background:var(--panel2); }
+#packList .pRow .dim { color:var(--dim); }
+#warn { color:#e8b45a; font-size:12px; margin:6px 0; white-space:pre-wrap; }
+footer { padding:4px 14px; background:var(--panel); border-top:1px solid var(--line); color:var(--dim); font-size:11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ff-studio 查看器</h1>
+  <div class="sep"></div>
+  <button class="primary" id="btnPickDir">选择角色文件夹</button>
+  <button id="btnPickFiles">选择文件</button>
+  <span id="dropHint">也可直接把角色文件夹拖进窗口</span>
+  <input type="file" id="pickDir" webkitdirectory multiple hidden>
+  <input type="file" id="pickFiles" multiple hidden>
+  <div class="sep"></div>
+  <label style="color:var(--dim);font-size:12px">调色板</label>
+  <select id="palSel"><option value="">内嵌（默认）</option></select>
+  <label style="color:var(--dim);font-size:12px">缩放</label>
+  <select id="zoomSel"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>6</option><option>8</option></select>
+  <label style="color:var(--dim);font-size:12px">显示判定框</label>
+  <input type="checkbox" id="showClsn">
+</header>
+<main>
+  <aside>
+    <h2>资产信息</h2>
+    <div id="infoBox"></div>
+    <div id="warn"></div>
+    <div id="serverBox" style="display:none">
+      <h2>服务器资产集</h2>
+      <div id="packList"></div>
+    </div>
+  </aside>
+  <div id="center">
+    <div id="stageWrap"><canvas id="stage"></canvas></div>
+    <div id="stageBar">
+      <div id="playCtl">
+        <button id="btnPrev" title="上一帧">⏮</button>
+        <button id="btnPlay" title="播放/暂停">⏸</button>
+        <button id="btnNext" title="下一帧">⏭</button>
+        <select id="speed"><option value="0.25">¼速</option><option value="0.5">½速</option><option value="1" selected>原速</option><option value="2">2速</option></select>
+      </div>
+      <div id="stageInfo">未载入资产</div>
+    </div>
+  </div>
+  <div id="right">
+    <div id="tabs">
+      <div class="on" data-pane="paneAnim">动作列表</div>
+      <div data-pane="paneSprite">精灵浏览</div>
+    </div>
+    <div id="paneAnim">
+      <input id="searchAnim" placeholder="搜索动作号…（如 0 / 200）">
+      <div id="animList"></div>
+    </div>
+    <div id="paneSprite">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <select id="groupSel" style="flex:1"></select>
+        <span id="groupInfo" style="color:var(--dim);font-size:12px;align-self:center"></span>
+      </div>
+      <div id="gridSprite"></div>
+    </div>
+  </div>
+</main>
+<footer>ff-studio 查看器 · SFF v1/v2 / ACT / AIR / DEF 全本地解析 · 引擎语义对齐 ../Toon-WebMUGEN-2.0/ikemen-go-web/src/image.go</footer>
+<script>
+'use strict';
+/* ============================================================
+ * 解析层（移植自 server/lib/sff.cjs —— 按引擎 image.go 逐行对齐）
+ * ============================================================ */
+class Reader {
+  constructor(buf) { this.b = buf; this.p = 0; }
+  seek(p) { this.p = p; }
+  u8() { return this.b[this.p++]; }
+  u16() { const v = this.b[this.p] | (this.b[this.p + 1] << 8); this.p += 2; return v; }
+  i16() { const v = this.u16(); return v & 0x8000 ? v - 0x10000 : v; }
+  u32() { const v = (this.b[this.p] | (this.b[this.p + 1] << 8) | (this.b[this.p + 2] << 16) | (this.b[this.p + 3] << 24)) >>> 0; this.p += 4; return v; }
+}
+function pack(r, g, b, a) { return ((a & 255) << 24 | (b & 255) << 16 | (g & 255) << 8 | (r & 255)) >>> 0; }
+
+function readAct(buf) {
+  const pal = new Array(256).fill(0);
+  const n = Math.floor(Math.min(buf.length, 768) / 3);
+  for (let i = 0; i < n; i++) {
+    const r = buf[i * 3], g = buf[i * 3 + 1], b = buf[i * 3 + 2];
+    pal[255 - i] = pack(r, g, b, 255 - i === 0 ? 0 : 255);
+  }
+  return pal;
+}
+function readPngPalette(buf) {
+  const SIG = '\x89PNG\r\n\x1a\n';
+  if (buf.length < SIG.length) return null;
+  let sig = '';
+  for (let i = 0; i < SIG.length; i++) sig += String.fromCharCode(buf[i]);
+  if (sig !== SIG) return null;
+  const pal = new Array(256).fill(0);
+  for (let i = 8; i + 8 <= buf.length;) {
+    const ln = (buf[i] << 24 | buf[i + 1] << 16 | buf[i + 2] << 8 | buf[i + 3]) >>> 0;
+    const typ = String.fromCharCode(buf[i + 4], buf[i + 5], buf[i + 6], buf[i + 7]);
+    if (ln > buf.length - i - 8) return null;
+    if (typ === 'PLTE') {
+      const n = Math.min(256, Math.floor(ln / 3));
+      for (let j = 0; j < n; j++) pal[j] = pack(buf[i + 8 + j * 3], buf[i + 9 + j * 3], buf[i + 10 + j * 3], j === 0 ? 0 : 255);
+      return pal;
+    }
+    if (typ === 'IEND') break;
+    i += 12 + ln;
+  }
+  return null;
+}
+function readPaletteFile(buf) {
+  const png = readPngPalette(buf);
+  if (png) return png;
+  return readAct(buf);
+}
+
+function parseSff(buf) {
+  const r = new Reader(buf);
+  let sig = '';
+  for (let i = 0; i < 12; i++) sig += String.fromCharCode(buf[i]);
+  if (sig !== 'ElecbyteSpr\0') throw new Error('不是 SFF 文件（签名不符）');
+  r.seek(15);
+  const ver = r.u8();
+  if (ver !== 1 && ver !== 2) throw new Error('不认识的 SFF 版本：' + ver);
+  r.seek(16); r.u32();
+  const h = { ver };
+  if (ver === 1) { h.nspr = r.u32(); h.sprOfs = r.u32(); }
+  else {
+    r.seek(36);
+    h.sprOfs = r.u32(); h.nspr = r.u32();
+    h.palOfs = r.u32(); h.npal = r.u32();
+    h.lofs = r.u32(); r.u32(); h.tofs = r.u32();
+  }
+  return h;
+}
+function paletteOfIndex(sff, idx) {
+  let hops = 0;
+  while (sff.pals[idx].link >= 0 && sff.pals[idx].colors === null) {
+    if (++hops > 64) throw new Error('SFFv2 调色板链接成环');
+    idx = sff.pals[idx].link;
+  }
+  return sff.pals[idx].colors || new Array(256).fill(0);
+}
+function loadSff(buf) {
+  const h = parseSff(buf);
+  const r = new Reader(buf);
+  const sff = { ver: h.ver, sprites: new Map(), byIndex: [] };
+  if (h.ver === 2) {
+    sff.pals = [];
+    for (let i = 0; i < h.npal; i++) {
+      r.seek(h.palOfs + i * 16);
+      r.u16(); r.u16();
+      const ncol = r.u16();
+      const link = r.u16();
+      const ofs = r.u32(), size = r.u32();
+      let colors = null;
+      if (size > 0) {
+        colors = new Array(256).fill(0);
+        const n = Math.min(256, Math.floor(size / 4));
+        r.seek(h.lofs + ofs);
+        for (let c = 0; c < n; c++) {
+          const rr = r.u8(), gg = r.u8(), bb = r.u8(); r.u8();
+          colors[c] = pack(rr, gg, bb, c === 0 ? 0 : 255);
+        }
+      }
+      sff.pals.push({ ncol, link, colors });
+    }
+  }
+  let of = h.sprOfs;
+  for (let i = 0; i < h.nspr; i++) {
+    if (of + (h.ver === 1 ? 32 : 28) > buf.length) throw new Error('SFF 精灵目录越界（第 ' + i + ' 个）');
+    r.seek(of);
+    let sp;
+    if (h.ver === 1) {
+      sp = { next: r.u32(), size: r.u32(), ax: r.i16(), ay: r.i16(), group: r.u16(), index: r.u16(), link: r.u16(), ps: r.u8(), at: of };
+      of = sp.next;
+    } else {
+      sp = { group: r.u16(), index: r.u16(), w: r.u16(), hh: r.u16(), ax: r.i16(), ay: r.i16(), link: r.u16(),
+             format: r.u8(), depth: r.u8(), ofs: r.u32(), size: r.u32(), pal: r.u16(), flags: r.u16(), at: of };
+      sp.ofs = (sp.ofs + ((sp.flags & 1) === 0 ? h.lofs : h.tofs)) >>> 0;
+      of += 28;
+    }
+    sp.i = i;
+    sff.byIndex.push(sp);
+    if (!sff.sprites.has(sp.group + ',' + sp.index)) sff.sprites.set(sp.group + ',' + sp.index, sp);
+  }
+  return sff;
+}
+function cursor(src) {
+  const c = { i: 0, len: src.length };
+  c.cur = () => src[c.i];
+  c.adv = () => { if (c.i < c.len - 1) c.i++; };
+  return c;
+}
+function rle8(src, n) {
+  const p = new Uint8Array(n), c = cursor(src);
+  for (let j = 0; j < n;) {
+    let run = 1, d = c.cur();
+    c.adv();
+    if ((d & 0xc0) === 0x40) { run = d & 0x3f; d = c.cur(); c.adv(); }
+    for (; run > 0; run--) if (j < n) p[j++] = d;
+  }
+  return p;
+}
+function rle5(src, n) {
+  const p = new Uint8Array(n), c = cursor(src);
+  for (let j = 0; j < n;) {
+    let rl = c.cur(); c.adv();
+    let dl = c.cur() & 0x7f;
+    let col = 0;
+    if (c.cur() >> 7) { c.adv(); col = c.cur(); }
+    c.adv();
+    for (;;) {
+      if (j < n) p[j++] = col;
+      if (--rl < 0) {
+        if (--dl < 0) break;
+        col = c.cur() & 0x1f;
+        rl = c.cur() >> 5;
+        c.adv();
+      }
+    }
+  }
+  return p;
+}
+function lz5(src, n) {
+  const p = new Uint8Array(n), c = cursor(src);
+  let j = 0, run = 0;
+  let ct = c.cur(), cts = 0, rb = 0, rbc = 0;
+  c.adv();
+  while (j < n) {
+    let d = c.cur(); c.adv();
+    if ((ct & (1 << cts)) !== 0) {
+      if ((d & 0x3f) === 0) {
+        d = ((d << 2) | c.cur()) + 1; c.adv();
+        run = c.cur() + 2; c.adv();
+      } else {
+        rb |= ((d & 0xc0) >> rbc) & 255;
+        rbc += 2;
+        run = d & 0x3f;
+        if (rbc < 8) { d = c.cur() + 1; c.adv(); }
+        else { d = rb + 1; rb = 0; rbc = 0; }
+      }
+      for (;;) {
+        if (j < n) { p[j] = j - d >= 0 ? p[j - d] : 0; j++; }
+        if (--run < 0) break;
+      }
+    } else {
+      if ((d & 0xe0) === 0) { run = c.cur() + 8; c.adv(); }
+      else { run = d >> 5; d &= 0x1f; }
+      for (; run > 0; run--) if (j < n) p[j++] = d;
+    }
+    if (++cts >= 8) { ct = c.cur(); cts = 0; c.adv(); }
+  }
+  return p;
+}
+function decodeV2(buf, sp, sff) {
+  const w = sp.w, h = sp.hh;
+  if (sp.format === 0) {
+    const px = buf.slice(sp.ofs, sp.ofs + sp.size);
+    return { w, h, px, depth: sp.depth };
+  }
+  if (sp.format >= 10) throw new Error('SFFv2 PNG 精灵（格式 ' + sp.format + '）暂不支持');
+  const src = buf.subarray(sp.ofs + 4, sp.ofs + sp.size);
+  const dec = { 2: rle8, 3: rle5, 4: lz5 }[sp.format];
+  if (!dec) throw new Error('SFFv2 未知格式：' + sp.format);
+  return { w, h, px: dec(src, w * h), depth: sp.depth };
+}
+function readPaletteAt(buf, offset) {
+  if (offset <= 0 || offset + 768 > buf.length) return null;
+  const pal = new Array(256).fill(0);
+  for (let i = 0; i < 256; i++) {
+    const o = offset + i * 3;
+    pal[i] = pack(buf[o], buf[o + 1], buf[o + 2], i === 0 ? 0 : 255);
+  }
+  return pal;
+}
+function decodeV1(buf, sp) {
+  const offset = sp.at + 32;
+  const dataStart = offset + 128;
+  const hr = new Reader(buf);
+  hr.seek(offset);
+  hr.u16();
+  const encoding = hr.u8(), bpp = hr.u8();
+  const xmin = hr.u16(), ymin = hr.u16(), xmax = hr.u16(), ymax = hr.u16();
+  hr.seek(offset + 66);
+  const bpl = hr.u16();
+  if (bpp !== 8) throw new Error('PCX 只支持 8 位色深（实际 ' + bpp + ' 位）');
+  let w = xmax - xmin + 1, h = ymax - ymin + 1;
+  let blockEnd = sp.next > offset ? sp.next : offset + sp.size;
+  if (blockEnd > buf.length) blockEnd = buf.length;
+  const datasize = sp.next > offset ? sp.next - offset : sp.size;
+  const dataEnd = Math.min(blockEnd, offset + datasize - 128);
+  const src = buf.subarray(Math.max(dataStart, 0), Math.max(dataEnd, dataStart));
+  const px = new Uint8Array(w * h);
+  if (encoding === 1) {
+    // 引擎 RlePcxDecode：写满 bpl 换行，行边界截断 run（n=1 后 n-- 直接退出）
+    let i = 0, j = 0, k = 0;
+    while (j < px.length && i < src.length) {
+      let n = 1;
+      let d = src[i];
+      if (i < src.length - 1) i++;
+      if (d >= 0xc0) {
+        n = d & 0x3f;
+        d = src[i];
+        if (i < src.length - 1) i++;
+      }
+      for (; n > 0; n--) {
+        if (k < w && j < px.length) px[j++] = d;
+        k++;
+        if (k === bpl) { k = 0; break; }
+      }
+    }
+  } else {
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) px[y * w + x] = src[y * bpl + x] || 0;
+  }
+  // 头像块 PCX 头写坏（ymax 虚高）的兜底：按实际内容裁掉虚假高度
+  let lastRow = -1;
+  for (let y = h - 1; y >= 0 && lastRow < 0; y--)
+    for (let x = 0; x < w; x++) if (px[y * w + x] !== 0) { lastRow = y; break; }
+  if (lastRow >= 0 && lastRow + 1 < h) {
+    h = lastRow + 1;
+    const fixed = new Uint8Array(w * h);
+    fixed.set(px.subarray(0, fixed.length));
+    return { w, h, px, depth: 8 };
+  }
+  return { w, h, px, depth: 8 };
+}
+// SFFv1 调色板状态机（sffv1PalState 移植）
+function v1PaletteMap(buf, sff) {
+  const list = sff.byIndex;
+  const out = new Map();
+  let state = 0, current = 0;
+  let location = list.length ? list[0].next - 768 : 0;
+  const initialLocation = location;
+  let shared = null;
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i];
+    if (s.group === 0 && s.index === 0) {
+      state = 2;
+      location = initialLocation;
+    } else if (s.ps === 0 && state === 2) {
+      state = 3; current++;
+      location = s.next - 768;
+    } else if (s.ps === 0) {
+      if (current === 0) state = 1;
+      current++;
+      location = s.next - 768;
+    }
+    const takeFromFile = (s.group === 0 && s.index === 0) || (state % 2 === 0);
+    if (takeFromFile) {
+      const pal = readPaletteAt(buf, location);
+      if (pal) { out.set(s, pal); shared = pal; }
+    } else {
+      out.set(s, shared);
+    }
+  }
+  return out;
+}
+function v1PreloadedPalette(buf, sp) {
+  const offset = sp.at + 32;
+  const isFirstInFile = sp.group === 0 && sp.index === 0;
+  const datasize = sp.next > offset ? sp.next - offset : sp.size;
+  if (isFirstInFile) return readPaletteAt(buf, offset + datasize - 768);
+  const dataStart = offset + 128;
+  let blockEnd = sp.next > offset ? sp.next : offset + sp.size;
+  if (blockEnd > buf.length) blockEnd = buf.length;
+  let p = blockEnd - 769;
+  while (p >= dataStart && buf[p] !== 0x0c) p--;
+  const off = p >= dataStart ? p + 1 : blockEnd - 769;
+  return readPaletteAt(buf, off);
+}
+function shade(img, palOverride) {
+  const pal = palOverride || img.pal || new Array(256).fill(0);
+  const rgba = new Uint8Array(img.w * img.h * 4);
+  if (img.depth === 8) {
+    for (let i = 0; i < img.px.length; i++) {
+      const c = pal[img.px[i]] || 0;
+      rgba[i * 4] = c & 255; rgba[i * 4 + 1] = (c >> 8) & 255; rgba[i * 4 + 2] = (c >> 16) & 255;
+      rgba[i * 4 + 3] = (c >>> 24) & 255;
+    }
+  } else if (img.depth === 24) {
+    for (let i = 0; i < img.w * img.h; i++) {
+      rgba[i * 4] = img.px[i * 3]; rgba[i * 4 + 1] = img.px[i * 3 + 1];
+      rgba[i * 4 + 2] = img.px[i * 3 + 2]; rgba[i * 4 + 3] = 255;
+    }
+  } else if (img.depth === 32) {
+    rgba.set(img.px.subarray(0, rgba.length));
+  } else throw new Error('未知色深：' + img.depth);
+  return { w: img.w, h: img.h, rgba };
+}
+// 取一张精灵 RGBA（v1 调色板全按引擎三条路径；v2 用自带 pal 表）
+function spriteRgba(buf, sff, group, index, palOverride) {
+  const target = sff.sprites.get(group + ',' + index);
+  if (!target) return null;
+  if (sff.ver === 2) {
+    let sp = target, hops = 0;
+    while (sp.size === 0) {
+      if (sp.link >= sff.byIndex.length || ++hops > 64) throw new Error('精灵链接无效');
+      sp = sff.byIndex[sp.link];
+    }
+    const img = decodeV2(buf, sp, sff);
+    img.pal = paletteOfIndex(sff, sp.pal);
+    return { ...shade(img, palOverride), ax: sp.ax, ay: sp.ay };
+  }
+  if (palOverride) {
+    const img = decodeV1(buf, target);
+    return { ...shade(img, palOverride), ax: target.ax, ay: target.ay };
+  }
+  const palMap = v1PaletteMap(buf, sff);
+  const isFirst = target.group === 0 && target.index === 0;
+  const pal = (isFirst ? v1PreloadedPalette(buf, target) : null)
+            || palMap.get(target) || v1PreloadedPalette(buf, target);
+  const img = decodeV1(buf, target);
+  return { ...shade(img, pal), ax: target.ax, ay: target.ay };
+}
+
+/* ---------- AIR / DEF 解析 ---------- */
+function parseAir(text) {
+  const actions = new Map();
+  let cur = null, p1 = [], p2 = [];
+  for (let raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith(';') || line.startsWith('#')) continue;
+    let m = line.match(/^\[Begin Action\s+(\d+)/i);
+    if (m) { cur = { no: +m[1], frames: [], loopstart: 0 }; actions.set(cur.no, cur); p1 = []; p2 = []; continue; }
+    if (!cur) continue;
+    if (/^loopstart/i.test(line)) { cur.loopstart = cur.frames.length; continue; }
+    let cm = line.match(/^Clsn([12])\[(\d+)\]\s*=\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)/i);
+    if (cm) { (cm[1] === '1' ? p1 : p2).push([+cm[3], +cm[4], +cm[5], +cm[6]]); continue; }
+    if (/^Clsn[12]\s*:/i.test(line)) continue;
+    const fm = line.match(/^(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)(?:\s*,\s*([^,]+))?(?:\s*,\s*(\S+))?/);
+    if (fm) {
+      const f = { grp: +fm[1], num: +fm[2], x: +fm[3], y: +fm[4], dur: Math.max(1, +fm[5]),
+                  flipH: false, flipV: false, sx: 1, sy: 1, clsn1: p1, clsn2: p2 };
+      const flags = (fm[6] || '').toUpperCase();
+      if (flags.includes('H')) f.flipH = true;
+      if (flags.includes('V')) f.flipV = true;
+      if (fm[7]) { const s = fm[7].match(/^S\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)/i); if (s) { f.sx = +s[1]; f.sy = +s[2]; } }
+      cur.frames.push(f);
+      p1 = []; p2 = [];
+    }
+  }
+  return actions;
+}
+function parseDef(text) {
+  const out = { info: {}, files: {} };
+  let sec = null;
+  for (let raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith(';')) continue;
+    let m = line.match(/^\[(.+)\]$/);
+    if (m) { sec = m[1].trim().toLowerCase(); continue; }
+    const kv = line.match(/^([^=;]+?)\s*=\s*(.*)$/);
+    if (kv && sec) {
+      const k = kv[1].trim().toLowerCase();
+      const v = kv[2].replace(/;.*$/, '').trim();
+      if (sec === 'info') out.info[k] = v;
+      else if (sec === 'files') out.files[k] = v;
+    }
+  }
+  return out;
+}
+
+/* ============================================================
+ * 应用状态与 UI
+ * ============================================================ */
+const $ = (id) => document.getElementById(id);
+const state = {
+  sffBuf: null, sff: null, palMap: null,      // sff 解析
+  def: null, defDir: '', fileName: '',
+  airText: '', actions: null,
+  pals: [],                                    // [{name, pal}]
+  curActNo: null, curFrame: 0, playing: true, speed: 1,
+  tickAcc: 0, lastT: 0,
+  spriteCache: new Map(),                      // key -> {w,h,rgba}
+  selSprite: null,                             // 单帧浏览模式 {g,n}
+};
+const spriteCache = new Map();
+
+function getSpriteRgba(g, n, pal) {
+  const key = g + ',' + n + '|' + (pal ? palNameOf(pal) : '');
+  if (spriteCache.has(key)) return spriteCache.get(key);
+  let r;
+  try { r = spriteRgba(state.sffBuf, state.sff, g, n, pal); } catch (e) { r = null; }
+  spriteCache.set(key, r);
+  return r;
+}
+let palSeq = 0;
+const palNames = new Map();
+function palNameOf(pal) {
+  if (!palNames.has(pal)) palNames.set(pal, 'pal' + (++palSeq));
+  return palNames.get(pal);
+}
+function currentPal() {
+  const v = $('palSel').value;
+  if (!v) return null;
+  const p = state.pals.find(x => x.name === v);
+  return p ? p.pal : null;
+}
+function rgbaToCanvas(img, zoom) {
+  const c = document.createElement('canvas');
+  c.width = img.w; c.height = img.h;
+  const ctx = c.getContext('2d');
+  const im = new ImageData(new Uint8ClampedArray(img.rgba.buffer, img.rgba.byteOffset, img.w * img.h * 4), img.w, img.h);
+  ctx.putImageData(im, 0, 0);
+  if (zoom && zoom !== 1) {
+    const c2 = document.createElement('canvas');
+    c2.width = img.w * zoom; c2.height = img.h * zoom;
+    const x2 = c2.getContext('2d');
+    x2.imageSmoothingEnabled = false;
+    x2.drawImage(c, 0, 0, c2.width, c2.height);
+    return c2;
+  }
+  return c;
+}
+
+/* ---------- 渲染：动画帧 或 单帧浏览 ---------- */
+function drawFrame(act, fi) {
+  const zoom = +$('zoomSel').value;
+  const pal = currentPal();
+  const actData = state.actions.get(act);
+  const canvas = $('stage');
+  const f = actData.frames[fi];
+  const showClsn = $('showClsn').checked;
+  // 先解所有帧 sprite 求 bbox
+  const parts = [];
+  let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  for (const fr of actData.frames) {
+    const img = getSpriteRgba(fr.grp, fr.num, pal);
+    parts.push({ fr, img });
+    if (img) {
+      const x0 = fr.x - img.ax, y0 = fr.y - img.ay;
+      minX = Math.min(minX, x0); minY = Math.min(minY, y0);
+      maxX = Math.max(maxX, x0 + img.w); maxY = Math.max(maxY, y0 + img.h);
+    }
+  }
+  if (minX > maxX) { minX = -40; minY = -120; maxX = 40; maxY = 0; }
+  const pad = 10;
+  const cw = Math.ceil((maxX - minX + pad * 2) * zoom);
+  const ch = Math.ceil((maxY - minY + pad * 2) * zoom);
+  canvas.width = Math.max(cw, 320); canvas.height = Math.max(ch, 240);
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const ox = pad - minX, oy = pad - minY;
+  // 原点十字
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath();
+  ctx.moveTo((ox) * zoom, 0); ctx.lineTo((ox) * zoom, canvas.height);
+  ctx.moveTo(0, (oy) * zoom); ctx.lineTo(canvas.width, (oy) * zoom);
+  ctx.stroke();
+  const img = parts[fi].img, fr = parts[fi].fr;
+  if (!img) {
+    ctx.fillStyle = '#e05b5b';
+    ctx.font = '13px sans-serif';
+    ctx.fillText('缺精灵 ' + fr.grp + ',' + fr.num, 20, 40);
+  } else {
+    drawSprite(ctx, img, fr, ox, oy, zoom);
+  }
+  if (showClsn) {
+    drawBoxes(ctx, fr.clsn2, ox, oy, zoom, 'rgba(80,200,120,0.9)');
+    drawBoxes(ctx, fr.clsn1, ox, oy, zoom, 'rgba(230,90,90,0.9)');
+  }
+  const dur = actData.frames.reduce((a, b) => a + b.dur, 0);
+  $('stageInfo').textContent = `动作 ${act} · 帧 ${fi + 1}/${actData.frames.length} · sprite ${fr.grp},${fr.num} · 时长 ${dur} tick (${(dur / 60).toFixed(2)}s)`;
+}
+function drawSprite(ctx, img, fr, ox, oy, zoom) {
+  const c = rgbaToCanvas(img, 1);
+  const dx = (ox + fr.x - img.ax) * zoom;
+  const dy = (oy + fr.y - img.ay) * zoom;
+  const w = img.w * zoom, h = img.h * zoom;
+  ctx.save();
+  ctx.translate(dx, dy);
+  if (fr.sx !== 1 || fr.sy !== 1) ctx.scale(fr.sx, fr.sy);
+  if (fr.flipH) { ctx.translate(w, 0); ctx.scale(-1, 1); }
+  if (fr.flipV) { ctx.translate(0, h); ctx.scale(1, -1); }
+  ctx.drawImage(c, 0, 0, w, h);
+  ctx.restore();
+}
+function drawBoxes(ctx, boxes, ox, oy, zoom, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  for (const b of boxes || []) {
+    ctx.strokeRect((ox + b[0]) * zoom + .5, (oy + b[1]) * zoom + .5, (b[2] - b[0]) * zoom, (b[3] - b[1]) * zoom);
+  }
+}
+
+/* 单帧浏览渲染 */
+function drawSingle(g, n) {
+  const zoom = +$('zoomSel').value;
+  const pal = currentPal();
+  const img = getSpriteRgba(g, n, pal);
+  const canvas = $('stage');
+  if (!img) {
+    canvas.width = 320; canvas.height = 240;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#e05b5b'; ctx.font = '13px sans-serif';
+    ctx.fillText('找不到精灵 ' + g + ',' + n, 20, 40);
+    $('stageInfo').textContent = '精灵 ' + g + ',' + n + ' 不存在';
+    return;
+  }
+  canvas.width = img.w * zoom + 40; canvas.height = img.h * zoom + 40;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#12151a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(rgbaToCanvas(img, zoom), 20, 20);
+  // axis 十字
+  ctx.strokeStyle = 'rgba(255,80,80,0.8)';
+  ctx.beginPath();
+  const ax = 20 + img.ax * zoom, ay = 20 + img.ay * zoom;
+  ctx.moveTo(ax - 8, ay); ctx.lineTo(ax + 8, ay);
+  ctx.moveTo(ax, ay - 8); ctx.lineTo(ax, ay + 8);
+  ctx.stroke();
+  $('stageInfo').textContent = `精灵 ${g},${n} · ${img.w}×${img.h} · axis=(${img.ax},${img.ay})`;
+}
+
+/* ---------- 动画播放循环 ---------- */
+function tick(t) {
+  requestAnimationFrame(tick);
+  if (state.curActNo === null || state.selSprite) return;
+  const dt = state.lastT ? (t - state.lastT) / 1000 : 0;
+  state.lastT = t;
+  if (!state.playing) return;
+  const act = state.actions.get(state.curActNo);
+  if (!act || !act.frames.length) return;
+  state.tickAcc += dt * 60 * state.speed;
+  let need = false;
+  while (state.tickAcc >= act.frames[state.curFrame].dur) {
+    state.tickAcc -= act.frames[state.curFrame].dur;
+    state.curFrame = (state.curFrame + 1) % act.frames.length;
+    need = true;
+  }
+  if (need) drawFrame(state.curActNo, state.curFrame);
+}
+requestAnimationFrame(tick);
+
+function playAction(no) {
+  const act = state.actions.get(no);
+  if (!act || !act.frames.length) return;
+  state.curActNo = no; state.curFrame = 0; state.tickAcc = 0;
+  state.selSprite = null;
+  state.playing = true;
+  $('btnPlay').textContent = '⏸';
+  document.querySelectorAll('.actRow').forEach(el => el.classList.toggle('on', +el.dataset.no === no));
+  drawFrame(no, 0);
+}
+
+/* ---------- 资产载入 ---------- */
+function reset() {
+  state.sffBuf = null; state.sff = null; state.def = null; state.actions = null;
+  state.pals = []; state.curActNo = null; state.selSprite = null;
+  spriteCache.clear(); palNames.clear(); palSeq = 0;
+  $('palSel').innerHTML = '<option value="">内嵌（默认）</option>';
+  $('animList').innerHTML = ''; $('gridSprite').innerHTML = '';
+  $('groupSel').innerHTML = ''; $('infoBox').innerHTML = ''; $('warn').textContent = '';
+  $('stageInfo').textContent = '未载入资产';
+  const canvas = $('stage');
+  canvas.width = 320; canvas.height = 240;
+  canvas.getContext('2d').clearRect(0, 0, 320, 240);
+}
+function loadFiles(fileMap, defPath) {
+  reset();
+  const lower = new Map();
+  for (const [p, file] of fileMap) lower.set(p.toLowerCase(), [p, file]);
+  const get = (rel) => {
+    if (!rel) return null;
+    const full = (defPath.replace(/[^/\\]*$/, '') + rel).toLowerCase();
+    return lower.get(full) || lower.get(rel.toLowerCase()) || null;
+  };
+  // 找 def
+  let defFile = defPath ? lower.get(defPath.toLowerCase()) : null;
+  if (!defFile) {
+    const defs = [...lower.entries()].filter(([p]) => p.endsWith('.def'));
+    if (!defs.length) { alert('没有找到 .def 文件'); return; }
+    defFile = defs[0];
+  }
+  state.defDir = defFile[0].replace(/[^/\\]*$/, '');
+  (async () => {
+    try {
+      // DEF
+      if (defFile) {
+        const txt = new TextDecoder('utf-8').decode(await defFile[1].arrayBuffer());
+        state.def = parseDef(txt);
+        state.fileName = defFile[0].split('/').pop().split('\\').pop();
+      }
+      const rel = (k) => state.def && state.def.files[k] ? state.def.files[k] : null;
+      const sffRel = rel('sprite') || [...lower.keys()].find(p => p.endsWith('.sff'));
+      const airRel = rel('anim') || [...lower.keys()].find(p => p.endsWith('.air'));
+      const sffPair = get(sffRel) || [...lower.entries()].find(([p]) => p.endsWith('.sff'))?.[1];
+      if (!sffPair) throw new Error('没有找到 .sff 文件');
+      state.sffBuf = new Uint8Array(await sffPair[1].arrayBuffer());
+      state.sff = loadSff(state.sffBuf);
+      // AIR
+      const airPair = airRel ? get(airRel) : [...lower.entries()].find(([p]) => p.endsWith('.air'))?.[1];
+      if (airPair) state.actions = parseAir(new TextDecoder('utf-8').decode(await airPair[1].arrayBuffer()));
+      // ACT 调色板
+      const acts = [...lower.entries()].filter(([p]) => /\.(act|pal)$/i.test(p)).sort();
+      for (const [p, pair] of acts) {
+        const buf = new Uint8Array(await pair[1].arrayBuffer());
+        try {
+          const pal = readPaletteFile(buf);
+          const name = p.split('/').pop().split('\\').pop();
+          state.pals.push({ name, pal });
+        } catch (e) { /* 忽略坏 pal */ }
+      }
+      renderInfo();
+      renderPalSel();
+      renderAnimList();
+      renderGroupSel();
+      // 默认播放第一个动作（优先 0 站立）
+      const first = state.actions && (state.actions.has(0) ? 0 : [...state.actions.keys()][0]);
+      if (first !== undefined) playAction(first);
+      else if (state.sff) drawSingle(0, 0);
+    } catch (e) {
+      $('warn').textContent = '载入失败：' + e.message;
+      console.error(e);
+    }
+  })();
+  function airFileOk(rel) { return !!rel; }
+}
+function renderInfo() {
+  const d = state.def || {}, info = d.info || {};
+  const rows = [
+    ['角色名', info.displayname || info.name || '—'],
+    ['内部名', info.name || '—'],
+    ['作者', info.author || '—'],
+    ['MUGEN 版本', info.mugenversion || '—'],
+    ['DEF 文件', state.fileName],
+    ['SFF 版本', 'v' + state.sff.ver],
+    ['精灵总数', state.sff.byIndex.length],
+    ['动作数', state.actions ? state.actions.size : 0],
+    ['调色板', (state.pals.length || 0) + ' 个外部'],
+  ];
+  $('infoBox').innerHTML = rows.map(([k, v]) => `<div class="kv">${k}：<b>${String(v).replace(/</g, '&lt;')}</b></div>`).join('');
+  // 组统计
+  const groups = new Map();
+  for (const sp of state.sff.byIndex) groups.set(sp.group, (groups.get(sp.group) || 0) + 1);
+  const gs = [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([g, n]) => `${g}×${n}`).join('  ');
+  $('infoBox').innerHTML += `<div class="kv" style="margin-top:6px"><b>组分布</b></div><div class="kv">${gs}</div>`;
+}
+function renderPalSel() {
+  const sel = $('palSel');
+  for (const p of state.pals) {
+    const o = document.createElement('option');
+    o.value = p.name; o.textContent = p.name;
+    sel.appendChild(o);
+  }
+}
+function renderAnimList() {
+  const list = $('animList');
+  list.innerHTML = '';
+  if (!state.actions) { list.innerHTML = '<div class="kv" style="padding:6px;color:var(--dim)">无 .air（或未找到）</div>'; return; }
+  const frag = document.createDocumentFragment();
+  for (const no of [...state.actions.keys()].sort((a, b) => a - b)) {
+    const act = state.actions.get(no);
+    if (!act.frames.length) continue;
+    const dur = act.frames.reduce((a, b) => a + b.dur, 0);
+    const row = document.createElement('div');
+    row.className = 'actRow';
+    row.dataset.no = no;
+    row.innerHTML = `<span class="no">${no}</span><span>${act.frames.length} 帧</span><span class="meta">${(dur / 60).toFixed(2)}s</span>`;
+    row.onclick = () => playAction(no);
+    frag.appendChild(row);
+  }
+  list.appendChild(frag);
+}
+$('searchAnim').oninput = (e) => {
+  const q = e.target.value.trim();
+  document.querySelectorAll('.actRow').forEach(row => {
+    row.style.display = !q || row.dataset.no.includes(q) ? '' : 'none';
+  });
+};
+function renderGroupSel() {
+  const sel = $('groupSel');
+  const groups = [...new Set(state.sff.byIndex.map(s => s.group))].sort((a, b) => a - b);
+  sel.innerHTML = groups.map(g => `<option value="${g}">group ${g}</option>`).join('');
+  sel.onchange = () => renderGroupGrid(+sel.value);
+  renderGroupGrid(groups[0]);
+}
+function renderGroupGrid(g) {
+  const grid = $('gridSprite');
+  grid.innerHTML = '';
+  const sps = state.sff.byIndex.filter(s => s.group === g);
+  $('groupInfo').textContent = sps.length + ' 帧';
+  for (const sp of sps) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    const img = getSpriteRgba(sp.group, sp.index, currentPal());
+    if (img) {
+      const scale = Math.min(1, 64 / Math.max(img.w, img.h));
+      const c = rgbaToCanvas(img, scale);
+      cell.appendChild(c);
+    } else {
+      cell.innerHTML = '<div style="height:40px;color:#e05b5b;font-size:10px;line-height:40px">缺失</div>';
+    }
+    const cap = document.createElement('div');
+    cap.className = 'cap';
+    cap.textContent = sp.index + ' · ' + (img ? img.w + '×' + img.h : '?');
+    cell.appendChild(cap);
+    cell.onclick = () => {
+      state.selSprite = { g: sp.group, n: sp.index };
+      document.querySelectorAll('.cell').forEach(el => el.classList.remove('on'));
+      cell.classList.add('on');
+      drawSingle(sp.group, sp.index);
+    };
+    grid.appendChild(cell);
+  }
+}
+
+/* 交互 */
+$('zoomSel').onchange = () => { if (state.selSprite) drawSingle(state.selSprite.g, state.selSprite.n); else if (state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
+$('palSel').onchange = () => { spriteCache.clear(); if (state.selSprite) drawSingle(state.selSprite.g, state.selSprite.n); else if (state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
+$('showClsn').onchange = () => { if (!state.selSprite && state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
+$('speed').onchange = (e) => { state.speed = +e.target.value; };
+$('btnPlay').onclick = () => { state.playing = !state.playing; $('btnPlay').textContent = state.playing ? '⏸' : '▶'; if (state.playing) state.lastT = 0; };
+$('btnPrev').onclick = () => { if (state.curActNo !== null) { state.curFrame = (state.curFrame - 1 + state.actions.get(state.curActNo).frames.length) % state.actions.get(state.curActNo).frames.length; drawFrame(state.curActNo, state.curFrame); } };
+$('btnNext').onclick = () => { if (state.curActNo !== null) { state.curFrame = (state.curFrame + 1) % state.actions.get(state.curActNo).frames.length; drawFrame(state.curActNo, state.curFrame); } };
+document.querySelectorAll('#tabs div').forEach(t => t.onclick = () => {
+  document.querySelectorAll('#tabs div').forEach(x => x.classList.remove('on'));
+  t.classList.add('on');
+  $('paneAnim').style.display = t.dataset.pane === 'paneAnim' ? 'block' : 'none';
+  $('paneSprite').style.display = t.dataset.pane === 'paneSprite' ? 'block' : 'none';
+});
+$('btnPickDir').onclick = () => $('pickDir').click();
+$('btnPickFiles').onclick = () => $('pickFiles').click();
+$('pickDir').onchange = (e) => { loadFromFiles([...e.target.files].map(f => [f.webkitRelativePath || f.name, f])); e.target.value = ''; };
+$('pickFiles').onchange = (e) => { loadFromFiles([...e.target.files].map(f => [f.name, f])); e.target.value = ''; };
+
+function loadFromFiles(arr) {
+  // 若有多个 def，优先选带同名的
+  const defs = arr.filter(([p]) => /\.def$/i.test(p));
+  const map = new Map(arr.map(([p, f]) => [p.replace(/\\/g, '/'), f]));
+  let defPath = null;
+  if (defs.length === 1) defPath = defs[0][0].replace(/\\/g, '/');
+  else if (defs.length > 1) {
+    // 找 sff 同名 def（Lin.sff → Lin.def / LinYu.def 与 LinYu/ 目录）
+    const sffP = [...map.keys()].find(p => /\.sff$/i.test(p));
+    if (sffP) {
+      const stem = sffP.split('/').pop().replace(/\.sff$/i, '');
+      defPath = (defs.find(([p]) => p.toLowerCase().includes(stem.toLowerCase())) || defs[0])[0].replace(/\\/g, '/');
+    } else defPath = defs[0][0];
+  }
+  loadFiles(map, defPath);
+}
+/* 拖放 */
+window.addEventListener('dragover', (e) => { e.preventDefault(); });
+window.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  const items = [...(e.dataTransfer.items || [])];
+  const files = [];
+  const walk = async (entry, path) => {
+    if (entry.isFile) {
+      const f = await new Promise((res, rej) => entry.file(res, rej));
+      files.push([path + entry.name, f]);
+    } else if (entry.isDirectory) {
+      const rd = entry.createReader();
+      let batch;
+      do {
+        batch = await new Promise((res) => rd.readEntries(res, () => res([])));
+        for (const en of batch) await walk(en, path + entry.name + '/');
+      } while (batch.length);
+    }
+  };
+  const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (entries.length) {
+    for (const en of entries) await walk(en, '');
+    loadFromFiles(files);
+  } else {
+    loadFromFiles([...e.dataTransfer.files].map(f => [f.name, f]));
+  }
+});
+
+/* ---------- 服务器模式（经 http://localhost:8100/ff-studio/src/viewer.html 打开时） ---------- */
+(async () => {
+  if (location.protocol === 'file:') return;
+  try {
+    const packs = await (await fetch('/api/assetpacks')).json();
+    const box = $('serverBox');
+    box.style.display = '';
+    const list = $('packList');
+    for (const p of (packs.packs || packs || [])) {
+      const name = typeof p === 'string' ? p : (p.dir || p.name || '');
+      if (!name) continue;
+      const row = document.createElement('div');
+      row.className = 'pRow';
+      row.innerHTML = '📦 ' + name;
+      list.appendChild(row);
+      row.onclick = async () => {
+        document.querySelectorAll('#packList .pRow').forEach(x => x.classList.remove('on'));
+        row.classList.add('on');
+        try {
+          const meta = await (await fetch('/api/packs/' + encodeURIComponent(name))).json();
+          const chars = meta.chars || meta.roster || [];
+          // 列出该包下的角色
+          const sub = document.createElement('div');
+          sub.style.margin = '4px 0 8px 16px';
+          sub.innerHTML = '<div class="kv">载入角色（点击）：</div>';
+          list.appendChild(sub);
+          for (const c of chars) {
+            const cid = typeof c === 'string' ? c : (c.charId || c.id || '');
+            if (!cid) continue;
+            const crow = document.createElement('div');
+            crow.className = 'pRow';
+            crow.innerHTML = '👤 ' + cid;
+            sub.appendChild(crow);
+            crow.onclick = () => loadFromServer(name, cid);
+          }
+        } catch (err) { $('warn').textContent = '读取资产集失败：' + err.message; }
+      };
+    }
+  } catch (e) { /* 非 8100 环境静默 */ }
+})();
+
+async function loadFromServer(pack, charId) {
+  try {
+    const base = '/workshops/toon-fighting-web/map_design/' + encodeURIComponent(pack) + '/chars/' + encodeURIComponent(charId) + '/';
+    const files = {};
+    // 探测常见文件
+    const candidates = [charId + '.def', charId + '.sff', charId + '.air'];
+    for (const c of candidates) {
+      const r = await fetch(base + c);
+      if (!r.ok) continue;
+      const buf = await r.arrayBuffer();
+      const name = c.split('.').pop().toLowerCase();
+      files[c] = new File([buf], c, { type: name === 'def' ? 'text/plain' : 'application/octet-stream' });
+    }
+    // pal 文件按 pack.json 或常见命名再补
+    const meta = await (await fetch('/api/packs/' + encodeURIComponent(pack))).json().catch(() => null);
+    // 简化：直接把 sff/air/def 交给 loadFiles（pal 留内嵌）
+    loadFromFiles(Object.entries(files));
+  } catch (e) {
+    $('warn').textContent = '服务器载入失败：' + e.message;
+  }
+}
+</script>
+</body>
+</html>

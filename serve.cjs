@@ -237,6 +237,47 @@ async function handleApi(req, res, urlPath) {
       return;
     }
 
+    // 资产集列表（本地概念，不依赖 --conn；扫 map_design/*/pack.json）
+    if (urlPath === '/api/assetpacks') {
+      const root = path.join(ROOT, 'workshops', 'toon-fighting-web', 'map_design');
+      const packs = [];
+      try {
+        for (const dir of fs.readdirSync(root)) {
+          const pf = path.join(root, dir, 'pack.json');
+          if (!fs.existsSync(pf)) continue;
+          try {
+            const pack = JSON.parse(fs.readFileSync(pf, 'utf8'));
+            packs.push(Object.assign({ dir, stories: [], type: 'mapping' }, pack));
+          } catch { /* 坏 pack.json 跳过 */ }
+        }
+      } catch { /* map_design 不存在 */ }
+      return json(res, 200, { ok: true, packs });
+    }
+
+    // 发言 agent（文本）：走后端 agentRun，agentName 由前端指定；
+    // 失败/超时静默跳过（前端约定），不缓存。注意：对局中的调用都是
+    // fire-and-forget 异步请求，不阻塞帧循环。
+    if (urlPath === '/api/conn/agent/chat' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', async () => {
+        let input;
+        try { input = JSON.parse(body || '{}'); } catch { return json(res, 200, { ok: false, error: 'body 需为 JSON' }); }
+        const prompt = String(input.prompt || '').slice(0, 1500);
+        if (!prompt) return json(res, 200, { ok: false, error: 'prompt 为空' });
+        try {
+          const r = await bfAuth('/plugin/agentRun', {
+            agentName: String(input.agentName || 'toon-fighting-speech'),
+            input: { prompt, system: input.system ? String(input.system).slice(0, 800) : undefined },
+          });
+          // 后端返回形态未知（文本 agent 可能回 data.text/message/content 任一），统一取字符串
+          const text = r && (r.text || r.message || r.content || (typeof r.data === 'string' ? r.data : (r.data && (r.data.text || r.data.message || r.data.content)))) || '';
+          json(res, 200, { ok: !!text, text: String(text).slice(0, 400), raw: r });
+        } catch (e) { fail(res, e, 'agentChat'); }
+      });
+      return;
+    }
+
     // 故事绑定种子
     if (urlPath === '/api/conn/story') {
       if (storyName) {
