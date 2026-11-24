@@ -51,6 +51,7 @@ aside .kv b { color:var(--fg); font-weight:500; }
 .tierBadge.A { color:#ffd98a; border:1px solid rgba(255,194,51,.4); }
 .tierBadge.B { color:#c9a7ff; border:1px solid rgba(201,167,255,.35); }
 .tierBadge.C { color:#9fb6d8; border:1px solid rgba(58,209,255,.3); }
+.tierBadge.ai { color:#ffd98a; border:1px solid rgba(255,194,51,.35); margin-left:4px; }
 #keyActs { margin-bottom:8px; }
 /* AI 关键帧：左白模代表帧 ↔ 右 AI 整帧 */
 .keyPair { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;
@@ -97,6 +98,10 @@ footer { padding:4px 14px; background:var(--panel); border-top:1px solid var(--l
   <select id="zoomSel"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>6</option><option>8</option></select>
   <label style="color:var(--dim);font-size:12px">显示判定框</label>
   <input type="checkbox" id="showClsn">
+  <div class="sep"></div>
+  <label style="color:var(--dim);font-size:12px">AI关键帧预览</label>
+  <input type="checkbox" id="aiPreview" title="用 keyframes/ 的 AI 整帧替换身体（等价于虚拟组装）">
+  <span id="aiPreviewHint" style="color:var(--dim);font-size:11px"></span>
 </header>
 <main>
   <aside>
@@ -561,6 +566,7 @@ const state = {
   stateTexts: [],                              // [{p, t}] st/cns 原文（关键帧 L2 分层用）
   keyInfo: null,                               // buildKeyInfo() 产物
   keyAssets: null,                             // keyframes/ 的 AI 关键帧资产（manifest + 图 URL）
+  aiPreview: false,                            // AI 关键帧替换预览开关
   pals: [],                                    // [{name, pal}]
   curActNo: null, curFrame: 0, playing: true, speed: 1,
   tickAcc: 0, lastT: 0,
@@ -606,6 +612,121 @@ function rgbaToCanvas(img, zoom) {
   return c;
 }
 
+/* ============================================================
+ * AI 关键帧替换预览（虚拟组装）
+ *   真实组装流程（assemble-ai-char.mjs）做的是：
+ *     ① AI 图按 localcoord 高 × 0.92 缩放成角色帧高（240×0.92 = 221px）
+ *     ② 锚点 = 底部中心
+ *     ③ AIR 重映射：每个 action 的帧行换成对应类别的 sprite 0..9
+ *        （Clsn 判定行原样保留 → 攻击判定不变）
+ *   这里在 viewer 里做**等价的虚拟预览**：动作帧照常用原 sprite 算位置与判定框，
+ *   但绘制时用该类别对应的 AI 图替代 → 动作列表播放即可看到替换后的效果。
+ * ============================================================ */
+const AI_CATEGORIES = [
+  { key: 'stand',   sprite: 0, label: '站桩' },
+  { key: 'walk',    sprite: 1, label: '行走/移动' },
+  { key: 'turn',    sprite: 2, label: '转身' },
+  { key: 'light',   sprite: 3, label: '轻拳' },
+  { key: 'heavy',   sprite: 4, label: '重拳/踢' },
+  { key: 'special', sprite: 5, label: '特殊技' },
+  { key: 'hurt',    sprite: 6, label: '受击' },
+  { key: 'down',    sprite: 7, label: '倒地' },
+  { key: 'air',     sprite: 8, label: '空中' },
+  { key: 'guard',   sprite: 9, label: '防御/胜利' },
+];
+// action 号 → 类别（与 air-remap.cjs 的 classifyAction 同一口径）
+function aiCategoryOf(actionId) {
+  if (actionId >= 5300) return 'down';
+  if (actionId >= 2100 && actionId < 3000) return actionId < 2300 ? 'hurt' : 'down';
+  if (actionId >= 1400 && actionId < 2100) return 'special';
+  if (actionId >= 1200 && actionId < 1400) return 'air';
+  if (actionId >= 1000 && actionId < 1200) return 'walk';
+  if (actionId >= 600 && actionId < 1000) return 'turn';
+  if (actionId >= 400 && actionId < 600) return 'heavy';
+  if (actionId >= 200 && actionId < 400) return 'light';
+  return 'stand';
+}
+// 角色帧高（localcoord 高 × 0.92）与锚点（底部中心）
+function aiCharHeight() {
+  const lc = state.def && state.def.info && state.def.info.localcoord;
+  const m = /(\d+)\s*,\s*(\d+)/.exec(lc || '320,240');
+  return Math.round((m ? +m[2] : 240) * 0.92);
+}
+// AI 图按目标高缩放后的绘制尺寸（透明边距裁掉后按比例）
+let aiFitCache = new Map();
+let aiLoading = false;
+// 预加载全部 10 类 AI 图：全部就绪后才启用预览（避免首帧空白）
+function preloadAiFrames() {
+  const K = state.keyAssets;
+  if (!K || !K.frames.length) return Promise.resolve(0);
+  const jobs = [];
+  for (const f of K.frames) {
+    if (!f.aiUrl) continue;
+    jobs.push(new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => { aiRaw.set(f.sprite, img); resolve(1); };
+      img.onerror = () => resolve(0);
+      img.src = f.aiUrl;
+    }));
+  }
+  aiLoading = true;
+  return Promise.all(jobs).then((r) => {
+    aiLoading = false;
+    aiFitCache.clear();
+    $('aiPreviewHint').textContent = '';
+    return r.reduce((a, b) => a + b, 0);
+  });
+}
+const aiRaw = new Map();   // sprite index → HTMLImageElement（原图）
+
+function aiFitted(spriteIdx) {
+  if (aiFitCache.has(spriteIdx)) return aiFitCache.get(spriteIdx);
+  const img = aiRaw.get(spriteIdx);
+  if (!img) return null;
+  const targetH = aiCharHeight();
+  // 与 assemble-ai-char 的 fitFrame 一致：裁掉透明边 → 按目标高缩放
+  const cv = document.createElement('canvas');
+  cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+  const c2 = cv.getContext('2d');
+  c2.drawImage(img, 0, 0);
+  const d = c2.getImageData(0, 0, cv.width, cv.height).data;
+  let minX = cv.width, minY = cv.height, maxX = -1, maxY = -1;
+  for (let y = 0; y < cv.height; y++) {
+    for (let x = 0; x < cv.width; x++) {
+      if (d[(y * cv.width + x) * 4 + 3] > 24) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) { aiFitCache.set(spriteIdx, null); return null; }
+  const srcW = maxX - minX + 1, srcH = maxY - minY + 1;
+  const scale = targetH / srcH;
+  const dstW = Math.max(1, Math.round(srcW * scale));
+  const out = document.createElement('canvas');
+  out.width = dstW; out.height = targetH;
+  const octx = out.getContext('2d');
+  octx.imageSmoothingEnabled = false;
+  octx.drawImage(cv, minX, minY, srcW, srcH, 0, 0, dstW, targetH);
+  // 锚点：底部中心（与 assemble-ai-char 一致）
+  const fit = { canvas: out, w: dstW, h: targetH, ax: Math.round(dstW / 2), ay: -targetH };
+  aiFitCache.set(spriteIdx, fit);
+  return fit;
+}
+// AI 整帧 → 动作帧的映射。
+// 每类只有 1 张 AI 图，所以同一个类别下的所有动作帧都播同一张图
+// （与真实组装的 AIR 重映射一致：一律换成类别图，判定行不变）。
+// 预览的观感因此是「该类别的代表姿态」，不是逐帧动画 —— 这是 ≤10 张方案的固有取舍。
+function aiFrameFor(actionId) {
+  if (!state.aiPreview) return null;
+  const K = state.keyAssets;
+  if (!K || !K.frames.length) return null;
+  const cat = aiCategoryOf(actionId);
+  const entry = AI_CATEGORIES.find((c) => c.key === cat);
+  if (!entry) return null;
+  return aiFitted(entry.sprite);
+}
+
 /* ---------- 渲染：动画帧 或 单帧浏览 ---------- */
 function drawFrame(act, fi) {
   const zoom = +$('zoomSel').value;
@@ -614,16 +735,23 @@ function drawFrame(act, fi) {
   const canvas = $('stage');
   const f = actData.frames[fi];
   const showClsn = $('showClsn').checked;
+  const aiImg = aiFrameFor(act);           // AI 关键帧替换图（可能为 null）
   // 先解所有帧 sprite 求 bbox
   const parts = [];
   let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
   for (const fr of actData.frames) {
     const img = getSpriteRgba(fr.grp, fr.num, pal);
     parts.push({ fr, img });
-    if (img) {
-      const x0 = fr.x - img.ax, y0 = fr.y - img.ay;
+    // 用「实际要画的那张图」算 bbox：AI 预览时用 AI 图（221px 高），否则用原精灵
+    const useImg = aiImg || img;
+    if (useImg) {
+      const ux = aiImg ? aiImg.ax : useImg.ax;
+      const uy = aiImg ? aiImg.ay : useImg.ay;
+      const uw = aiImg ? aiImg.w : useImg.w;
+      const uh = aiImg ? aiImg.h : useImg.h;
+      const x0 = fr.x - ux, y0 = fr.y - uy;
       minX = Math.min(minX, x0); minY = Math.min(minY, y0);
-      maxX = Math.max(maxX, x0 + img.w); maxY = Math.max(maxY, y0 + img.h);
+      maxX = Math.max(maxX, x0 + uw); maxY = Math.max(maxY, y0 + uh);
     }
   }
   if (minX > maxX) { minX = -40; minY = -120; maxX = 40; maxY = 0; }
@@ -642,7 +770,17 @@ function drawFrame(act, fi) {
   ctx.moveTo(0, (oy) * zoom); ctx.lineTo(canvas.width, (oy) * zoom);
   ctx.stroke();
   const img = parts[fi].img, fr = parts[fi].fr;
-  if (!img) {
+  if (aiImg) {
+    // AI 整帧替代身体：锚点底部中心，与真实组装一致
+    const dx = (ox + fr.x - aiImg.ax) * zoom;
+    const dy = (oy + fr.y - aiImg.ay) * zoom;
+    ctx.save();
+    ctx.translate(dx, dy);
+    if (fr.flipH) { ctx.translate(aiImg.w * zoom, 0); ctx.scale(-1, 1); }
+    if (fr.flipV) { ctx.translate(0, aiImg.h * zoom); ctx.scale(1, -1); }
+    ctx.drawImage(aiImg.canvas, 0, 0, aiImg.w * zoom, aiImg.h * zoom);
+    ctx.restore();
+  } else if (!img) {
     ctx.fillStyle = '#e05b5b';
     ctx.font = '13px sans-serif';
     ctx.fillText('缺精灵 ' + fr.grp + ',' + fr.num, 20, 40);
@@ -654,7 +792,8 @@ function drawFrame(act, fi) {
     drawBoxes(ctx, fr.clsn1, ox, oy, zoom, 'rgba(230,90,90,0.9)');
   }
   const dur = actData.frames.reduce((a, b) => a + b.dur, 0);
-  $('stageInfo').textContent = `动作 ${act} · 帧 ${fi + 1}/${actData.frames.length} · sprite ${fr.grp},${fr.num} · 时长 ${dur} tick (${(dur / 60).toFixed(2)}s)`;
+  const aiTag = aiImg ? ' · AI关键帧(' + aiCategoryOf(act) + ')' : '';
+  $('stageInfo').textContent = `动作 ${act} · 帧 ${fi + 1}/${actData.frames.length} · sprite ${fr.grp},${fr.num}${aiTag} · 时长 ${dur} tick (${(dur / 60).toFixed(2)}s)`;
 }
 function drawSprite(ctx, img, fr, ox, oy, zoom) {
   const c = rgbaToCanvas(img, 1);
@@ -812,11 +951,19 @@ function loadFiles(fileMap, defPath) {
       }
       renderInfo();
       renderPalSel();
-      renderAnimList();
       renderGroupSel();
-  buildKeyInfo();
-  renderKey();
-  renderKeyAssets();
+      buildKeyInfo();
+      renderKey();
+      renderKeyAssets();
+      // AI 关键帧预览开关的可用性（没有 keyframes/ 资产就禁用）
+      const hasAI = !!(state.keyAssets && state.keyAssets.frames.length);
+      $('aiPreview').disabled = !hasAI;
+      $('aiPreview').checked = hasAI && state.aiPreview;
+      $('aiPreviewHint').textContent = hasAI
+        ? '（' + state.keyAssets.frames.length + ' 类：' + AI_CATEGORIES.map((c) => c.label).join('/') + '）'
+        : '（该角色无 keyframes/ 资产）';
+      // 动作列表要带「→ 类别」标记，所以必须在 keyAssets 就绪之后渲染
+      renderAnimList();
       // 默认播放第一个动作（优先 0 站立）
       const first = state.actions && (state.actions.has(0) ? 0 : [...state.actions.keys()][0]);
       if (first !== undefined) playAction(first);
@@ -860,6 +1007,7 @@ function renderAnimList() {
   const list = $('animList');
   list.innerHTML = '';
   if (!state.actions) { list.innerHTML = '<div class="kv" style="padding:6px;color:var(--dim)">无 .air（或未找到）</div>'; return; }
+  const hasAI = !!(state.keyAssets && state.keyAssets.frames.length);
   const frag = document.createDocumentFragment();
   for (const no of [...state.actions.keys()].sort((a, b) => a - b)) {
     const act = state.actions.get(no);
@@ -868,7 +1016,11 @@ function renderAnimList() {
     const row = document.createElement('div');
     row.className = 'actRow';
     row.dataset.no = no;
-    row.innerHTML = `<span class="no">${no}</span><span>${act.frames.length} 帧</span><span class="meta">${(dur / 60).toFixed(2)}s</span>`;
+    const cat = hasAI ? aiCategoryOf(no) : '';
+    const catLabel = hasAI ? (AI_CATEGORIES.find((c) => c.key === cat) || {}).label : '';
+    row.innerHTML = `<span class="no">${no}</span><span>${act.frames.length} 帧</span>` +
+      (hasAI ? `<i class="tierBadge ai">→ ${esc(catLabel)}</i>` : '') +
+      `<span class="meta">${(dur / 60).toFixed(2)}s</span>`;
     row.onclick = () => playAction(no);
     frag.appendChild(row);
   }
@@ -1202,6 +1354,27 @@ function renderGroupGrid(g) {
 $('zoomSel').onchange = () => { if (state.selSprite) drawSingle(state.selSprite.g, state.selSprite.n); else if (state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
 $('palSel').onchange = () => { spriteCache.clear(); if (state.selSprite) drawSingle(state.selSprite.g, state.selSprite.n); else if (state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
 $('showClsn').onchange = () => { if (!state.selSprite && state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
+$('aiPreview').onchange = async (e) => {
+  if (e.target.checked) {
+    $('aiPreviewHint').textContent = '（正在加载 AI 帧…）';
+    const n = await preloadAiFrames();
+    if (!n) { e.target.checked = false; $('aiPreviewHint').textContent = '（AI 帧加载失败）'; return; }
+    state.aiPreview = true;
+    aiFitCache.clear();
+  } else {
+    state.aiPreview = false;
+    aiFitCache.clear();
+  }
+  $('aiPreviewHint').textContent = state.aiPreview
+    ? '（已启用 ' + (state.keyAssets ? state.keyAssets.frames.length : 0) + ' 类）'
+    : '（已关闭）';
+  redrawCurrent();
+};
+// AI 图是异步加载的（Image.onload）——加载完要重画当前帧
+function redrawCurrent() {
+  if (state.selSprite) { drawSingle(state.selSprite.g, state.selSprite.n); return; }
+  if (state.curActNo !== null) drawFrame(state.curActNo, state.curFrame);
+}
 $('speed').onchange = (e) => { state.speed = +e.target.value; };
 $('btnPlay').onclick = () => { state.playing = !state.playing; $('btnPlay').textContent = state.playing ? '⏸' : '▶'; if (state.playing) state.lastT = 0; };
 $('btnPrev').onclick = () => { if (state.curActNo !== null) { state.curFrame = (state.curFrame - 1 + state.actions.get(state.curActNo).frames.length) % state.actions.get(state.curActNo).frames.length; drawFrame(state.curActNo, state.curFrame); } };
