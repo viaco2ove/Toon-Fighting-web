@@ -4,7 +4,15 @@ description: 为白模角色资产生成/落盘「AI 整帧关键帧」资产（
 ---
 
 # char-assets-keyframes-generation
-
+## 例子
+- /char-assets-keyframes-generation merge 
+从
+\ff-studio\white-mold
+选择适当的职业 格斗角色资产
+给 \workshops\toon-fighting-web\map_design\末世选择，从解析神明开始成神
+这个故事的（toonflow ai game）全部角色 生成
+融合关键帧 的格斗角色资产 xxxKFM
+不透明度 原55%,ai帧 90%
 ## Purpose
 
 把「白模角色包」升级为「AI 换身资产」：按用户拍板的 **≤10 张 AI 整帧**方案（一帧一动作
@@ -92,6 +100,11 @@ node .cache\scripts\mk-keyframes.mjs
 **不画这些行**（走路/攻击截图干净）——离线渲染按同一几何规则把这些行置透明，
 对齐引擎表现。实现见 templates/mk-keyframes-template.mjs 的 `refPngBuf()`。
 
+> 2026-11-25 更正：这些行在**引擎口径下本来就是 index 0（透明）**。
+> 「近黑填充」是离线解码器截断 RLE 流（`rleSize` 少算 128+ 字节）造成的假象，
+> 解码器修好后（见下文「共同技术前提」）不需要再几何裁剪。
+> 已经落盘的旧 `reference/*.png`、`preview.png` 可以保留（视觉上等价）。
+
 ### Step 4 — 验证
 
 1. **目检 preview**：白模侧无黑/灰色填充块、AI 侧形象一致；
@@ -152,7 +165,7 @@ node .cache\scripts\mk-keyframes.mjs
 | 模式 | 每帧显示什么 | 精灵数 | 包体 | 技能 |
 |---|---|---|---|---|
 | **抽关键帧**（some） | 代表帧=AI 图，其余=原精灵 | 10 + 白模全留 | +0.3MB | [keyframeMode/some/SKILL.md](keyframeMode/some/SKILL.md) |
-| **融合关键帧**（merge） | 原精灵 **+** AI 图（叠加） | 777 张合成 | +5.7MB | [keyframeMode/merge/SKILL.md](keyframeMode/merge/SKILL.md) |
+| **融合关键帧**（merge） | 原精灵 **+** AI 图（叠加） | 799 张合成 | +5.9MB | [keyframeMode/merge/SKILL.md](keyframeMode/merge/SKILL.md) |
 | **全替关键帧**（all） | 只有 AI 图 | 10 + 白模全留 | +0.3MB | [keyframeMode/all/SKILL.md](keyframeMode/all/SKILL.md) |
 | 不使用（none） | 只有原精灵 | — | — | — |
 
@@ -165,6 +178,16 @@ node .cache\scripts\mk-keyframes.mjs
   只能用 `[ \t]` 不能用 `\s`（`\s` 会吃掉 CRLF）
 - **类别映射按目标包 cns 核对**，不猜 MUGEN 号段惯例
   （5000 系在 LinYu 上是受击不是倒地，1200/1250 是走位不是空中）
+
+⚠️ **只要动原精灵像素（merge 模式），先确认解码器与引擎逐像素一致**
+（2026-11-25 实测踩过：看到「纯色方块 + 彩色杂斑」先查这三条）：
+
+| 语义 | 引擎口径 |
+|---|---|
+| `ps != 0` 的精灵调色板 | **沿用上一精灵**（`s.palidx = prev.palidx`）。不能去扫 `0x0C` —— 这类精灵块尾带尾部数据、RLE 里也有 `0x0C` 字节，会撞假标记读出垃圾调色板（解成红/绿/品红） |
+| `ps != 0` 的精灵像素流 | 读到**块尾**（`rleSize = blockEnd - pcxDataStart`）；停在 `0x0C` 会少读 128+ 字节 RLE → 多出上千个幻影不透明像素（烘成黑色方块） |
+| 白模精灵显示的颜色 | def 的 `pal1`（灰度 `.act`），不是 sff 内嵌调色板 |
+| 解码器有两份 | `server/lib/sff.cjs` **和** `ff-studio/src/viewer.html`（浏览器端各一份），必须同时改 |
 
 「融」模式额外注意：MUGEN 帧行一次只能画一个精灵，
 所以「AI 图 + 原精灵一起显示」**必须在构建期烘焙**（合成成一张图）；
@@ -179,7 +202,7 @@ node .cache\scripts\mk-keyframes.mjs
 - [keyframeMode/some/examples.md](keyframeMode/some/examples.md)：LinYuKF 变体包组装全程，
   含三个踩坑（AI 精灵覆盖 group 0 / CRLF 被改 / 服务端调色板被灰度覆盖）
 - [keyframeMode/merge/examples.md](keyframeMode/merge/examples.md)：LinYuKFM 融合包组装全程，
-  含共享块解引用、全透明废区跳过、特效帧判定
+  含共享块解引用、特效帧判定，以及二次修复（纯色方块/黑块 = 解码器调色板 + RLE 截断）
 - [keyframeMode/all/examples.md](keyframeMode/all/examples.md)：LinYuKFA 全替包组装全程，
   含旧版 build-ai-char 的两个问题（丢弃白模精灵 / 覆盖 group 0）
 
@@ -188,9 +211,11 @@ node .cache\scripts\mk-keyframes.mjs
 1. **每类一帧的口径**：10 类 = MUGEN 惯例动作号段的归类（A 站桩/B 攻击/C 受击…），
    与关键帧面板（viewer）和 analyze-keyframes.mjs 同一口径；sprite 0..9 的序号即
    `air-remap.cjs` 的 CATEGORIES 顺序，组装引擎包时 AIR 重映射按这个序号换图。
-2. **废区（重要）**：白模底座部分精灵下半带近黑填充废区。引擎**不画**它们（引擎
-   调色板路径实测干净），离线渲染要按「底部连续 100% 不透明行」几何裁剪，否则
-   reference/preview 有大黑块误导。此结论只在 98Ryo 底座上实测过，换底座要重测一次。
+2. **废区（重要）**：白模底座部分精灵下半看着像「近黑填充废区」，但按**引擎口径**
+   的 RLE 解出来是 index 0（透明）—— 引擎确实不画。离线渲染出现黑块，是解码器
+   少读了 RLE 尾部字节；修解码器（`rleSize = blockEnd - pcxDataStart`）后就不必
+   再几何裁剪。此结论在 98Ryo 底座上实测（`0,1`：幻影 4623 px → 真值 2965 px），
+   换底座仍要对拍一次「不透明像素数」。
 3. **引擎键盘注入**：必须 `document.dispatchEvent(new KeyboardEvent('keydown',{code}))`
    ——引擎 listener 绑在 document（system_js.go）且只认 `ev.code`（jsCodeToKey）；
    dispatch 到 window 不生效。

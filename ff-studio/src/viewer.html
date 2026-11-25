@@ -108,6 +108,12 @@ footer { padding:4px 14px; background:var(--panel); border-top:1px solid var(--l
     <option value="none">不用（保持原精灵）</option>
   </select>
   <span id="aiPreviewHint" style="color:var(--dim);font-size:11px"></span>
+  <span id="mergeAlphaBox" style="display:none;align-items:center;gap:5px">
+    <label style="color:var(--dim);font-size:12px">不透明度</label>
+    <input type="range" id="mergeBodyAlpha" min="5" max="100" step="5" value="100" style="width:70px" title="融模式：原精灵的不透明度（仅预览；引擎包需重跑构建脚本）">
+    <input type="range" id="mergeAlpha" min="5" max="95" step="5" value="55" style="width:70px" title="融模式：AI 关键帧叠上去的不透明度（仅预览；引擎包需重跑构建脚本）">
+    <span id="mergeAlphaText" style="color:var(--dim);font-size:12px;white-space:nowrap">原 100% · AI关键帧 55%</span>
+  </span>
   <div class="sep"></div>
   <label style="color:var(--dim);font-size:12px">资产标记</label>
   <select id="assetMode" title="写入 char.json 的 keyframeMode（运行时据此决定是否替换关键帧）">
@@ -384,7 +390,7 @@ function readPaletteAt(buf, offset) {
   }
   return pal;
 }
-function decodeV1(buf, sp) {
+function decodeV1(buf, sp, isCharFirstSprite) {
   const offset = sp.at + 32;
   const dataStart = offset + 128;
   const hr = new Reader(buf);
@@ -398,20 +404,34 @@ function decodeV1(buf, sp) {
   let w = xmax - xmin + 1, h = ymax - ymin + 1;
   let blockEnd = sp.next > offset ? sp.next : offset + sp.size;
   if (blockEnd > buf.length) blockEnd = buf.length;
-  const datasize = sp.next > offset ? sp.next - offset : sp.size;
-  const dataEnd = Math.min(blockEnd, offset + datasize - 128);
-  const src = buf.subarray(Math.max(dataStart, 0), Math.max(dataEnd, dataStart));
+  // 引擎口径（Sprite.read）：
+  //   首精灵 / ps!=0（paletteSame）→ 一直读到块尾。多读的调色板字节无副作用：
+  //     RLE 写满 w*h 就停。
+  //   ps==0（自带调色板）→ 停在块尾前的 0x0C 标记处（引擎 paletteOffset 即标记位置）。
+  //
+  // ⚠️ 以前这里一律用「块尾 - 128」截断，比引擎少读 128 字节 RLE 流，
+  // 解出的下半身会缺内容（LinYu 0,1 差 323 px），融合图与原精灵就对不齐。
+  let dataEnd;
+  if (isCharFirstSprite || sp.ps !== 0) {
+    dataEnd = blockEnd;
+  } else {
+    let q = blockEnd - 769;
+    while (q >= dataStart && buf[q] !== 0x0c) q--;
+    dataEnd = q >= dataStart ? q : blockEnd - 769;
+  }
+  if (dataEnd < dataStart) dataEnd = dataStart;
+  const src = buf.subarray(dataStart, dataEnd);
   const px = new Uint8Array(w * h);
   if (encoding === 1) {
     // 引擎 RlePcxDecode：写满 bpl 换行，行边界截断 run（n=1 后 n-- 直接退出）
     let i = 0, j = 0, k = 0;
-    while (j < px.length && i < src.length) {
+    while (j < px.length) {
       let n = 1;
-      let d = src[i];
+      let d = src[i] || 0;
       if (i < src.length - 1) i++;
       if (d >= 0xc0) {
         n = d & 0x3f;
-        d = src[i];
+        d = src[i] || 0;
         if (i < src.length - 1) i++;
       }
       for (; n > 0; n--) {
@@ -436,49 +456,57 @@ function decodeV1(buf, sp) {
   }
   return { w, h, px, depth: 8 };
 }
-// SFFv1 调色板状态机（sffv1PalState 移植）
+// SFFv1 调色板：按引擎 Sprite.read 的 paletteSame 规则逐精灵沿目录顺序解析
+//   · 角色首精灵（0,0）→ 调色板固定在块尾 - 768（legacy 路径，不找 0x0C）
+//   · ps === 0（自带调色板）→ 块尾往前找 0x0C 标记，调色板在标记 + 1
+//   · ps !== 0 → **沿用上一精灵的调色板**（引擎 s.palidx = prev.palidx）
+//
+// ⚠️ 以前这里搬的是引擎**预载循环**的 sffv1PalState 状态机（state%2==0 重读文件），
+// 跟对局渲染不等价：它在第一个 ps==0 精灵处把 state 置 3，之后所有 ps==0 精灵
+// 都继承 0,0 的基础调色板（AI 精灵会变灰）。另外对 ps!=0 的精灵也套了
+// v1PreloadedPalette 的「扫 0x0C」逻辑，而这类精灵块尾常带尾部字节 / RLE 流里
+// 也有 0x0C 字节 → 撞假标记、读出一整块垃圾调色板（Lin.sff 的 0,1/0,2/0,3
+// 解成红/绿/品红杂斑，融合预览里就是那块大红方块）。
 function v1PaletteMap(buf, sff) {
   const list = sff.byIndex;
   const out = new Map();
-  let state = 0, current = 0;
-  let location = list.length ? list[0].next - 768 : 0;
-  const initialLocation = location;
-  let shared = null;
-  for (let i = 0; i < list.length; i++) {
-    const s = list[i];
+  let prev = null;
+  for (const s of list) {
+    let pal = null;
     if (s.group === 0 && s.index === 0) {
-      state = 2;
-      location = initialLocation;
-    } else if (s.ps === 0 && state === 2) {
-      state = 3; current++;
-      location = s.next - 768;
+      pal = readPaletteAt(buf, s.next - 768);
+    } else if (s.size === 0) {
+      pal = prev;
     } else if (s.ps === 0) {
-      if (current === 0) state = 1;
-      current++;
-      location = s.next - 768;
-    }
-    const takeFromFile = (s.group === 0 && s.index === 0) || (state % 2 === 0);
-    if (takeFromFile) {
-      const pal = readPaletteAt(buf, location);
-      if (pal) { out.set(s, pal); shared = pal; }
+      pal = v1OwnPalette(buf, s);
     } else {
-      out.set(s, shared);
+      pal = prev;
     }
+    const use = pal || prev;
+    if (use) out.set(s, use);
+    prev = use || prev;
   }
   return out;
 }
-function v1PreloadedPalette(buf, sp) {
+// ps==0 精灵的自带调色板：块尾往前找 0x0C；找不到退回 blockEnd - 768
+function v1OwnPalette(buf, sp) {
   const offset = sp.at + 32;
-  const isFirstInFile = sp.group === 0 && sp.index === 0;
-  const datasize = sp.next > offset ? sp.next - offset : sp.size;
-  if (isFirstInFile) return readPaletteAt(buf, offset + datasize - 768);
   const dataStart = offset + 128;
   let blockEnd = sp.next > offset ? sp.next : offset + sp.size;
   if (blockEnd > buf.length) blockEnd = buf.length;
   let p = blockEnd - 769;
   while (p >= dataStart && buf[p] !== 0x0c) p--;
-  const off = p >= dataStart ? p + 1 : blockEnd - 769;
+  const off = p >= dataStart ? p + 1 : blockEnd - 768;
   return readPaletteAt(buf, off);
+}
+// 预载精灵（9000 组：portrait.spr / p1.face.spr）的取色路径
+function v1PreloadedPalette(buf, sp) {
+  const offset = sp.at + 32;
+  if (sp.group === 0 && sp.index === 0) {
+    const datasize = sp.next > offset ? sp.next - offset : sp.size;
+    return readPaletteAt(buf, offset + datasize - 768);
+  }
+  return v1OwnPalette(buf, sp);
 }
 function shade(img, palOverride) {
   const pal = palOverride || img.pal || new Array(256).fill(0);
@@ -513,15 +541,18 @@ function spriteRgba(buf, sff, group, index, palOverride) {
     img.pal = paletteOfIndex(sff, sp.pal);
     return { ...shade(img, palOverride), ax: sp.ax, ay: sp.ay };
   }
+  // 引擎的 isCharFirstSprite = (还没解过任何精灵) || (group==0 && index==0)
+  const isFirstSprite = target.i === 0 || (target.group === 0 && target.index === 0);
   if (palOverride) {
-    const img = decodeV1(buf, target);
+    const img = decodeV1(buf, target, isFirstSprite);
     return { ...shade(img, palOverride), ax: target.ax, ay: target.ay };
   }
   const palMap = v1PaletteMap(buf, sff);
-  const isFirst = target.group === 0 && target.index === 0;
-  const pal = (isFirst ? v1PreloadedPalette(buf, target) : null)
-            || palMap.get(target) || v1PreloadedPalette(buf, target);
-  const img = decodeV1(buf, target);
+  // 只有 9000 组（选人屏预载精灵）走预载取色路径；其余走 paletteSame 规则。
+  // 不能再对普通精灵调 v1PreloadedPalette —— 它扫 0x0C 对 ps!=0 的精灵会撞假标记。
+  const pre = target.group === 9000 ? v1PreloadedPalette(buf, target) : null;
+  const pal = pre || palMap.get(target) || null;
+  const img = decodeV1(buf, target, isFirstSprite);
   return { ...shade(img, pal), ax: target.ax, ay: target.ay };
 }
 
@@ -586,6 +617,7 @@ const state = {
   aiPreview: false,                            // AI 关键帧替换预览开关
   aiMode: 'all',                                 // 'all'=整段替换 / 'some'=只换代表帧 / 'merge'=与原精灵融合 / 'none'=不替换
   aiMergeAlpha: 0.55,                           // 'merge' 模式：AI 帧叠加在原精灵上的不透明度
+  aiMergeBodyAlpha: 1,                          // 'merge' 模式：原精灵自身的不透明度（0.05~1）
   assetMeta: null,                             // char.json 的内容（资产标记）
   serverPack: '',                              // 服务器模式下的资产集目录名（写回 char.json 用）
   pals: [],                                    // [{name, pal}]
@@ -927,7 +959,16 @@ function drawFrame(act, fi) {
   if (mergeThis && aiImg) {
     // 「融」：先画原精灵，再把 AI 图以 alpha 叠上去。
     // 特效帧（group ≥ 7000）与纯特效 action 不走这条路 —— 保持原样。
-    if (img) drawSprite(ctx, img, fr, ox, oy, zoom);
+    if (img) {
+      const bodyAlpha = state.aiMergeBodyAlpha;
+      if (bodyAlpha >= 1) drawSprite(ctx, img, fr, ox, oy, zoom);
+      else {
+        ctx.save();
+        ctx.globalAlpha = bodyAlpha;
+        drawSprite(ctx, img, fr, ox, oy, zoom);
+        ctx.restore();
+      }
+    }
     const dx = (ox + fr.x - aiImg.ax) * zoom;
     const dy = (oy + fr.y - aiImg.ay) * zoom;
     ctx.save();
@@ -968,7 +1009,9 @@ function drawFrame(act, fi) {
     } else if (state.aiMode === 'merge') {
       // 特效帧 / 纯特效 action 标注「不融合」
       const eff = isPureEffectAction(act);
-      aiTag = ' · AI关键帧(' + cat + ')+原精灵'
+      const aiPct = Math.round(state.aiMergeAlpha * 100);
+      const bodyPct = Math.round(state.aiMergeBodyAlpha * 100);
+      aiTag = ' · AI关键帧(' + cat + ')+原精灵 · 原' + bodyPct + '%/AI' + aiPct + '%'
         + (eff ? ' · 纯特效不融合'
                 : (isEffectFrame(fr) ? ' · 特效帧不融合' : ' · 已融合'));
     } else {
@@ -1157,6 +1200,9 @@ function loadFiles(fileMap, defPath) {
       // 恢复上次的 AI 预览开关状态（刷新后保持）
       state.aiMode = loadAiMode();
       $('aiMode').value = state.aiMode;
+      state.aiMergeAlpha = loadMergeAlpha();
+      state.aiMergeBodyAlpha = loadMergeBodyAlpha();
+      syncMergeAlphaUI();
       if (hasAI && loadAiPreview() && !state.aiPreview) {
         $('aiPreview').checked = true;
         await preloadAiFrames();
@@ -1611,9 +1657,22 @@ $('aiMode').onchange = (e) => {
   const v = e.target.value;
   state.aiMode = (v === 'some' || v === 'merge' || v === 'none') ? v : 'all';
   saveAiMode(state.aiMode);
+  syncMergeAlphaUI();
   if (state.aiPreview) {
     $('aiPreviewHint').textContent = '（已启用 ' + (state.keyAssets ? state.keyAssets.frames.length : 0) + ' 类 · ' + aiModeLabel() + '）';
   }
+  redrawCurrent();
+};
+$('mergeAlpha').oninput = (e) => {
+  state.aiMergeAlpha = Math.min(0.95, Math.max(0.05, +e.target.value / 100));
+  saveMergeAlpha(state.aiMergeAlpha);
+  syncMergeAlphaUI();
+  redrawCurrent();
+};
+$('mergeBodyAlpha').oninput = (e) => {
+  state.aiMergeBodyAlpha = Math.min(1, Math.max(0.05, +e.target.value / 100));
+  saveMergeBodyAlpha(state.aiMergeBodyAlpha);
+  syncMergeAlphaUI();
   redrawCurrent();
 };
 $('aiPreview').onchange = async (e) => {
@@ -1750,6 +1809,8 @@ window.addEventListener('drop', async (e) => {
 const VIEWER_LAST_KEY = 'ffstudio:last-asset';
 const VIEWER_AIPREVIEW_KEY = 'ffstudio:ai-preview';
 const VIEWER_AIMODE_KEY = 'ffstudio:ai-mode';
+const VIEWER_MERGEALPHA_KEY = 'ffstudio:merge-alpha';
+const VIEWER_MERGEBODYALPHA_KEY = 'ffstudio:merge-body-alpha';
 function saveLastAsset(pack, charId) {
   try { localStorage.setItem(VIEWER_LAST_KEY, JSON.stringify({ pack, charId, at: Date.now() })); }
   catch (e) { /* 私密模式 */ }
@@ -1773,6 +1834,37 @@ function loadAiMode() {
     const v = localStorage.getItem(VIEWER_AIMODE_KEY);
     return (v === 'some' || v === 'merge' || v === 'none') ? v : 'all';
   } catch (e) { return 'all'; }
+}
+// 融模式的不透明度（0.05~0.95，AI 帧占比；原精灵占比 = 1 - alpha）
+function saveMergeAlpha(v) {
+  try { localStorage.setItem(VIEWER_MERGEALPHA_KEY, String(v)); } catch (e) { /* 私密模式 */ }
+}
+function loadMergeAlpha() {
+  try {
+    const v = +localStorage.getItem(VIEWER_MERGEALPHA_KEY);
+    return Number.isFinite(v) && v >= 0.05 && v <= 0.95 ? v : 0.55;
+  } catch (e) { return 0.55; }
+}
+function saveMergeBodyAlpha(v) {
+  try { localStorage.setItem(VIEWER_MERGEBODYALPHA_KEY, String(v)); } catch (e) { /* 私密模式 */ }
+}
+function loadMergeBodyAlpha() {
+  try {
+    const v = +localStorage.getItem(VIEWER_MERGEBODYALPHA_KEY);
+    return Number.isFinite(v) && v >= 0.05 && v <= 1 ? v : 1;
+  } catch (e) { return 1; }
+}
+// 顶栏控件显隐 + 文案 + 滑块值，统一从 state 同步
+function syncMergeAlphaUI() {
+  const show = state.aiMode === 'merge';
+  const box = $('mergeAlphaBox');
+  box.style.display = show ? 'inline-flex' : 'none';
+  if (!show) return;
+  const pct = Math.round(state.aiMergeAlpha * 100);
+  const bodyPct = Math.round(state.aiMergeBodyAlpha * 100);
+  $('mergeAlpha').value = pct;
+  $('mergeBodyAlpha').value = bodyPct;
+  $('mergeAlphaText').textContent = '原 ' + bodyPct + '% · AI关键帧 ' + pct + '%';
 }
 // 模式的中文标签（顶栏提示 + 状态栏共用）
 function aiModeLabel() {

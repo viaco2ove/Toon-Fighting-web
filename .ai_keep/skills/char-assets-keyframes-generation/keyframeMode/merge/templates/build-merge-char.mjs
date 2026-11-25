@@ -38,7 +38,7 @@ function findProjectRoot(start) {
   }
   throw new Error('找不到项目根（含 server/lib/sff.cjs）');
 }
-const { loadSff, spriteRgba } = require(path.join(findProjectRoot(__dirname), 'server', 'lib', 'sff.cjs'));
+const { loadSff, spriteRgba, readPaletteFile } = require(path.join(findProjectRoot(__dirname), 'server', 'lib', 'sff.cjs'));
 
 const baseCharDir = process.argv[2];
 const framesDir = process.argv[3];
@@ -86,6 +86,17 @@ const baseSff = loadSff(baseSffBuf);
 const baseAirText = fs.readFileSync(baseAirPath, 'latin1');
 const baseDef = fs.readFileSync(baseDefPath, 'latin1');
 console.log('底座：', path.basename(baseSffPath));
+
+// 角色默认调色板（def 的 pal1）。引擎对局里普通精灵吃的是这个 .act，
+// 不是 sff 内嵌调色板 —— 融合图必须按「玩家实际看到的颜色」烘。
+// （ps!=0 的精灵块尾常带尾部数据 / RLE 里含 0x0C，解码器去扫标记会读到垃圾调色板）
+const ACT_PAL = (() => {
+  const m = /^[ \t]*pal1[ \t]*=[ \t]*(.+)$/im.exec(baseDef);
+  if (!m) return null;
+  const rel = m[1].trim().replace(/\\/g, '/');
+  try { return readPaletteFile(fs.readFileSync(path.join(baseCharDir, rel))); } catch { return null; }
+})();
+console.log('角色调色板 pal1：', ACT_PAL ? '已加载' : '缺（退回精灵内嵌调色板）');
 
 // AI 图（RGBA 原图）
 const aiBySprite = new Map();
@@ -165,7 +176,10 @@ for (const [key, spec] of needMerge) {
   // 但**锚点用共享块自己的**（轴点可能与被链接者不同）。
   const tgtG = sp.group, tgtN = sp.index;
   let body = null;
-  try { body = spriteRgba(baseSffBuf, baseSff, tgtG, tgtN, null); } catch { body = null; }
+  // 自带调色板的精灵（ps==0，如 AI 精灵）用自己那块；
+  // 其余（ps!=0，白模素体）用 def 的 pal1 —— 与引擎对局渲染、/api/anim 同一口径。
+  const ownPal = !!(baseSff.sprites.get(tgtG + ',' + tgtN) || {}).ownPal;
+  try { body = spriteRgba(baseSffBuf, baseSff, tgtG, tgtN, ownPal ? null : ACT_PAL); } catch { body = null; }
   if (!body) { stats.fail++; stats.decodeFail = (stats.decodeFail || 0) + 1; continue; }
   body.ax = sp.ax; body.ay = sp.ay;
   const ai = aiBySprite.get(SPRITE_OF[spec.cat]);

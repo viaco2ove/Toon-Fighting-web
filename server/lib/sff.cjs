@@ -189,8 +189,15 @@ function decodeV1(buf, sp, pal, isCharFirstSprite) {
     const datasize = sp.next > offset ? sp.next - offset : sp.size;
     dataEnd = offset + datasize - 128;
     if (dataEnd > blockEnd) dataEnd = blockEnd;
+  } else if (sp.ps !== 0) {
+    // 引擎 paletteSame 分支（ps!=0：沿用上一精灵调色板）：
+    // paletteOffset = blockEnd → rleSize = blockEnd - pcxDataStart。
+    // 这里**不能**只在 0x0C 标记处截断 —— 那会把后面的 RLE 字节丢掉，
+    // 解出的下半身变成满不透明的幻影（Lin.sff 的 0,1 会多出 2799 px 近黑像素，
+    // 融合包把它烘成黑色块，而引擎实际显示是透明的）。
+    dataEnd = blockEnd;
   } else {
-    // 找 0x0C 标记（调色板起点前一字节）；找不到就退回「块尾 - 769」
+    // ps==0（自带调色板）：找 0x0C 标记，像素流停在标记处；找不到退回「块尾 - 769」
     let p = blockEnd - 769;
     while (p >= dataStart && buf[p] !== 0x0c) p--;
     dataEnd = p >= dataStart ? p : blockEnd - 769;
@@ -203,14 +210,16 @@ function decodeV1(buf, sp, pal, isCharFirstSprite) {
     // 引擎 RlePcxDecode 的逐行等价移植：
     // k 记录当前行已写字节数，写满 bpl 就换行并强制结束当前 run
     //（MUGEN 的 PCX RLE 不允许一个 run 跨行）。
+    // 读指针的语义照搬引擎：i 只在 i < len-1 时自增（停在最后一个字节上），
+    // 所以循环条件是「没填满就继续」而不是「没字节就停」。
     let i = 0, j = 0, k = 0;
-    while (j < px.length && i < src.length) {
+    while (j < px.length) {
       let n = 1;
-      let d = src[i];
+      let d = src[i] || 0;
       if (i < src.length - 1) i++;
       if (d >= 0xc0) {
         n = d & 0x3f;
-        d = src[i];
+        d = src[i] || 0;
         if (i < src.length - 1) i++;
       }
       for (; n > 0; n--) {
@@ -338,67 +347,69 @@ function decodeV2(buf, sp, sff) {
 // SFFv1 调色板解析。
 //
 // 引擎有两条完全不同的取色路径：
-//  A) 预载精灵（角色包的 9000,0 / 9000,1 等）走 Sprite.read：
-//     - isCharFirstSprite（该角色的第一个精灵）：paletteOffset = offset + datasize - 768，
+//  A) 预载精灵（角色包的 9000,0 / 9000,1 等，选人屏用）走 Sprite.read 的预载分支：
+//     - isCharFirstSprite（角色首个精灵）：paletteOffset = offset + datasize - 768，
 //       且不跳过 0x0C 标记；
-//     - 其他：先往前找 0x0C 标记，paletteOffset = 标记位置 + 1（跳过标记）。
-//  B) 其余精灵走 sffv1PalState 状态机：
-//     location 初始 = 首个精灵的 next - 768；遇到 (0,0) 复位；
-//     ps==0 → location = 本精灵 next - 768（state 变 1/3）；ps!=0 → 沿用。
-//     取色条件：(group==0&&index==0) || state%2==0，否则沿用上一精灵的调色板。
+//     - 其他：块尾往前找 0x0C 标记，调色板在标记 + 1。
+//  B) 对局中的普通精灵走 Sprite.read 的 paletteSame 分支：
+//     ps==0（自带调色板）→ 同 A 的「找 0x0C 标记」；
+//     ps!=0 → **沿用上一精灵的调色板对象**（引擎 s.palidx = prev.palidx）。
 //
-// 之前把 A/B 混在一起，导致「9000,0 是目录首个」的角色（该包首个精灵就是它）
-// 拿不到正确调色板。
+// 这里只做 B 路径，A 只在 spriteRgba 里对 9000 组调 v1PreloadedPalette。
+//
+// 历史坑（2026-11-25 融合包红块）：以前这里搬的是引擎**预载循环**的
+// sffv1PalState 状态机（state%2==0 就重读文件），跟对局渲染的 paletteSame
+// 规则并不等价 —— 状态机在第一个 ps==0 精灵处把 state 置成 3，之后所有
+// ps==0 精灵都继承 0,0 的基础调色板（AI 精灵会变灰）。现在按 paletteSame 重写。
 function v1PaletteMap(buf, sff) {
-  const list = sff.byIndex;
   const out = new Map();      // sprite 对象 → 调色板数组
-  let state = 0, current = 0;
-  let location = list.length ? list[0].next - 768 : 0;
-  const initialLocation = location;
-  let shared = null;
-
-  for (let i = 0; i < list.length; i++) {
-    const s = list[i];
+  let prev = null;
+  for (const s of sff.byIndex) {
+    let pal = null;
     if (s.group === 0 && s.index === 0) {
-      state = 2;
-      location = initialLocation;
-    } else if (s.ps === 0 && state === 2) {
-      state = 3;
-      current++;
-      location = s.next - 768;
+      // 引擎 legacy 首精灵路径：调色板固定在块尾 - 768，不找 0x0C
+      pal = readPaletteAt(buf, s.next - 768);
+    } else if (s.size === 0) {
+      // 共享块（size==0）：没有自己的像素，调色板沿用上一精灵
+      pal = prev;
     } else if (s.ps === 0) {
-      if (current === 0) state = 1;
-      current++;
-      location = s.next - 768;
-    }
-    const takeFromFile = (s.group === 0 && s.index === 0) || (state % 2 === 0);
-    if (takeFromFile) {
-      const pal = readPaletteAt(buf, location);
-      if (pal) { out.set(s, pal); shared = pal; }
+      pal = v1OwnPalette(buf, s);
     } else {
-      out.set(s, shared);
+      pal = prev;                     // paletteSame：沿用上一精灵
     }
+    const use = pal || prev;
+    if (use) out.set(s, use);
+    prev = use || prev;
   }
   return out;
 }
 
-// 预载精灵（9000,0 / 9000,1）自己的取色路径，与上面的状态机不同。
-function v1PreloadedPalette(buf, sp) {
+// ps==0（自带调色板）的精灵：块尾往前找 0x0C 标记，调色板在标记 + 1；
+// 找不到标记时按引擎回退到 blockEnd - 768（不是 blockEnd - 769）。
+//
+// ⚠️ 这个「往前扫 0x0C」只对 ps==0 的精灵成立。ps!=0 的精灵块尾常常带尾部
+// 字节 / RLE 像素流里也有 0x0C 字节 —— 对它们扫会撞到假标记、读出一整块垃圾
+// 调色板（Lin.sff 的 0,1/0,2/0,3 就是这么解成红/绿/品红杂斑的）。
+function v1OwnPalette(buf, sp) {
   const offset = sp.at + 32;              // 引擎口径：子头起点 + 32
-  const isFirstInFile = sp.group === 0 && sp.index === 0;
-  const datasize = sp.next > offset ? sp.next - offset : sp.size;
-  if (isFirstInFile) {
-    // 引擎首精灵路径：offset + datasize - 768，不跳 0x0C
-    return readPaletteAt(buf, offset + datasize - 768);
-  }
-  // 其余预载精灵：找 0x0C 标记，调色板在标记 + 1
   const dataStart = offset + 128;
   let blockEnd = sp.next > offset ? sp.next : offset + sp.size;
   if (blockEnd > buf.length) blockEnd = buf.length;
   let p = blockEnd - 769;
   while (p >= dataStart && buf[p] !== 0x0c) p--;
-  const off = p >= dataStart ? p + 1 : blockEnd - 769;
+  const off = p >= dataStart ? p + 1 : blockEnd - 768;
   return readPaletteAt(buf, off);
+}
+
+// 预载精灵（9000 组：system.def 的 portrait.spr / p1.face.spr）的取色路径。
+function v1PreloadedPalette(buf, sp) {
+  const offset = sp.at + 32;
+  if (sp.group === 0 && sp.index === 0) {
+    // 引擎首精灵路径：offset + datasize - 768，不跳 0x0C
+    const datasize = sp.next > offset ? sp.next - offset : sp.size;
+    return readPaletteAt(buf, offset + datasize - 768);
+  }
+  return v1OwnPalette(buf, sp);
 }
 
 function readPaletteAt(buf, offset) {
@@ -437,8 +448,10 @@ function spriteRgba(buf, sff, group, index, palOverride) {
     // 引擎：isCharFirstSprite = (还没解过任何精灵) || (group==0 && index==0)
     const isCharFirstSprite = prevSprite === null || (s.group === 0 && s.index === 0);
     if (s === target) {
-      // 预载精灵（9000,0 / 9000,1）走引擎的 Sprite.read 取色路径
-      const pal = v1PreloadedPalette(buf, s) || palMap.get(s);
+      // 只有 9000 组（选人屏预载精灵）走引擎的预载取色路径；
+      // 其余精灵走 paletteSame 规则（= 对局渲染路径）。
+      const pre = s.group === 9000 ? v1PreloadedPalette(buf, s) : null;
+      const pal = pre || palMap.get(s);
       return shade(decodeV1(buf, s, pal, isCharFirstSprite), palOverride);
     }
     prevSprite = s;

@@ -111,6 +111,14 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
    - `gameWidth()` 实测返回 **320**（不是 canvas 的 640×480，中间隔着 `widthScale`）。前端缩放必须用坐标包里的 gameW/gameH 除以 canvas 的 contain-fit 内容区，**不要**用设置面板的分辨率。
    - `spriteVar("height")` 是精灵位图尺寸、**含透明边距**（Hinako 站立 sprH=126，实际画出 ~70 游戏像素），不能拿来当抬升量。前端用固定抬升 102 游戏像素（角色实测身高 70~100）。2026-11-25 原型对齐：`.ha` 盒内只剩 46px 白边方块（**名字条已删**），方块底=style.top，故 84→102。同日晚改白边**圆形气泡**（radius 50% + 3px 白边；**下箭头必须在 `.ha::after` 上，不能放 `.pic::after`——`.pic` overflow:hidden 会把越界箭头裁掉**；headBob 浮动动画也移到 `.ha`）。facebar 的 `.glyph` 同步改 48px 白圈气泡（`.avbub::after` 供箭头），头像源走动图链路 `rolePortraitUrl()||mugPortraitUrl()`（img 叠文字首字、onerror 移除露字），`AVATAR_VER` 升 3。验证脚本 `.cache/scripts/probe-bubble.mjs <cdpPort>`（查 glyph/ha 圆形+白边+img 加载）。**手机竖屏断点（2026-11-25 六轮）**：`@media (max-width:560px)` 一加6 级别，块必须放在 `#skills/#pad/#facebar` 基础规则**之后**（媒体查询不加权重，放前面被同权重规则按源顺序覆盖——实测踩过）；选人屏放弃三栏改上下分区（行1=P1/P2 面板并排、行2=中栏名单通栏 `overflow-y:auto`；`.portrait` 要 `flex:none;height:120px`，auto 行内 flex:1 塌 0）；`.joy/.bt` scale(.72)、`.stbtn` transform 必须带 `translateX(-50%)`；`#pad.selmode` bottom 118px；`#skills` 172px 贴右。验证脚本 `.cache/scripts/probe-phone.mjs <outDir> <cdpPort> select|fight|both [landscape]`（竖屏 412×732 / 横屏 732×412 几何+横向溢出+截图）。**手机横屏断点（2026-11-25 六轮）**：`@media (max-width:920px) and (max-height:500px)`；选人屏恢复三栏（165/369/138）但中栏全压缩（mugfig 44、名单卡 22px 自滚动）；战斗层 `.joy` .68 / `.bt` .62 / `#skills` 176px bottom 172px 且**技能钮必须单行**（`b` 改 `display:inline` 行内键序——双行钮面板会顶进 facebar 26px，实测踩过）；facebar top 72px（横屏 canvas 高 412、引擎血条底边 ≈69px）。
 
+11. **全局常显滚动条（2026-11-25 七轮）。** Win11 的 Edge 默认 Fluent 悬浮滚动条，静止时整条隐藏，`#charrows`（绑定列表）这类 `overflow-y:auto` 长容器看起来像「缺了滚动条」。index.html 头部（`html,body` 规则之后）已加全局深色滚动条：`::-webkit-scrollbar` 全套（9px、thumb `#2a3346` hover `#3b4557`、border 2px transparent + background-clip:content-box）+ `*{scrollbar-width:thin;scrollbar-color:#2a3346 rgba(10,12,18,.4)}`，覆盖绑定列表/会话列表/设置页/战斗菜单/资产集/手机名单等所有滚动容器。**编辑坑：插入位置必须在 `html,body{...}` 规则闭合之后**，插进其声明中间会嵌套花括号破坏整段 CSS。验证脚本 `.cache/scripts/probe-scrollbar.mjs`（短视口 1280×620 开设置面板，SCROLL 断言 scrollable + 截图 `scrollbar-check.png` 像素采样 thumb 色）。
+
+12. **SFF v1 的调色板与像素流必须按引擎两条路径分开解（2026-11-25 融合包「红块/杂斑」的根因）。**
+   - **调色板**：`Sprite.read`（对局渲染）里 `paletteSame := ps != 0 && prev != nil` —— `ps!=0`（子头 +18）→ **沿用上一精灵的调色板**；`ps==0` → 自己块尾的 768 字节。`Lin.sff` 的 `0,1/0,2/0,3` 是 `ps=1` 且**块尾带 157 字节尾部数据、RLE 流里也含 `0x0C` 字节**，去扫 `0x0C` 会撞假标记读出一整块垃圾调色板（解成 `#c3000b` 红 / `#0bc700` 绿 / `#c208c3` 品红）。`v1PreloadedPalette()` 只能用于 **9000 组**（选人屏预载精灵）。
+   - **像素流**：`ps!=0` 的精灵读到**块尾**（`rleSize = blockEnd - pcxDataStart`），只有 `ps==0` 才停在 `0x0C`。截断会少读 128+ 字节 RLE → 下半身多出上千个「幻影不透明像素」（`0,1`：幻影 4623 px / 引擎真值 2965 px），烘进融合包就成了角色身下的黑块。
+   - **白模精灵的颜色来自 def 的 `pal1`（灰度 `.act`）**，不是 sff 内嵌调色板。
+   - 解码器有**两份**：`server/lib/sff.cjs` 与 `ff-studio/src/viewer.html`，改一处不改另一处等于没改。对拍脚本 `.cache/scripts/probe-viewer-decode.mjs`（在 viewer 页面里跑它自己的解码器，与服务器比不透明像素数/颜色数）。
+
 ## 键位
 
 - P1：`←↑↓→`，A=`z` B=`x` C=`c` X=`a` Y=`s` Z=`d`，Start=`Enter`，D=`q` W=`w`，Esc
