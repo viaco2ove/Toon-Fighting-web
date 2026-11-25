@@ -149,14 +149,28 @@ node .cache\scripts\mk-keyframes.mjs
 **本技能只到「资产落盘」** —— 落盘的 10 张 PNG 引擎根本读不到（引擎只认 sff 里的精灵
 和 air 里的帧行）。要真正在游戏里看到 AI 形象，需要组装成变体角色包：
 
-| 模式 | 做法 | 技能 |
-|---|---|---|
-| **抽关键帧**（some） | 每个 action 只替换代表帧，其余帧保持白模原精灵 | [keyframeMode/some/SKILL.md](keyframeMode/some/SKILL.md) |
-| 全替关键帧（all） | 每个 action 所有帧都换成 AI 精灵 | `.cache/scripts/build-ai-char.mjs`（`air-remap.cjs` 全局重映射） |
+| 模式 | 每帧显示什么 | 精灵数 | 包体 | 技能 |
+|---|---|---|---|---|
+| **抽关键帧**（some） | 代表帧=AI 图，其余=原精灵 | 10 + 白模全留 | +0.3MB | [keyframeMode/some/SKILL.md](keyframeMode/some/SKILL.md) |
+| **融合关键帧**（merge） | 原精灵 **+** AI 图（叠加） | 777 张合成 | +5.7MB | [keyframeMode/merge/SKILL.md](keyframeMode/merge/SKILL.md) |
+| **全替关键帧**（all） | 只有 AI 图 | 10 + 白模全留 | +0.3MB | [keyframeMode/all/SKILL.md](keyframeMode/all/SKILL.md) |
+| 不使用（none） | 只有原精灵 | — | — | — |
 
-`keyframeMode/some/` 里的 SKILL.md 记了完整做法（SFF v1 自带调色板机制、
-AI 精灵 group 选取、air 原位替换、类别映射按 cns 核对、存档迁移、11 组校验断言），
-`templates/` 下的脚本可直接运行。
+三种模式的共同技术前提（各子技能的 SKILL.md 有完整细节）：
+
+- **SFF v1 每个精灵可自带调色板**（子头 +18 的 `ps` 字节 = 0 表示自带），
+  白模灰度与 AI 彩色才能共存于一个包
+- **AI 精灵不能放 group 0**（白模占了 0..3 站立循环）→ 找原包空着的自定义区
+- **air 必须原位替换**（只改目标帧行那一行的字节），且帧行正则的空白
+  只能用 `[ \t]` 不能用 `\s`（`\s` 会吃掉 CRLF）
+- **类别映射按目标包 cns 核对**，不猜 MUGEN 号段惯例
+  （5000 系在 LinYu 上是受击不是倒地，1200/1250 是走位不是空中）
+
+「融」模式额外注意：MUGEN 帧行一次只能画一个精灵，
+所以「AI 图 + 原精灵一起显示」**必须在构建期烘焙**（合成成一张图）；
+特效帧（group ≥ 7000）不融合。
+
+`templates/` 下的脚本可直接运行（路径自包含）。
 
 ## Examples
 
@@ -164,6 +178,10 @@ AI 精灵 group 选取、air 原位替换、类别映射按 cns 核对、存档�
   定位过程（解码统计 → 引擎走路实测裁决 → 几何裁剪对齐）
 - [keyframeMode/some/examples.md](keyframeMode/some/examples.md)：LinYuKF 变体包组装全程，
   含三个踩坑（AI 精灵覆盖 group 0 / CRLF 被改 / 服务端调色板被灰度覆盖）
+- [keyframeMode/merge/examples.md](keyframeMode/merge/examples.md)：LinYuKFM 融合包组装全程，
+  含共享块解引用、全透明废区跳过、特效帧判定
+- [keyframeMode/all/examples.md](keyframeMode/all/examples.md)：LinYuKFA 全替包组装全程，
+  含旧版 build-ai-char 的两个问题（丢弃白模精灵 / 覆盖 group 0）
 
 ## Notes
 
