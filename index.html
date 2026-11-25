@@ -328,8 +328,9 @@
     #btn-fight{flex:0 0 auto;padding:8px 22px;font-size:13.5px;letter-spacing:.18em;text-indent:.18em}
     #pad .joy{transform:scale(.8);transform-origin:left bottom}
     #pad .bt{transform:scale(.8);transform-origin:right bottom}
-    #pad .stbtn{transform:scale(.85);transform-origin:center bottom}
+    #pad .stbtn{transform:translateX(-50%) scale(.85);transform-origin:center bottom}
   }
+
 
   /* ---------- 故事列表 ---------- */
   .storylist{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -416,13 +417,19 @@
     background:rgba(7,8,11,.72);border:1px solid #2a3140}
   #facebar .face.p2{flex-direction:row-reverse;text-align:right}
   #facebar .face.win{border-color:rgba(255,194,51,.8);box-shadow:0 0 16px -6px rgba(255,194,51,.9)}
+  #facebar .avbub{position:relative;flex-shrink:0}
+  #facebar .avbub::after{content:'';position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);
+    border:6px solid transparent;border-top-color:#fff;z-index:2;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
   #facebar .glyph,#facebar .muglyph{border-radius:8px;display:flex;align-items:center;justify-content:center;
     color:#fff;overflow:hidden;flex-shrink:0}
-  #facebar .glyph{width:44px;height:44px;font-size:17px;font-weight:900;
-    background:linear-gradient(160deg,#2a3140,#12161f);border:1px solid #3b4557}
-  #facebar .glyph img{width:100%;height:100%;object-fit:cover}
-  #facebar .muglyph{width:44px;height:44px;font-size:12px;
+  /* toonflow 头像：白圈对话气泡（同头顶悬浮头像样式），img 失败自动露出文字首字 */
+  #facebar .glyph{position:relative;width:48px;height:48px;border-radius:50%;font-size:17px;font-weight:900;
+    background:linear-gradient(160deg,#2a3140,#12161f);border:3px solid #fff;
+    box-shadow:0 4px 12px rgba(0,0,0,.5)}
+  #facebar .glyph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+  #facebar .muglyph{position:relative;width:44px;height:44px;font-size:12px;
     background:repeating-conic-gradient(#1c2230 0 25%,#10141c 0 50%) 0 0/12px 12px;border:1px solid #2a3140}
+  #facebar .muglyph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
   #facebar .face.p2 .glyph{background:linear-gradient(200deg,#2a3140,#12161f)}
   #facebar .nm{line-height:1.3}
   #facebar .nm b{display:block;font-size:12.5px;color:#fff;font-weight:700}
@@ -489,19 +496,20 @@
   #keyecho b.good{border-color:#3fb950;color:#b7f0c2;box-shadow:0 0 12px -4px rgba(63,185,80,.7)}
   #keyecho b.bad{border-color:#f85149;color:#ffb4ad;box-shadow:0 0 12px -4px rgba(248,81,73,.7)}
 
-  /* 实体头顶悬浮头像（原型：白边圆角方块 + 下箭头 + 上下浮动） */
+  /* 实体头顶悬浮头像（白圈对话气泡 + 下箭头 + 上下浮动） */
+  /* 注意：下箭头放 .ha 上而不是 .pic —— .pic overflow:hidden 会把越界的箭头裁掉 */
   #headav{position:fixed;inset:0;z-index:33;display:none;pointer-events:none;overflow:hidden}
   #headav.on{display:block}
   #headav .ha{position:absolute;transform:translate(-50%,-100%);
-    display:flex;flex-direction:column;align-items:center}
-  #headav .ha .pic{width:46px;height:46px;border-radius:10px;overflow:hidden;
-    background:linear-gradient(160deg,#2a3140,#12161f);border:2px solid #fff;
-    box-shadow:0 4px 12px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;
-    font-size:17px;font-weight:900;color:#e7ecf3;position:relative;
+    display:flex;flex-direction:column;align-items:center;
     animation:headBob 2.4s ease-in-out infinite}
-  #headav .ha .pic::after{content:'';position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);
-    border:5px solid transparent;border-top-color:#fff}
-  #headav .ha .pic img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+  #headav .ha::after{content:'';position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);
+    border:6px solid transparent;border-top-color:#fff;z-index:2;filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+  #headav .ha .pic{width:46px;height:46px;border-radius:50%;overflow:hidden;
+    background:linear-gradient(160deg,#2a3140,#12161f);border:3px solid #fff;
+    box-shadow:0 4px 12px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;
+    font-size:17px;font-weight:900;color:#e7ecf3;position:relative}
+  #headav .ha .pic img{width:100%;height:100%;object-fit:cover;border-radius:50%;image-rendering:pixelated}
   @keyframes headBob{0%,100%{margin-top:0}50%{margin-top:-7px}}
   @media (max-width:480px){
     #headav .ha .pic{width:38px;height:38px;font-size:14px}
@@ -569,6 +577,109 @@
   #pad .stbtn{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);cursor:pointer;font-family:inherit;
     width:64px;height:40px;border-radius:9px;font-size:11px;font-weight:900;letter-spacing:.12em;color:#fff;
     background:rgba(200,160,40,.5);border:1px solid #7a6420}
+
+  /* ---------- 手机竖屏（一加6 等安卓 ≈412×732 CSS px） ----------
+     注意必须放在 #skills/#pad/#facebar 基础规则之后——媒体查询不加权重大小，
+     放前面会被后面的同权重规则按源顺序覆盖（2026-11-25 实测踩过）。
+     选人屏放弃三栏（412px 塞不下 3 列），改上下分区：
+     行1 = P1/P2 面板并排（两段式本来就只有一侧激活），行2 = 中栏名单通栏滚动。 */
+  @media (max-width:560px){
+    #sel-title{font-size:20px}
+    #select .stage{left:8px;right:8px;top:60px;bottom:132px;gap:8px;
+      grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr)}
+    #select .panel.p1{grid-column:1;grid-row:1}
+    #select .panel.p2{grid-column:2;grid-row:1}
+    #select .mid{grid-column:1/-1;grid-row:2;min-height:0}
+    /* 面板压扁：出场位一行小瓦片，大头像定高（auto 行内 flex:1 会塌成 0） */
+    #select .panel .phead{padding:6px 9px 3px}
+    #select .panel.p1 .phead{padding-right:14px}
+    #select .panel.p2 .phead{padding-left:14px}
+    #select .slots{padding:0 8px 5px}
+    #select .panel.p2 .slots{padding-left:12px}
+    #select .slot .th{height:34px}
+    #select .portrait{flex:none;height:120px;margin:0 7px}
+    #select .plate{padding:4px 8px 6px}
+    #select .plate .nm{font-size:15px}
+    #select .meta{padding:5px 8px 6px;font-size:9.5px;gap:3px}
+    #select .meta .row:nth-child(2){display:none}
+    #select .panel.p2.sysrand .surnote{font-size:8.5px;padding:0 8px 6px}
+    /* 中栏：立绘压矮、名单区自身滚动，塞进剩余高度 */
+    #select .mugfig{height:56px}
+    #select .minfo{gap:6px;padding:3px 8px 0;font-size:10.5px}
+    #select .minfo .tfname{font-size:12px}
+    .listrow{height:22px;gap:6px}
+    .rozlist{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;padding-bottom:4px}
+    #select .rozlist .k .fig{height:30px}
+    #select .foot{left:8px;right:8px;bottom:8px}
+    .namebar{flex:1 1 100%;padding:5px 9px}
+    .namebar .ent{display:none}
+    #btn-fight{padding:7px 18px;font-size:12.5px;letter-spacing:.14em;text-indent:.14em}
+    #pad.selmode{bottom:118px}
+    /* 手柄再缩一档：412px 宽内摇杆与六键互不重叠 */
+    #pad .joy{transform:scale(.72)}
+    #pad .bt{transform:scale(.72);right:6px}
+    #pad .stbtn{transform:translateX(-50%) scale(.72)}
+    /* 战斗层：技能面板变窄上移，facebar 压扁 */
+    #skills{right:6px;bottom:218px;width:172px;gap:5px}
+    #skills button{padding:7px;font-size:10.5px}
+    #skills button b{font-size:9px}
+    #facebar .face{padding:5px 8px;gap:7px}
+    #facebar .glyph{width:40px;height:40px;font-size:15px}
+    #facebar .muglyph{width:36px;height:36px;font-size:10px}
+    #facebar .nm b{font-size:11px}
+    #facebar .nm i{font-size:8.5px}
+    #facebar .rec{display:none}
+    #headav .ha .pic{width:38px;height:38px;font-size:14px}
+  }
+
+  /* ---------- 手机横屏（一加6 横过来 ≈732×412 CSS px）----------
+     高度只有 ~412：选人屏压缩中栏（名单自身滚动）；战斗层六键再缩、
+     技能面板贴上去，facebar 上提到引擎血条正下方（横屏 canvas 高 412，血条底边 ≈69px）。 */
+  @media (max-width:920px) and (max-height:500px){
+    #sel-title{font-size:22px}
+    #select .stage{top:52px;bottom:104px;left:8px;right:8px;gap:8px;
+      grid-template-columns:clamp(150px,24%,190px) minmax(0,1fr) clamp(120px,20%,160px)}
+    #select .panel .phead{padding:5px 9px 2px}
+    #select .slots{padding:0 8px 4px}
+    #select .slot .th{height:28px}
+    #select .portrait{margin:0 7px}
+    #select .plate{padding:3px 8px 5px}
+    #select .plate .nm{font-size:14px}
+    #select .meta{padding:4px 8px 5px;font-size:9.5px;gap:2px}
+    #select .meta .row:nth-child(2){display:none}
+    #select .mugfig{height:44px}
+    #select .minfo{padding:2px 8px 0;font-size:10px;gap:6px}
+    #select .minfo .tfname{font-size:11.5px}
+    .listrow{height:20px;gap:6px}
+    .phasebar{height:16px;font-size:8.5px;gap:4px}
+    .phasebar span{padding:0 4px;height:14px}
+    .okbtn{width:calc(100% - 14px);margin:0 7px 4px;height:20px;font-size:9.5px}
+    .rozlist{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;gap:4px}
+    #select .rozlist .k{padding:3px 5px 4px}
+    #select .rozlist .k .fig{height:22px}
+    #select .rozlist .k .nm{font-size:9.5px;margin-top:2px}
+    #select .rozlist .k .sub{display:none}
+    #select .foot{left:8px;right:8px;bottom:8px;height:56px}
+    .namebar{padding:4px 9px}
+    #btn-fight{padding:6px 18px;font-size:12.5px}
+    #pad.selmode{bottom:80px}
+    /* 战斗层：六键 .62、技能面板贴上去，facebar 上提 */
+    #pad .joy{transform:scale(.68)}
+    #pad .bt{transform:scale(.62);right:6px}
+    #pad .stbtn{transform:translateX(-50%) scale(.62);bottom:16px}
+    #skills{right:6px;bottom:172px;width:176px;gap:4px}
+    #skills button{padding:5px 6px;font-size:10px;line-height:1.3}
+    /* 键序提示改行内跟在技能名后：面板压成单行钮（3 行 ≈90px），避免顶进 facebar */
+    #skills button b{display:inline;margin-left:5px;font-size:8.5px;margin-top:0}
+    #facebar{top:72px;left:8px;right:8px}
+    #facebar .face{padding:4px 8px;gap:6px}
+    #facebar .glyph{width:36px;height:36px;font-size:14px}
+    #facebar .muglyph{width:32px;height:32px}
+    #facebar .nm b{font-size:10.5px}
+    #facebar .nm i{font-size:8px}
+    #facebar .rec{display:none}
+    #headav .ha .pic{width:36px;height:36px;font-size:13px}
+  }
 
   /* ---------- 系统设置 ---------- */
   #btn-settings{cursor:pointer;font-family:inherit;font-size:15px;
@@ -1099,7 +1210,7 @@
   // toonflow 角色头像：故事侧角色的 avatarPath，经 /api/role-avatar/<path> 代理。
   // 两者都失败时回退到文字（首字），界面永不出现破图。
   // 头像版本号：服务端转换逻辑变更时递增，用于绕开浏览器旧缓存。
-  const AVATAR_VER = '2';
+  const AVATAR_VER = '3';
   function mugPortraitUrl(charId) {
     return '/api/portrait/' + encodeURIComponent(charId);
   }
@@ -3344,12 +3455,16 @@
       ? (p1SlotChars()[0] || curP1)
       : (p2SlotChars()[0] || curP2);
     const m = MUGEN[charId] || { glyph: (charId || '?').slice(0, 1), cn: charId };
-    const avatar = c && c.avatarRef && /^data:image/.test(c.avatarRef)
-      ? '<img src="' + c.avatarRef + '" alt="">'
-      : esc(c ? c.name.slice(0, 1) : m.glyph);
+    // 头像走动图链路：toonflow 故事角色 → /api/role-avatar（webp 动图 animated:true 保留），
+    // 没有故事角色 → MUGEN 实体头像（/api/portrait，静态 png）。
+    // img 叠在文字首字上，加载失败 onerror 移除、露出文字，界面永不破图。
+    const roleMeta = c ? (CONN.storyRoles.find((r) => r.name === c.name) || c) : null;
+    const src = rolePortraitUrl(roleMeta) || mugPortraitUrl(charId);
+    const avatar = esc(c ? c.name.slice(0, 1) : m.glyph) +
+      '<img src="' + src + '" alt="" onerror="this.remove()">';
     return {
       glyph: avatar,
-      muglyph: esc(m.glyph),
+      muglyph: esc(m.glyph) + '<img src="' + mugPortraitUrl(charId) + '" alt="" onerror="this.remove()">',
       name: c ? c.name : (m.cn || charId),
       job: c && c.profession ? c.profession : (m.tag || ''),
       ent: (side === 'p1' ? 'P1' : 'P2') + ' · ' + (charId || '?') + (m.cn ? '（' + m.cn + '）' : ''),
