@@ -1675,12 +1675,19 @@
       const cand = out.find((c) => c.side !== 'p1');
       if (cand) cand.side = 'p2';
     }
-    // 主角（roleType=player）默认占 p1
+    // 主角（roleType=player）默认占 p1。
+    // 要把原来占 p1/p2 的人降级 —— 否则会出现两个 p1，
+    // 下游用 `find(c => c.side === 'p1')` 取到的是先出现的那个（不是主角）。
     const hero = out.find((c) => c.roleType === 'player');
     if (hero) {
+      for (const c of out) if (c !== hero && (c.side === 'p1' || c.side === 'p2')) c.side = 'bench';
       hero.side = 'p1';
-      const p2 = out.find((c) => c !== hero && c.side !== 'p1');
+      // p2 给主角之外第一个（保持原顺序）
+      const p2 = out.find((c) => c !== hero);
       if (p2) p2.side = 'p2';
+      // 主角也排到列表最前（选人屏/绑定视图都按列表顺序展示）
+      const i = out.indexOf(hero);
+      if (i > 0) { out.splice(i, 1); out.unshift(hero); }
     }
     return { storyChars: out };
   }
@@ -1829,9 +1836,18 @@
   }
 
   // 保存前按列表顺序自动排位（纯绑定视图：不暴露站位下拉）
+  // 主角（roleType=player）优先占 p1 —— 它可能不在列表最前
+  // （资产集 roster.json 里的角色是后端角色表没有的，追加在末尾）。
   function autoSideRoster() {
     if (!CONN.roster) return;
-    CONN.roster.storyChars.forEach((c, i) => { c.side = i === 0 ? 'p1' : i === 1 ? 'p2' : 'bench'; });
+    const list = CONN.roster.storyChars;
+    // 主角排到最前，其余保持原顺序
+    const hero = list.find((c) => c.roleType === 'player');
+    if (hero) {
+      const i = list.indexOf(hero);
+      if (i > 0) { list.splice(i, 1); list.unshift(hero); }
+    }
+    list.forEach((c, i) => { c.side = i === 0 ? 'p1' : i === 1 ? 'p2' : 'bench'; });
   }
 
   async function saveRoster(silent) {
@@ -2449,6 +2465,9 @@
         kf: c.keyframeMode || keyframeModeOf(c.charId),
       }));
     } else {
+      // 没有故事绑定（直接从主界面进选人屏）：用本地角色表，
+      // 但 char.json 里标了 roleType=player 的角色是「用户角色」，
+      // 要排在最前并标记出来 —— 否则玩家看到的是一堆 NPC 角色。
       POOL = packCharPool().map((id) => {
         const m = MUGEN[id] || { cn: id, tag: '', style: '' };
         const meta = charMeta(id);
@@ -2457,8 +2476,20 @@
                  desc: (meta && meta.description) || m.style || '', ava: null,
                  player: (meta && meta.roleType) === 'player',
                  kf: keyframeModeOf(id) };
-      });
+      }).sort((a, b) => (a.player ? 0 : 1) - (b.player ? 0 : 1));
     }
+  }
+  // 用户角色（roleType=player）的引擎实体 id —— 用于选人屏默认预填
+  function playerCharId() {
+    const chars = (CONN.roster && CONN.roster.storyChars) || [];
+    const hero = chars.find((c) => c.roleType === 'player');
+    if (hero) return hero.charId;
+    const ids = Object.keys(PACKS.charMeta || {});
+    for (const id of ids) {
+      const m = PACKS.charMeta[id];
+      if (m && m.roleType === 'player') return id;
+    }
+    return null;
   }
   const poolByKey = (k) => (k && k !== '?' ? POOL.find((e) => e.key === k) || null : null);
   function keyForEntity(id) { const e = POOL.find((x) => x.id === id); return e ? e.key : null; }
@@ -2510,6 +2541,9 @@
       if (p1c) pre('p1', p1c.charId);
       if (p2c && MODE !== 'survival') pre('p2', p2c.charId);
     }
+    // 没有故事绑定时（直接从主界面进选人屏）：预填**用户角色**
+    // （char.json 里 roleType=player 的那个），而不是默认的 'Lin'。
+    if (!slots.p1[0]) pre('p1', playerCharId());
     pre('p1', q.get('p1'));
     if (MODE !== 'survival') pre('p2', q.get('p2'));
     if (MODE !== 'survival') pre('p1', curP1);
