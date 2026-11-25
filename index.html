@@ -686,6 +686,14 @@
   .brow .nm{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .brow .job{display:inline-block;font-size:9.5px;letter-spacing:.12em;color:var(--gold);
     border:1px solid #4d3d12;border-radius:12px;padding:1.5px 8px;margin-top:3px}
+  /* 主角角标（roleType=player）：故事玩家一眼看到自己 */
+  .brow .roletag{font-style:normal;font-size:9px;letter-spacing:.1em;color:var(--cyan);
+    border:1px solid rgba(58,209,255,.4);border-radius:12px;padding:1px 7px;margin-left:7px;
+    vertical-align:1px}
+  /* 关键帧模式标记：some=抽关键帧 / all=全替关键帧 */
+  .brow .kf{display:inline-block;font-size:9px;letter-spacing:.1em;color:#9fb6d8;
+    border:1px solid rgba(159,182,216,.32);border-radius:12px;padding:1.5px 8px;margin-top:3px;margin-left:5px}
+  .brow.hero{border-color:rgba(58,209,255,.35);background:rgba(20,32,44,.9)}
   .brow .mid{color:#39414f;text-align:center;font-size:15px}
   .brow select{font-family:inherit;font-size:13px;padding:7px 9px;border-radius:7px;background:#0d1017;
     border:1px solid var(--line);color:var(--txt);cursor:pointer;flex:1;min-width:0}
@@ -1086,7 +1094,9 @@
   'use strict';
 
   // ---------------- 本地 MUGEN 角色表（引擎已装且可跑） ----------------
+  // tag/style 是「没有 char.json 时的兜底」；char.json 里的 profession/description 优先。
   const MUGEN = {
+    LinYu:    { glyph: '羽', cn: '林羽',  tag: '武道家', style: '白模底座 + AI 抽关键帧' },
     Lin:      { glyph: '林', cn: '麟',    tag: '速度型', style: '紫电连段 · 轻快突进' },
     Hinako:   { glyph: '雏', cn: '雏子',  tag: '力量型', style: '相扑压制 · 近身重投' },
     "K'":     { glyph: "K'", cn: 'K 达什', tag: '均衡型', style: '炽焰拳击 · 中距火力' },
@@ -1094,7 +1104,7 @@
     Leona:    { glyph: '莉', cn: '莉安娜', tag: '军人佣兵', style: '怒队 · 军刀与火药' },
   };
   // 引擎本地已装且验证可跑的角色（98-kim/MasterRyu 资源残缺，不进池）
-  const LOCAL_OK = ["Lin", "Hinako", "K'", "Rugal2nd", "Leona"];
+  const LOCAL_OK = ["LinYu", "Lin", "Hinako", "K'", "Rugal2nd", "Leona"];
 
   // ---------------- 头像 ----------------
   // MUGEN 头像：由服务端从角色包的 sff 里解出（/api/portrait/<id>）；
@@ -1159,7 +1169,21 @@
   // ---------------- 资产集（本地 pack：map_design/<dir>/pack.json） ----------------
   // 注意：/api/assetpacks 与 /api/packs/:dir 不依赖 --conn，纯本地模式也有。
   const PACK_KEY = 'toonfight:pack-v1';
-  const PACKS = { list: [], cur: null, mapping: null, roster: null, localChars: [], pendingBind: null, bound: null };
+  const PACKS = { list: [], cur: null, mapping: null, roster: null, localChars: [], charMeta: {}, pendingBind: null, bound: null };
+
+  // 角色资产元信息（服务端从各角色包的 char.json 汇总）：
+  //   { charId: { profession, roleType, keyframeMode, displayName, description } }
+  // 运行时（选人屏 / 角色绑定 / 战斗头像条）都读它。
+  function charMeta(id) {
+    return (PACKS.charMeta && PACKS.charMeta[id]) || null;
+  }
+  // 关键帧模式：some=抽关键帧（只换代表帧）/ all=全替关键帧 / none=不用关键帧
+  // 没有 char.json 的角色默认 'none'（= 白模底座原样，不做 AI 替换）
+  function keyframeModeOf(id) {
+    const m = charMeta(id);
+    const v = m && String(m.keyframeMode || '').toLowerCase();
+    return v === 'some' || v === 'all' ? v : 'none';
+  }
 
   function packCharPool() {
     // mapping.charPool ∩ 本地可跑集合
@@ -1177,6 +1201,8 @@
       for (const id of r.localChars) if (!LOCAL_OK.includes(id)) LOCAL_OK.push(id);
       PACKS.localChars = r.localChars.slice();
     }
+    // 角色资产元信息（char.json）：职业 / roleType / 关键帧模式
+    if (r && r.charMeta && typeof r.charMeta === 'object') PACKS.charMeta = r.charMeta;
     let id = null;
     try { id = localStorage.getItem(PACK_KEY); } catch { /* 私密模式 */ }
     if (PACKS.cur && !force) return;
@@ -1559,7 +1585,7 @@
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  // 职业：资产集 roster.json 的同名角色 → mapping.rosterProfessions → 角色卡自带
+  // 职业：资产集 roster.json 的同名角色 → 角色包 char.json → mapping.rosterProfessions → 角色卡自带
   function professionFor(name, saved) {
     if (saved && saved.profession) return saved.profession;
     if (PACKS.roster && Array.isArray(PACKS.roster.chars)) {
@@ -1573,28 +1599,88 @@
     return '';
   }
 
-  // 组装 roster：有存档合并（保留同名角色的既有分配），没有则随机分配
+  // 资产集 roster.json 里的角色条目（按名字索引）
+  // 它比后端世界角色表更「资产侧」：带 defCharacterAssets（默认绑哪个引擎角色）、
+  // roleType（含 player）、profession。
+  function packRosterByName() {
+    const m = new Map();
+    if (PACKS.roster && Array.isArray(PACKS.roster.chars)) {
+      for (const r of PACKS.roster.chars) if (r && r.name) m.set(r.name, r);
+    }
+    return m;
+  }
+
+  // 默认绑定的引擎角色：
+  //   1) 资产集 roster.json 的 defCharacterAssets（用户显式指定，最优先）
+  //   2) 该角色包的 char.json（资产自带的标记）
+  //   3) 都没有 → 随机
+  function defaultCharIdFor(name, meta) {
+    const pr = packRosterByName().get(name);
+    const want = (pr && pr.defCharacterAssets) || (meta && meta.defCharacterAssets);
+    if (want && packCharPool().includes(want)) return want;
+    return null;
+  }
+
+  // 组装 roster：有存档合并（保留同名角色的既有分配），没有则按默认绑定分配
   function composeRoster(chars, saved) {
     const savedMap = new Map((saved && saved.storyChars || []).map((c) => [c.name, c]));
+    const packRoster = packRosterByName();
     const out = chars.map((c, i) => {
       const s = savedMap.get(c.name);
+      const pr = packRoster.get(c.name);
       const fallbackSide = i === 0 ? 'p1' : (i === 1 ? 'p2' : 'bench');
+      // 默认绑定：资产集 roster.json 的 defCharacterAssets → char.json → 随机
+      const defId = defaultCharIdFor(c.name, null);
+      const charId = (s && packCharPool().includes(s.charId)) ? s.charId
+                   : (defId || randomCharId());
+      const meta = charMeta(charId);
       return {
         name: c.name,
-        roleType: c.roleType || 'npc',
+        // roleType：资产集 roster.json 声明的优先（它可能标 player，
+        // 而后端世界角色表里同一角色只是 npc）→ 后端 → npc
+        roleType: (pr && pr.roleType) || c.roleType || (meta && meta.roleType) || 'npc',
         side: s ? s.side : fallbackSide,
-        charId: s && packCharPool().includes(s.charId) ? s.charId : randomCharId(),
-        profession: professionFor(c.name, s) || c.profession || '',
-        avatarPath: c.avatarPath || (s && s.avatarPath) || '',
-        description: c.description || '',
+        charId,
+        profession: professionFor(c.name, s) || (pr && pr.profession) ||
+                    (meta && meta.profession) || c.profession || '',
+        avatarPath: c.avatarPath || (s && s.avatarPath) || (pr && pr.avatarPath) || '',
+        description: c.description || (pr && pr.desc) || (pr && pr.description) || '',
+        // 关键帧模式（some=抽关键帧 / all=全替关键帧 / none=不用）
+        keyframeMode: keyframeModeOf(charId),
         win: s ? Number(s.win || 0) : 0,
         lose: s ? Number(s.lose || 0) : 0,
       };
     });
+    // 资产集 roster.json 里声明、但后端世界角色表没有的角色也要进池
+    // （比如这个故事的主角「林羽」在故事侧角色表里没有登记）
+    for (const [name, pr] of packRoster) {
+      if (out.some((c) => c.name === name)) continue;
+      const defId = defaultCharIdFor(name, null);
+      const charId = defId || randomCharId();
+      const meta = charMeta(charId);
+      out.push({
+        name,
+        roleType: (pr && pr.roleType) || 'npc',
+        side: 'bench',
+        charId,
+        profession: (pr && pr.profession) || (meta && meta.profession) || '',
+        avatarPath: (pr && pr.avatarPath) || '',
+        description: (pr && pr.desc) || (pr && pr.description) || '',
+        keyframeMode: keyframeModeOf(charId),
+        win: 0, lose: 0,
+      });
+    }
     if (out.length && !out.some((c) => c.side === 'p1')) out[0].side = 'p1';
     if (!out.some((c) => c.side === 'p2') && out.length > 1) {
       const cand = out.find((c) => c.side !== 'p1');
       if (cand) cand.side = 'p2';
+    }
+    // 主角（roleType=player）默认占 p1
+    const hero = out.find((c) => c.roleType === 'player');
+    if (hero) {
+      hero.side = 'p1';
+      const p2 = out.find((c) => c !== hero && c.side !== 'p1');
+      if (p2) p2.side = 'p2';
     }
     return { storyChars: out };
   }
@@ -1685,10 +1771,15 @@
   function renderRosterEditor() {
     charRowsEl.innerHTML = '';
     if (!CONN.roster) return;
-    for (const c of CONN.roster.storyChars) {
+    // 主角（roleType=player）排前面 —— 故事侧玩家要先看到自己
+    const list = CONN.roster.storyChars.slice().sort((a, b) => {
+      const pa = a.roleType === 'player' ? 0 : 1, pb = b.roleType === 'player' ? 0 : 1;
+      return pa - pb;
+    });
+    for (const c of list) {
       // 原型 roster-bind：1fr 30px 1fr 三栏 = 左 toonflow 头像+名+职业 / 中「:」/ 右 下拉+棋盘格实体头像
       const row = document.createElement('div');
-      row.className = 'brow';
+      row.className = 'brow' + (c.roleType === 'player' ? ' hero' : '');
       const roleMeta = CONN.storyRoles.find((r) => r.name === c.name);
 
       const tf = document.createElement('div');
@@ -1696,8 +1787,13 @@
       tf.appendChild(avatarNode(rolePortraitUrl(roleMeta || c), c.name.slice(0, 1), 'ava'));
       const meta = document.createElement('div');
       meta.style.minWidth = '0';
-      meta.innerHTML = '<div class="nm">' + esc(c.name) + '</div>' +
-        (c.profession ? '<span class="job">' + esc(c.profession) + '</span>' : '');
+      // roleType=player 标一个「主角」角标，让故事玩家一眼看到自己
+      meta.innerHTML = '<div class="nm">' + esc(c.name) +
+        (c.roleType === 'player' ? '<i class="roletag">主角</i>' : '') + '</div>' +
+        (c.profession ? '<span class="job">' + esc(c.profession) + '</span>' : '') +
+        // 关键帧模式：some=抽关键帧 / all=全替关键帧 / none=不用
+        (c.keyframeMode && c.keyframeMode !== 'none'
+          ? '<span class="kf">' + (c.keyframeMode === 'some' ? '抽关键帧' : '全替关键帧') + '</span>' : '');
       tf.appendChild(meta);
       row.appendChild(tf);
 
@@ -1713,7 +1809,10 @@
         const m = MUGEN[id] || { cn: id };
         const o = document.createElement('option');
         o.value = id;
-        o.textContent = id + '（' + m.cn + '）';
+        // 角色包 char.json 的职业名优先（MUGEN 表里没有的用 charId 兜底）
+        const meta = charMeta(id);
+        const label = (meta && meta.profession) || m.cn || id;
+        o.textContent = id + '（' + label + '）';
         if (c.charId === id) o.selected = true;
         charSel.appendChild(o);
       }
@@ -2337,14 +2436,27 @@
   function buildPool() {
     const chars = (CONN.roster && CONN.roster.storyChars) || [];
     if (chars.length) {
-      POOL = chars.map((c) => ({
-        key: 'n:' + c.name, r: c.name, id: c.charId, job: c.profession || '',
+      // 主角（roleType=player）排前面，故事玩家先看到自己
+      const ordered = chars.slice().sort((a, b) => {
+        const pa = a.roleType === 'player' ? 0 : 1, pb = b.roleType === 'player' ? 0 : 1;
+        return pa - pb;
+      });
+      POOL = ordered.map((c) => ({
+        key: 'n:' + c.name, r: c.name, id: c.charId,
+        job: c.profession || (charMeta(c.charId) || {}).profession || '',
         desc: c.description || '', ava: rolePortraitUrl(c),
+        player: c.roleType === 'player',
+        kf: c.keyframeMode || keyframeModeOf(c.charId),
       }));
     } else {
       POOL = packCharPool().map((id) => {
         const m = MUGEN[id] || { cn: id, tag: '', style: '' };
-        return { key: 'e:' + id, r: m.cn, id, job: m.tag || '', desc: m.style || '', ava: null };
+        const meta = charMeta(id);
+        return { key: 'e:' + id, r: (meta && meta.displayName) || m.cn, id,
+                 job: (meta && meta.profession) || m.tag || '',
+                 desc: (meta && meta.description) || m.style || '', ava: null,
+                 player: (meta && meta.roleType) === 'player',
+                 kf: keyframeModeOf(id) };
       });
     }
   }

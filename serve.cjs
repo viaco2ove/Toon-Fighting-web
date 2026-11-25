@@ -21,7 +21,7 @@
 //   GET  /api/assetpacks                         # 资产集列表（map_design 扫描 + assets/assetpacks 登记簿）
 //   GET  /api/packs/:dir                         # 资产集元数据 pack/story/roster/mapping
 //   POST /api/packs/register                     # 登记用户自选的资产集文件夹（body {dirName,pack,story,roster,mapping}）
-const { listPacks, packMeta, localCharIds, registerPack, packCharDirs } = require('./server/lib/packs.cjs');
+const { listPacks, packMeta, localCharIds, registerPack, packCharDirs, packCharMetas, writeCharMeta } = require('./server/lib/packs.cjs');
 const { portraitFor } = require('./server/lib/portrait.cjs');
 const { buildSpeechRequest, cleanLine } = require('./server/lib/speech-agent.cjs');
 const http = require('http');
@@ -244,10 +244,20 @@ async function handleApi(req, res, urlPath) {
   // 资产集列表（本地概念，扫 map_design/*/pack.json）
   if (urlPath === '/api/assetpacks') {
     const packs = listPacks();
+    // 角色资产元信息（char.json：职业 / roleType / 关键帧模式）
+    // 前端运行时（选人屏 / 角色绑定 / 战斗头像条）要读它，
+    // 所以随资产集列表一起下发，避免多一次请求。
+    const charMeta = {};
+    for (const p of packs) {
+      const dir = p.dirName || p.dir;
+      if (!dir) continue;
+      try { Object.assign(charMeta, packCharMetas(dir)); } catch { /* 该资产集无 char.json */ }
+    }
     return json(res, 200, {
       ok: true,
       packs,
       localChars: localCharIds(),
+      charMeta,
       story: storyName || null,
     });
   }
@@ -261,6 +271,25 @@ async function handleApi(req, res, urlPath) {
       const dir = decodeURIComponent(mc[1]);
       return json(res, 200, { ok: true, dir, chars: packCharDirs(dir) });
     }
+  }
+
+  // 写入角色资产标记（char.json）：关键帧模式 / 职业 / roleType …
+  // ff-studio 查看器的「写入 char.json」按钮调用；
+  // 运行时（选人屏 / 角色绑定 / 战斗头像条）读的就是这份文件。
+  if (urlPath === '/api/charmeta' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let payload = null;
+      try { payload = JSON.parse(body || 'null'); } catch { return json(res, 200, { ok: false, error: 'body 需为 JSON' }); }
+      try {
+        const r = writeCharMeta(payload || {});
+        return json(res, 200, { ok: true, ...r });
+      } catch (e) {
+        return json(res, 200, { ok: false, error: (e && e.message) || String(e) });
+      }
+    });
+    return;
   }
 
   // 登记用户自选的资产集文件夹（只落元数据 JSON，不拷引擎资产、不上传后端）

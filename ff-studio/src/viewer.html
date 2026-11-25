@@ -104,8 +104,19 @@ footer { padding:4px 14px; background:var(--panel); border-top:1px solid var(--l
   <select id="aiMode" title="关键帧模式">
     <option value="all">全（整个动作都用 AI 帧）</option>
     <option value="some">抽（只替换该动作的代表帧）</option>
+    <option value="none">不用（保持原精灵）</option>
   </select>
   <span id="aiPreviewHint" style="color:var(--dim);font-size:11px"></span>
+  <div class="sep"></div>
+  <label style="color:var(--dim);font-size:12px">资产标记</label>
+  <select id="assetMode" title="写入 char.json 的 keyframeMode（运行时据此决定是否替换关键帧）">
+    <option value="some">抽关键帧</option>
+    <option value="all">全替关键帧</option>
+    <option value="none">不使用关键帧</option>
+  </select>
+  <input id="assetProfession" placeholder="职业（写入 char.json）" style="width:96px">
+  <button id="btnSaveMeta" title="把资产标记写回 char.json">写入 char.json</button>
+  <span id="metaHint" style="color:var(--dim);font-size:11px"></span>
 </header>
 <main>
   <aside>
@@ -571,7 +582,9 @@ const state = {
   keyInfo: null,                               // buildKeyInfo() 产物
   keyAssets: null,                             // keyframes/ 的 AI 关键帧资产（manifest + 图 URL）
   aiPreview: false,                            // AI 关键帧替换预览开关
-  aiMode: 'all',                                 // 'all'=整段替换 / 'some'=只换代表帧
+  aiMode: 'all',                                 // 'all'=整段替换 / 'some'=只换代表帧 / 'none'=不替换
+  assetMeta: null,                             // char.json 的内容（资产标记）
+  serverPack: '',                              // 服务器模式下的资产集目录名（写回 char.json 用）
   pals: [],                                    // [{name, pal}]
   curActNo: null, curFrame: 0, playing: true, speed: 1,
   tickAcc: 0, lastT: 0,
@@ -803,6 +816,7 @@ function aiRepresentativeFrame(actionId) {
 
 function aiFrameFor(actionId, frameIdx) {
   if (!state.aiPreview) return null;
+  if (state.aiMode === 'none') return null;      // 不使用关键帧
   const K = state.keyAssets;
   if (!K || !K.frames.length) return null;
   const cat = aiCategoryOf(actionId);
@@ -835,8 +849,8 @@ function drawFrame(act, fi) {
     const fr = actData.frames[i];
     const img = getSpriteRgba(fr.grp, fr.num, pal);
     parts.push({ fr, img });
-    // 该帧是否用 AI 图：全模式=每帧；抽模式=只有代表帧
-    const useAi = aiAll && (state.aiMode === 'all' || i === repIdx);
+    // 该帧是否用 AI 图：全模式=每帧；抽模式=只有代表帧；none=都不用
+    const useAi = !!aiAll && (state.aiMode === 'all' || i === repIdx);
     const useImg = useAi ? aiAll : img;
     if (useImg) {
       const ux = useAi ? aiAll.ax : useImg.ax;
@@ -887,7 +901,7 @@ function drawFrame(act, fi) {
   }
   const dur = actData.frames.reduce((a, b) => a + b.dur, 0);
   let aiTag = '';
-  if (state.aiPreview) {
+  if (state.aiPreview && state.aiMode !== 'none') {
     const cat = aiCategoryOf(act);
     if (state.aiMode === 'some') {
       const rep = aiRepresentativeFrame(act);
@@ -895,6 +909,8 @@ function drawFrame(act, fi) {
     } else {
       aiTag = ' · AI关键帧(' + cat + ')';
     }
+  } else if (state.aiPreview && state.aiMode === 'none') {
+    aiTag = ' · 关键帧：未使用';
   }
   $('stageInfo').textContent = `动作 ${act} · 帧 ${fi + 1}/${actData.frames.length} · sprite ${fr.grp},${fr.num}${aiTag} · 时长 ${dur} tick (${(dur / 60).toFixed(2)}s)`;
 }
@@ -1071,6 +1087,8 @@ function loadFiles(fileMap, defPath) {
         : '（该角色无 keyframes/ 资产）';
       // 动作列表要带「→ 类别」标记，所以必须在 keyAssets 就绪之后渲染
       renderAnimList();
+      // 资产标记（char.json）：载入已有的值
+      await loadAssetMeta();
       // 恢复上次的 AI 预览开关状态（刷新后保持）
       state.aiMode = loadAiMode();
       $('aiMode').value = state.aiMode;
@@ -1201,6 +1219,58 @@ async function loadKeyAssets(lower, get) {
     out.frames.filter((f) => f.aiUrl).length + '/' + out.frames.length);
   return out;
 }
+
+/* ============================================================
+ * 资产标记（char.json）
+ *   { charId, displayName, roleType, profession, keyframeMode, description }
+ * keyframeMode: some=抽关键帧 / all=全替关键帧 / none=不使用
+ * 运行时（游戏选人屏 / 角色实体绑定 / 战斗头像条）读的就是这份文件 ——
+ * 所以在查看器里改完要写回去，才算真正「标记」了这个角色资产。
+ * ============================================================ */
+async function loadAssetMeta() {
+  const el = $('metaHint');
+  if (location.protocol === 'file:') { el.textContent = '（本地文件模式，不能写回）'; return; }
+  // 只知道 charId 的话查 /api/assetpacks 的 charMeta 汇总
+  try {
+    const r = await (await fetch('/api/assetpacks')).json();
+    const id = state.fileName ? state.fileName.replace(/\.def$/i, '') : '';
+    const meta = (r.charMeta && r.charMeta[id]) || null;
+    if (meta) {
+      state.assetMeta = meta;
+      $('assetMode').value = ['some', 'all', 'none'].includes(meta.keyframeMode) ? meta.keyframeMode : 'none';
+      $('assetProfession').value = meta.profession || '';
+      el.textContent = '（已标记：' + (meta.keyframeLabel || meta.keyframeMode || '-') +
+        (meta.profession ? ' · ' + meta.profession : '') + '）';
+    } else {
+      el.textContent = '（该角色还没有 char.json 标记）';
+    }
+  } catch (e) { el.textContent = '（读不到资产标记：' + e.message + '）'; }
+}
+$('btnSaveMeta').onclick = async () => {
+  const el = $('metaHint');
+  const id = state.fileName ? state.fileName.replace(/\.def$/i, '') : '';
+  if (!id) { el.textContent = '（没载入角色，无法写入）'; return; }
+  const meta = {
+    charId: id,
+    keyframeMode: $('assetMode').value,
+    profession: $('assetProfession').value.trim(),
+  };
+  if (state.keyAssets && state.keyAssets.frames.length) meta.keyframeCount = state.keyAssets.frames.length;
+  el.textContent = '（写入中…）';
+  try {
+    const r = await fetch('/api/charmeta', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ charId: id, packDir: state.serverPack || '', meta }),
+    }).then((x) => x.json());
+    if (r && r.ok) {
+      state.assetMeta = r.meta;
+      el.textContent = '（已写入：' + r.path + '）';
+      console.log('[viewer] char.json 已写入', r.path, r.meta);
+    } else {
+      el.textContent = '（写入失败：' + ((r && r.error) || '未知错误') + '）';
+    }
+  } catch (e) { el.textContent = '（写入失败：' + e.message + '）'; }
+};
 
 /* ============================================================
  * 关键帧分析（口径对齐 白模-关键帧修改.md / .cache/scripts/analyze-keyframes.mjs）
@@ -1474,7 +1544,8 @@ $('zoomSel').onchange = () => { if (state.selSprite) drawSingle(state.selSprite.
 $('palSel').onchange = () => { spriteCache.clear(); if (state.selSprite) drawSingle(state.selSprite.g, state.selSprite.n); else if (state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
 $('showClsn').onchange = () => { if (!state.selSprite && state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
 $('aiMode').onchange = (e) => {
-  state.aiMode = e.target.value === 'some' ? 'some' : 'all';
+  const v = e.target.value;
+  state.aiMode = v === 'some' ? 'some' : (v === 'none' ? 'none' : 'all');
   saveAiMode(state.aiMode);
   redrawCurrent();
 };
@@ -1627,10 +1698,14 @@ function loadAiPreview() {
   try { return localStorage.getItem(VIEWER_AIPREVIEW_KEY) === '1'; } catch (e) { return false; }
 }
 function saveAiMode(mode) {
-  try { localStorage.setItem(VIEWER_AIMODE_KEY, mode === 'some' ? 'some' : 'all'); } catch (e) { /* 私密模式 */ }
+  const v = mode === 'some' ? 'some' : (mode === 'none' ? 'none' : 'all');
+  try { localStorage.setItem(VIEWER_AIMODE_KEY, v); } catch (e) { /* 私密模式 */ }
 }
 function loadAiMode() {
-  try { return localStorage.getItem(VIEWER_AIMODE_KEY) === 'some' ? 'some' : 'all'; } catch (e) { return 'all'; }
+  try {
+    const v = localStorage.getItem(VIEWER_AIMODE_KEY);
+    return v === 'some' ? 'some' : (v === 'none' ? 'none' : 'all');
+  } catch (e) { return 'all'; }
 }
 
 (async () => {
@@ -1690,6 +1765,8 @@ function loadAiMode() {
 
 async function loadFromServer(pack, charId) {
   try {
+    // 服务器模式：记住资产集目录名，写回 char.json 时要用
+    state.serverPack = pack || '';
     // pack 传的是目录名（dirName）
     // 角色目录名可能和 charId 不同（资产集里 chars/<id>/ 的 def 文件名也不一定同名），
     // 所以先问服务器要这个资产集下的角色清单，拿 def 的真实文件名。

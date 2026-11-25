@@ -97,17 +97,31 @@ function listPacks() {
 }
 
 // 资产集的元数据层：story / roster / mapping（都是可分发的 JSON）
-// 优先读登记目录（assets/assetpacks/<dir>），再回落 map_design/<dir>
+// 读取顺序：**map_design/<dir> 优先**，再回落登记目录 assets/assetpacks/<dir>。
+//
+// 为什么 map_design 优先：登记目录是「用户选文件夹登记」时写的一份快照，
+// 之后用户直接改 map_design 里的 roster.json（加 defCharacterAssets 等）时，
+// 登记目录那份不会跟着更新 —— 若登记目录优先，改动永远不生效。
+// 登记目录存在的意义是「用户选了 map_design 之外的文件夹」，那种情况 map_design 没有，
+// 自然会回落到登记目录。
 function packMeta(dir) {
-  const bases = [path.join(ASSETS_ROOT, dir), path.join(MAP_ROOT, dir)];
+  const bases = [path.join(MAP_ROOT, dir), path.join(ASSETS_ROOT, dir)];
   const base = bases.find((b) => fs.existsSync(b));
   if (!base) return null;
+  // 逐个文件取「先找到的那个」：map_design 有就用它，没有的（用户自选目录）用登记目录补
+  const pick = (fn) => {
+    for (const b of bases) {
+      const v = readJson(path.join(b, fn));
+      if (v) return v;
+    }
+    return null;
+  };
   return {
     dir,
-    pack: readJson(path.join(base, 'pack.json')),
-    story: readJson(path.join(base, 'story.json')),
-    roster: readJson(path.join(base, 'roster.json')),
-    mapping: readJson(path.join(base, 'mapping.json')),
+    pack: pick('pack.json'),
+    story: pick('story.json'),
+    roster: pick('roster.json'),
+    mapping: pick('mapping.json'),
   };
 }
 
@@ -120,8 +134,9 @@ function packCharPool(dir) {
 
 // 资产集目录下真实存在的角色包（<map_design>/<dir>/chars/<charId>/ 内有 .def）
 // 用途：查看器用「本地选文件夹」载入后能反查这是哪个资产集的哪个角色，
-// 从而刷新页面时按服务器路径恢复（本地 File 对象本身不可持久化）。
-// 返回 [{ id, def, files: [{ name, size }] }]：name 是相对角色目录的路径（正斜杠）
+// 从而刷新页面时按服务器路径恢复（本地 File 对象不可持久化）。
+// 返回 [{ id, def, files: [{ name, size }], meta }]：meta = 该角色的 char.json
+//   （职业 / roleType / 关键帧模式），没有该文件时为 null。
 function packCharDirs(dir) {
   const byId = new Map();
   for (const base of [path.join(MAP_ROOT, dir), path.join(ASSETS_ROOT, dir)]) {
@@ -139,7 +154,9 @@ function packCharDirs(dir) {
       if (!def) continue;
       const prev = byId.get(name);
       if (prev && prev.files.length >= files.length) continue;
-      byId.set(name, { id: name, def: def.name, files });
+      const metaFile = files.find((f) => /^char\.json$/i.test(f.name));
+      const meta = metaFile ? readJson(path.join(cd, metaFile.name)) : null;
+      byId.set(name, { id: name, def: def.name, files, meta });
     }
   }
   return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
@@ -183,4 +200,75 @@ function localCharIds() {
   } catch { return []; }
 }
 
-module.exports = { MAP_ROOT, ASSETS_ROOT, REGISTRY_PATH, listPacks, packMeta, packCharPool, packCharDirs, localCharIds, localCharExists, readRegistry, registerPack };
+// ---------------- 角色资产元信息（char.json） ----------------
+// 每个角色包目录里可以放一个 char.json，声明：
+//   { charId, displayName, roleType, profession, keyframeMode, description, ... }
+// keyframeMode: 'some' = 抽关键帧（只换代表帧）/ 'all' = 全替关键帧 / 'none' = 不用
+//
+// 查找顺序（先到先得）：
+//   1) 引擎目录 ikemen-fs/file/chars/<id>/char.json   ← 实际跑起来的角色
+//   2) 资产集目录 map_design/<dir>/chars/<id>/char.json ← 资产集自带的标记
+// 3) 登记目录 assets/assetpacks/<dir>/chars/<id>/char.json
+function readCharMeta(charId, packDir) {
+  const dirs = [path.join(LOCAL_CHARS_DIR, charId)];
+  if (packDir) {
+    dirs.push(path.join(MAP_ROOT, packDir, 'chars', charId));
+    dirs.push(path.join(ASSETS_ROOT, packDir, 'chars', charId));
+  }
+  for (const d of dirs) {
+    const m = readJson(path.join(d, 'char.json'));
+    if (m && typeof m === 'object') return m;
+  }
+  return null;
+}
+
+// 批量：资产集下所有角色的元信息（{ charId: meta }）
+function packCharMetas(dir) {
+  const out = {};
+  for (const c of packCharDirs(dir)) {
+    const m = readCharMeta(c.id, dir);
+    if (m) out[c.id] = m;
+  }
+  return out;
+}
+
+// ---------------- 写入角色资产标记（char.json） ----------------
+// 写到哪里（先到先得，只写一处，避免同一角色有两份不一致的标记）：
+//   1) 引擎目录 ikemen-fs/file/chars/<id>/char.json   ← 实际跑起来的角色
+//   2) 资产集目录 map_design/<dir>/chars/<id>/char.json
+//   3) 登记目录 assets/assetpacks/<dir>/chars/<id>/char.json
+// 引擎目录不存在时（资产集里的角色还没装进引擎），退到资产集目录。
+function writeCharMeta({ charId, packDir, meta }) {
+  const id = String(charId || '').trim();
+  if (!id || !/^[A-Za-z0-9_'\-]+$/.test(id)) throw new Error('角色名不合法');
+  const m = meta && typeof meta === 'object' ? meta : {};
+  const kf = String(m.keyframeMode || '').toLowerCase();
+  if (kf && !['some', 'all', 'none'].includes(kf)) throw new Error('keyframeMode 只能是 some/all/none');
+  const dir = packDir ? String(packDir) : '';
+  const targets = [];
+  const engDir = path.join(LOCAL_CHARS_DIR, id);
+  if (fs.existsSync(engDir)) targets.push(engDir);
+  if (dir) {
+    targets.push(path.join(MAP_ROOT, dir, 'chars', id));
+    targets.push(path.join(ASSETS_ROOT, dir, 'chars', id));
+  }
+  if (!targets.length) throw new Error('找不到角色目录：' + id);
+  // 已存在 char.json 的那个目录优先（避免同一角色出现两份不一致的标记）
+  const existing = targets.find((d) => fs.existsSync(path.join(d, 'char.json')));
+  const target = existing || targets[0];
+  const file = path.join(target, 'char.json');
+  const old = readJson(file) || {};
+  const out = {
+    ...old,
+    ...m,
+    charId: id,
+    keyframeLabel: m.keyframeLabel ||
+      ({ some: '抽关键帧', all: '全替关键帧', none: '不使用关键帧' })[kf] || old.keyframeLabel || '',
+    updatedAt: new Date().toISOString(),
+  };
+  fs.mkdirSync(target, { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(out, null, 2), 'utf8');
+  return { path: file, meta: out };
+}
+
+module.exports = { MAP_ROOT, ASSETS_ROOT, REGISTRY_PATH, listPacks, packMeta, packCharPool, packCharDirs, packCharMetas, readCharMeta, writeCharMeta, localCharIds, localCharExists, readRegistry, registerPack };
