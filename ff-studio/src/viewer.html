@@ -101,6 +101,10 @@ footer { padding:4px 14px; background:var(--panel); border-top:1px solid var(--l
   <div class="sep"></div>
   <label style="color:var(--dim);font-size:12px">AI关键帧预览</label>
   <input type="checkbox" id="aiPreview" title="用 keyframes/ 的 AI 整帧替换身体（等价于虚拟组装）">
+  <select id="aiMode" title="关键帧模式">
+    <option value="all">全（整个动作都用 AI 帧）</option>
+    <option value="some">抽（只替换该动作的代表帧）</option>
+  </select>
   <span id="aiPreviewHint" style="color:var(--dim);font-size:11px"></span>
 </header>
 <main>
@@ -567,6 +571,7 @@ const state = {
   keyInfo: null,                               // buildKeyInfo() 产物
   keyAssets: null,                             // keyframes/ 的 AI 关键帧资产（manifest + 图 URL）
   aiPreview: false,                            // AI 关键帧替换预览开关
+  aiMode: 'all',                                 // 'all'=整段替换 / 'some'=只换代表帧
   pals: [],                                    // [{name, pal}]
   curActNo: null, curFrame: 0, playing: true, speed: 1,
   tickAcc: 0, lastT: 0,
@@ -714,16 +719,38 @@ function aiFitted(spriteIdx) {
   return fit;
 }
 // AI 整帧 → 动作帧的映射。
-// 每类只有 1 张 AI 图，所以同一个类别下的所有动作帧都播同一张图
-// （与真实组装的 AIR 重映射一致：一律换成类别图，判定行不变）。
-// 预览的观感因此是「该类别的代表姿态」，不是逐帧动画 —— 这是 ≤10 张方案的固有取舍。
-function aiFrameFor(actionId) {
+// 两种模式：
+//   'all'  —— 整个动作的所有帧都换成该类别的 AI 图（等价于 AIR 重映射后一整段都是 AI 帧）
+//   'some' —— **只替换代表帧**：其余帧保持原精灵 → 动作仍是原来的连贯动画，
+//              只有那一瞬间换成 AI 帧（这才是「取代关键帧」的本来效果）
+// 代表帧选取：取该 action 中精灵尺寸最大的帧（动作幅度最大的瞬间，最能体现该类别）；
+//             尺寸相同则取第一个。结果缓存（解码所有帧代价不小）。
+const aiRepCache = new Map();
+function aiRepresentativeFrame(actionId) {
+  if (aiRepCache.has(actionId)) return aiRepCache.get(actionId);
+  const act = state.actions.get(actionId);
+  if (!act || !act.frames.length) { aiRepCache.set(actionId, 0); return 0; }
+  const pal = currentPal();
+  let best = 0, bestArea = -1;
+  for (let i = 0; i < act.frames.length; i++) {
+    const fr = act.frames[i];
+    const img = getSpriteRgba(fr.grp, fr.num, pal);
+    const area = img ? img.w * img.h : 0;
+    if (area > bestArea) { bestArea = area; best = i; }
+  }
+  aiRepCache.set(actionId, best);
+  return best;
+}
+
+function aiFrameFor(actionId, frameIdx) {
   if (!state.aiPreview) return null;
   const K = state.keyAssets;
   if (!K || !K.frames.length) return null;
   const cat = aiCategoryOf(actionId);
   const entry = AI_CATEGORIES.find((c) => c.key === cat);
   if (!entry) return null;
+  // '抽' 模式：只有代表帧用 AI 图
+  if (state.aiMode === 'some' && frameIdx !== aiRepresentativeFrame(actionId)) return null;
   return aiFitted(entry.sprite);
 }
 
@@ -735,20 +762,28 @@ function drawFrame(act, fi) {
   const canvas = $('stage');
   const f = actData.frames[fi];
   const showClsn = $('showClsn').checked;
-  const aiImg = aiFrameFor(act);           // AI 关键帧替换图（可能为 null）
-  // 先解所有帧 sprite 求 bbox
+  const aiImg = aiFrameFor(act, fi);         // AI 关键帧替换图（可能为 null；抽模式只有代表帧有）
+  // bbox 要覆盖「所有帧实际会画的东西」：
+  //   全模式  → 每帧都是 AI 图（221px 高）
+  //   抽模式  → 代表帧是 AI 图、其余帧是原精灵 → 两种尺寸都要算进去，
+  //             否则切到代表帧时画布尺寸突变，画面会跳
   const parts = [];
   let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
-  for (const fr of actData.frames) {
+  // 该 action 的 AI 图（可能为 null）
+  const repIdx = aiRepresentativeFrame(act);
+  const aiAll = aiFrameFor(act, state.aiMode === 'some' ? repIdx : 0);
+  for (let i = 0; i < actData.frames.length; i++) {
+    const fr = actData.frames[i];
     const img = getSpriteRgba(fr.grp, fr.num, pal);
     parts.push({ fr, img });
-    // 用「实际要画的那张图」算 bbox：AI 预览时用 AI 图（221px 高），否则用原精灵
-    const useImg = aiImg || img;
+    // 该帧是否用 AI 图：全模式=每帧；抽模式=只有代表帧
+    const useAi = aiAll && (state.aiMode === 'all' || i === repIdx);
+    const useImg = useAi ? aiAll : img;
     if (useImg) {
-      const ux = aiImg ? aiImg.ax : useImg.ax;
-      const uy = aiImg ? aiImg.ay : useImg.ay;
-      const uw = aiImg ? aiImg.w : useImg.w;
-      const uh = aiImg ? aiImg.h : useImg.h;
+      const ux = useAi ? aiAll.ax : useImg.ax;
+      const uy = useAi ? aiAll.ay : useImg.ay;
+      const uw = useAi ? aiAll.w : useImg.w;
+      const uh = useAi ? aiAll.h : useImg.h;
       const x0 = fr.x - ux, y0 = fr.y - uy;
       minX = Math.min(minX, x0); minY = Math.min(minY, y0);
       maxX = Math.max(maxX, x0 + uw); maxY = Math.max(maxY, y0 + uh);
@@ -792,7 +827,16 @@ function drawFrame(act, fi) {
     drawBoxes(ctx, fr.clsn1, ox, oy, zoom, 'rgba(230,90,90,0.9)');
   }
   const dur = actData.frames.reduce((a, b) => a + b.dur, 0);
-  const aiTag = aiImg ? ' · AI关键帧(' + aiCategoryOf(act) + ')' : '';
+  let aiTag = '';
+  if (state.aiPreview) {
+    const cat = aiCategoryOf(act);
+    if (state.aiMode === 'some') {
+      const rep = aiRepresentativeFrame(act);
+      aiTag = ' · AI关键帧(' + cat + ') ' + (fi === rep ? '★代表帧' : '第' + (fi + 1) + '帧');
+    } else {
+      aiTag = ' · AI关键帧(' + cat + ')';
+    }
+  }
   $('stageInfo').textContent = `动作 ${act} · 帧 ${fi + 1}/${actData.frames.length} · sprite ${fr.grp},${fr.num}${aiTag} · 时长 ${dur} tick (${(dur / 60).toFixed(2)}s)`;
 }
 function drawSprite(ctx, img, fr, ox, oy, zoom) {
@@ -882,6 +926,11 @@ function reset() {
   state.sffBuf = null; state.sff = null; state.def = null; state.actions = null;
   state.pals = []; state.curActNo = null; state.selSprite = null;
   state.stateTexts = []; state.keyInfo = null; state.keyAssets = null;
+  aiRepCache.clear(); aiFitCache.clear(); aiRaw.clear();
+  // 预览开关也复位：恢复逻辑依赖「当前是关的」这个前提，
+  // 否则 state.aiPreview 残留 true 会跳过预加载 → aiRaw 为空 → AI 图画不出来
+  state.aiPreview = false;
+  $('aiPreview').checked = false;
   spriteCache.clear(); palNames.clear(); palSeq = 0;
   $('palSel').innerHTML = '<option value="">内嵌（默认）</option>';
   $('animList').innerHTML = ''; $('gridSprite').innerHTML = '';
@@ -964,12 +1013,15 @@ function loadFiles(fileMap, defPath) {
       // 动作列表要带「→ 类别」标记，所以必须在 keyAssets 就绪之后渲染
       renderAnimList();
       // 恢复上次的 AI 预览开关状态（刷新后保持）
+      state.aiMode = loadAiMode();
+      $('aiMode').value = state.aiMode;
       if (hasAI && loadAiPreview() && !state.aiPreview) {
         $('aiPreview').checked = true;
         await preloadAiFrames();
         state.aiPreview = true;
         aiFitCache.clear();
-        $('aiPreviewHint').textContent = '（已启用 ' + state.keyAssets.frames.length + ' 类）';
+        $('aiPreviewHint').textContent = '（已启用 ' + state.keyAssets.frames.length + ' 类 · ' +
+          (state.aiMode === 'some' ? '抽：只换代表帧' : '全：整段替换') + '）';
         redrawCurrent();
       }
       // 默认播放第一个动作（优先 0 站立）
@@ -1362,6 +1414,11 @@ function renderGroupGrid(g) {
 $('zoomSel').onchange = () => { if (state.selSprite) drawSingle(state.selSprite.g, state.selSprite.n); else if (state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
 $('palSel').onchange = () => { spriteCache.clear(); if (state.selSprite) drawSingle(state.selSprite.g, state.selSprite.n); else if (state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
 $('showClsn').onchange = () => { if (!state.selSprite && state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
+$('aiMode').onchange = (e) => {
+  state.aiMode = e.target.value === 'some' ? 'some' : 'all';
+  saveAiMode(state.aiMode);
+  redrawCurrent();
+};
 $('aiPreview').onchange = async (e) => {
   if (e.target.checked) {
     $('aiPreviewHint').textContent = '（正在加载 AI 帧…）';
@@ -1446,6 +1503,7 @@ window.addEventListener('drop', async (e) => {
 // 记住上次选的资产集+角色：刷新页面自动恢复并直接载入，不用重新点一遍
 const VIEWER_LAST_KEY = 'ffstudio:last-asset';
 const VIEWER_AIPREVIEW_KEY = 'ffstudio:ai-preview';
+const VIEWER_AIMODE_KEY = 'ffstudio:ai-mode';
 function saveLastAsset(pack, charId) {
   try { localStorage.setItem(VIEWER_LAST_KEY, JSON.stringify({ pack, charId, at: Date.now() })); }
   catch (e) { /* 私密模式 */ }
@@ -1460,6 +1518,12 @@ function saveAiPreview(on) {
 function loadAiPreview() {
   try { return localStorage.getItem(VIEWER_AIPREVIEW_KEY) === '1'; } catch (e) { return false; }
 }
+function saveAiMode(mode) {
+  try { localStorage.setItem(VIEWER_AIMODE_KEY, mode === 'some' ? 'some' : 'all'); } catch (e) { /* 私密模式 */ }
+}
+function loadAiMode() {
+  try { return localStorage.getItem(VIEWER_AIMODE_KEY) === 'some' ? 'some' : 'all'; } catch (e) { return 'all'; }
+}
 
 (async () => {
   if (location.protocol === 'file:') return;
@@ -1472,11 +1536,14 @@ function loadAiPreview() {
     const last = loadLastAsset();
     // 展开上次选中的资产集（并把角色列表一次性铺好，便于再次切换）
     for (const p of (packs.packs || packs || [])) {
-      const name = typeof p === 'string' ? p : (p.dir || p.name || '');
+      // 角色文件在**目录名**下（dirName），不是 pack.json 里的 id
+      // （listPacks 会用 pack.id 覆盖 dir，例：id=moshi-v1 但目录是「末世选择，从解析神明开始成神」）
+      const name = typeof p === 'string' ? p : (p.dirName || p.dir || p.name || '');
+      const label = typeof p === 'string' ? p : (p.name || p.dir || '');
       if (!name) continue;
       const row = document.createElement('div');
       row.className = 'pRow' + (last && last.pack === name ? ' on' : '');
-      row.innerHTML = '📦 ' + name;
+      row.innerHTML = '📦 ' + esc(label);
       list.appendChild(row);
       row.onclick = async () => {
         document.querySelectorAll('#packList .pRow').forEach(x => x.classList.remove('on'));
@@ -1517,10 +1584,21 @@ function loadAiPreview() {
 
 async function loadFromServer(pack, charId) {
   try {
-    const base = '/workshops/toon-fighting-web/map_design/' + encodeURIComponent(pack) + '/chars/' + encodeURIComponent(charId) + '/';
-    // def 先行：服务器目录没有列表接口，跟着 def 的 [Files] 引用清单抓全量文件
-    //（st/cns 是关键帧 L2 分层的输入；pal 是调色板下拉的输入，缺了只能看内嵌色）
-    const defBuf = await fetchBuf(base + charId + '.def');
+    // pack 传的是目录名（dirName）；找不到时退回用包 id 试一次
+    let base = '/workshops/toon-fighting-web/map_design/' + encodeURIComponent(pack) + '/chars/' + encodeURIComponent(charId) + '/';
+    let defBuf = await fetchBuf(base + charId + '.def');
+    if (!defBuf) {
+      // 兜底：按 /api/assetpacks 的目录列表找包含该角色的资产集
+      const packs = await (await fetch('/api/assetpacks')).json().catch(() => null);
+      const cands = (packs && packs.packs) || [];
+      for (const p of cands) {
+        const d = p.dirName || p.dir;
+        if (!d) continue;
+        const b2 = '/workshops/toon-fighting-web/map_design/' + encodeURIComponent(d) + '/chars/' + encodeURIComponent(charId) + '/';
+        const buf = await fetchBuf(b2 + charId + '.def');
+        if (buf) { base = b2; defBuf = buf; break; }
+      }
+    }
     if (!defBuf) throw new Error('取不到 ' + charId + '.def');
     const files = { [charId + '.def']: mkFile(charId + '.def', defBuf, 'text/plain') };
     const def = parseDef(new TextDecoder('utf-8').decode(defBuf));
