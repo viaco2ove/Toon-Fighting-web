@@ -216,6 +216,15 @@ body{background:#000;font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans
 @media (max-width:920px){
   body{padding:8px}
   /* 「？」随机按钮窄屏只留「？ 随机」，翻页条同排右对齐 */
+  .phasebar{height:18px;font-size:9px;gap:4px}
+  .phasebar span{padding:0 5px;height:16px}
+  .okbtn{width:calc(100% - 16px);margin:0 8px 6px;height:22px;font-size:10px;letter-spacing:.06em}
+  .okbtn i{display:none}
+  .logo{font-size:clamp(15px,3.4vw,22px);flex:none}
+  /* 窄屏把手柄整体缩到 0.78，两个簇都往边上靠，尽量不压名单 */
+  #pad .joy{transform:scale(.8);transform-origin:left bottom}
+  #pad .bt{transform:scale(.8);transform-origin:right bottom}
+  #pad .kstart{transform:scale(.85);transform-origin:right bottom;bottom:225px}
   .qbtn{white-space:nowrap;flex:none;padding:0 7px}
   .qbtn span{display:none}
   .pager{gap:6px;font-size:9.5px}
@@ -261,8 +270,89 @@ body{background:#000;font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans
   .diff{flex:1 1 auto}
   #start{flex:0 0 auto;padding:8px 22px;font-size:13.5px;letter-spacing:.18em;text-indent:.18em}
 }
+/* ---------- 阶段条 / 确定队员 / 虚拟手柄（对齐《选人.md》13-22 行） ---------- */
+.phasebar{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;height:20px;font-size:10px;letter-spacing:.08em;color:#ffe9e0}
+.phasebar span{display:flex;align-items:center;gap:4px;padding:0 7px;height:18px;border-radius:9px;
+  background:rgba(10,8,18,.55);border:1px solid rgba(255,255,255,.16);opacity:.5;white-space:nowrap}
+.phasebar span.on{opacity:1;border-color:#ffd76a;color:#ffe487;box-shadow:0 0 0 1px rgba(255,215,106,.25)}
+.phasebar span.done{opacity:1;border-color:rgba(120,240,170,.6);color:#b9ffd2}
+.phasebar em{font-style:normal;opacity:.6}
+.padtog{flex:none;font-family:inherit;cursor:pointer;height:20px;padding:0 9px;border-radius:4px;font-size:10px;letter-spacing:.06em;
+  color:#ffe9e0;background:rgba(12,10,22,.55);border:1px solid rgba(255,255,255,.22)}
+.padtog.on{border-color:#ffd76a;color:#ffe487}
+
+.okbtn{flex:none;display:flex;align-items:center;justify-content:center;gap:7px;width:calc(100% - 26px);margin:2px 13px 8px;
+  height:26px;font-family:inherit;cursor:pointer;border-radius:4px;font-size:11px;letter-spacing:.12em;
+  color:#1a1200;background:linear-gradient(180deg,#ffe487,#d8a12e);border:1px solid rgba(60,40,0,.55);
+  box-shadow:0 1px 0 rgba(255,255,255,.35) inset}
+.okbtn b{font-size:12px}
+.okbtn i{font-style:normal;font-size:9px;opacity:.6;letter-spacing:.04em}
+.okbtn.off{color:#c6c0b0;background:linear-gradient(180deg,#4a4550,#2c2933);border-color:rgba(255,255,255,.16)}
+.okbtn.off i{opacity:.5}
+.okbtn.cancel{color:#ffe9e0;background:linear-gradient(180deg,#5a2230,#341018);border-color:rgba(255,120,140,.45)}
+.okbtn.cancel b{color:#ffd0d8}
+.okbtn:disabled{opacity:.4;cursor:default}
+
+.panel.locked .slots,.panel.locked .okbtn,.panel.locked .swp,.panel.locked .portrait{opacity:.5}
+.panel.idle{filter:saturate(.55) brightness(.82)}
+.panel.active{border-color:rgba(255,215,106,.65);box-shadow:0 0 0 1px rgba(255,215,106,.3) inset}
+
+/* ================= 虚拟手柄（直接照搬战斗界面 fight.html / index.html 的那一套） =================
+   #pad 铺满视口、pointer-events:none，只让摇杆和按键吃事件；底部留出 76px 给页脚条 */
+#pad{position:fixed;inset:0;bottom:100px;z-index:47;pointer-events:none;display:none;
+  user-select:none;-webkit-user-select:none;touch-action:none;transform-origin:left bottom}
+#pad.on{display:block}
+#pad button{pointer-events:auto;cursor:pointer;font-family:inherit;color:#fff;border:0;
+  background:rgba(12,15,22,.42);border:1px solid rgba(180,195,215,.35);
+  backdrop-filter:blur(2px);touch-action:none;-webkit-tap-highlight-color:transparent}
+#pad button.pressed{background:rgba(255,59,48,.42);border-color:rgba(255,59,48,.85);color:#fff}
+/* 摇杆：贴左下角 */
+#pad .joy{pointer-events:auto;position:absolute;left:0;bottom:0;width:170px;height:170px;border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,rgba(30,36,48,.55),rgba(6,8,12,.78));
+  border:1px solid #2a3140;box-shadow:inset 0 4px 18px rgba(0,0,0,.5);touch-action:none;cursor:grab}
+#pad .joy::before{content:'';position:absolute;inset:14px;border-radius:50%;border:1px dashed #39414f}
+#pad .joy.grabbing{cursor:grabbing}
+#pad .joy .tick{position:absolute;color:#4c5670;font-size:12px;font-weight:900;pointer-events:none}
+#pad .joy .tick.u{left:50%;top:4px;transform:translateX(-50%)}
+#pad .joy .tick.d{left:50%;bottom:4px;transform:translateX(-50%)}
+#pad .joy .tick.l{left:6px;top:50%;transform:translateY(-50%)}
+#pad .joy .tick.r{right:6px;top:50%;transform:translateY(-50%)}
+#pad .joy .stick{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#5a6678,#232a36 70%);
+  border:1px solid #4c5670;box-shadow:0 6px 14px rgba(0,0,0,.55),inset 0 3px 6px rgba(255,255,255,.15);
+  pointer-events:none;transition:transform .05s linear}
+#pad .joy .stick .cap{position:absolute;inset:16px;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.25),transparent)}
+#pad .joy .dir{position:absolute;left:50%;top:-24px;transform:translateX(-50%);font-family:Consolas,monospace;
+  font-size:12px;color:#ffd76a;white-space:nowrap;pointer-events:none}
+#pad .joyu{display:none}   /* 战斗界面才有这行提示，选人界面会压住铭牌，隐藏 */
+/* 攻击键 2×3（A/B 在上，C/X 中，Y/Z 下） */
+#pad .bt{position:absolute;right:18px;bottom:22px;width:170px;height:238px}
+#pad .bt button{position:absolute;width:76px;height:76px;border-radius:50%;font-size:20px;font-weight:900;
+  background:radial-gradient(circle at 35% 30%,rgba(90,102,120,.6),rgba(16,20,28,.72));
+  border:1px solid rgba(255,255,255,.35);box-shadow:0 6px 14px rgba(0,0,0,.5)}
+#pad .bt button small{display:block;font-size:9px;font-weight:700;letter-spacing:.1em;margin-top:1px;opacity:.85}
+#pad .bt button:active,#pad .bt button.pressed{filter:brightness(1.35)}
+#pad .bt .a{left:0;bottom:158px}
+#pad .bt .b{right:0;bottom:158px}
+#pad .bt .c{left:0;bottom:78px}
+#pad .bt .x{right:0;bottom:78px}
+#pad .bt .y{left:0;bottom:0}
+#pad .bt .z{right:0;bottom:0}
+/* START：底部中间 */
+#pad .kstart{position:absolute;right:18px;bottom:266px;width:64px;height:40px;border-radius:9px;
+  font-size:11px;font-weight:900;letter-spacing:.12em;color:#fff;background:rgba(200,160,40,.5);border:1px solid #7a6420}
+#pad .kstart:active,#pad .kstart.pressed{background:rgba(255,215,106,.85);color:#1a1200}
+
+/* 窄屏（手机/Android H5）：手柄缩到 0.8，START 贴住攻击键上方 */
+@media (max-width:920px){
+  #pad .joy{transform:scale(.8);transform-origin:left bottom}
+  #pad .bt{transform:scale(.8);transform-origin:right bottom}
+  #pad .kstart{transform:scale(.85);transform-origin:right bottom;bottom:225px;right:16px}
+}
 </style>
 </head>
+
 <body>
 <div class="arcade">
   <div class="top">
@@ -279,6 +369,7 @@ body{background:#000;font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans
     </div>
     <div class="logo">TOON·FIGHTING</div>
     <div class="tbwrap">
+      <button class="padtog on" id="padtog" onclick="togglePad()">🎮 手柄</button>
       <div class="tabs">
         <button class="tb" data-m="练习">练习</button>
         <button class="tb on" data-m="对战">对战</button>
@@ -299,6 +390,7 @@ body{background:#000;font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans
         <button class="swp" onclick="rotateOrder(1)">⇄ <span class="swpt">出场顺序</span></button>
       </div>
       <div class="slots" id="p1slots"></div>
+      <button class="okbtn" id="ok1" onclick="lightPunch(1)">确定队员</button>
       <div class="portrait" id="p1port">
         <img id="p1img" alt="">
         <div class="vacant" id="p1vac"><span class="q">？</span><span class="t">空位 · 点右侧选人列表</span></div>
@@ -329,6 +421,7 @@ body{background:#000;font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans
         </div>
         <div class="hdesc" id="hDesc"></div>
       </div>
+      <div class="phasebar" id="phasebar"></div>
       <div class="listrow">
         <button class="qbtn" id="qbtn" onclick="randomOne()"><b>？</b> 随机<span>抽一个，可取消</span></button>
         <div class="pager" id="pager"></div>
@@ -343,6 +436,7 @@ body{background:#000;font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans
         <button class="swp" onclick="rotateOrder(2)">⇄ <span class="swpt">出场顺序</span></button>
       </div>
       <div class="slots" id="p2slots"></div>
+      <button class="okbtn" id="ok2" onclick="lightPunch(2)">确定队员</button>
       <div class="portrait" id="p2port">
         <img id="p2img" alt="">
         <div class="vacant" id="p2vac"><span class="q">？</span><span class="t">空位 · 点右侧选人列表</span></div>
@@ -373,6 +467,24 @@ body{background:#000;font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- 虚拟手柄：照搬战斗界面（摇杆左下 / 攻击键右下 2×3 / START 居中；A=轻拳 B=重拳） -->
+<div id="pad" class="on">
+  <span class="joyu">虚拟摇杆 · 拖动注入方向键</span>
+  <div class="joy" id="joy">
+    <span class="dir" id="joydir"></span>
+    <span class="tick u">▲</span><span class="tick d">▼</span><span class="tick l">◀</span><span class="tick r">▶</span>
+    <div class="stick" id="stick"><div class="cap"></div></div>
+  </div>
+  <button class="kstart" data-k="Enter" onclick="padBtn('Start')">START</button>
+  <div class="bt">
+    <button class="a" data-k="z" onclick="padBtn('A')">A<small>轻拳</small></button>
+    <button class="b" data-k="x" onclick="padBtn('B')">B<small>重拳</small></button>
+    <button class="c" data-k="c" onclick="padBtn('C')">C<small>重拳</small></button>
+    <button class="x" data-k="a" onclick="padBtn('X')">X<small>攻击</small></button>
+    <button class="y" data-k="s" onclick="padBtn('Y')">Y<small>攻击</small></button>
+    <button class="z" data-k="d" onclick="padBtn('Z')">Z<small>攻击</small></button>
+  </div>
+</div>
 <script>
 /* ---------------- 数据（对齐资产集 mapping.json + 故事角色 t_storyWorld#48） ---------------- */
 const A = 'assets/select/';
@@ -413,6 +525,7 @@ const p2 = [null, null, null];
 const order = { 1:[0,1,2], 2:[0,1,2] };  // 出场顺序：数组元素=出场位下标
 const randSlots = new Set();             // 记录「？随机」抽中的位置（side:idx），再点「？」可取消
 let page = 0, pageLock = false;          // 选人列表当前页；pageLock=手动翻页后暂不跟随选中位
+let phase = 1;                           // 1=选我方 2=选对方 3=双方已确定（《选人.md》：先我方→确定→再对方→开始）
 const byName = (n) => pool.find((c) => c.r === n) || null;
 
 /* 默认预填：第一格各来一人，首屏不出现空图 */
@@ -465,7 +578,7 @@ function render() {
       const n = L[i];
       const c = n && n !== '?' ? byName(n) : null;
       const ord = c ? ordOf(side, i) : 0;
-      return `<div class="slot ${active.side === side && active.idx === i ? 'on' : ''}" onclick="act(${side},${i})">
+      return `<div class="slot ${active.side === side && active.idx === i ? 'on' : ''}" data-side="${side}" data-idx="${i}" onclick="act(${side},${i})">
         ${ord ? `<span class="od">${ord}</span>` : ''}
         <div class="th">${c ? `<img src="${ava(c)}" alt="">` : '?'}</div>
         <span class="lb">${c ? c.r : 'P' + (i + 1) + ' 空位'}</span>
@@ -553,7 +666,7 @@ function render() {
     const sel = (active.side === 1 ? L1[active.idx] : L2[active.idx]) === c.r;
     const ord = inP1 >= 0 ? ordOf(1, inP1) : 0;
     const rnd = (inP1 >= 0 && randSlots.has('1:' + inP1)) || (inP2 >= 0 && randSlots.has('2:' + inP2));
-    return `<button class="k ${sel ? 'sel' : ''}" onclick="pick('${c.r}')">
+    return `<button class="k ${sel ? 'sel' : ''}" data-r="${c.r}" onclick="pick('${c.r}')">
       ${ord ? `<span class="ord">${ord}</span>` : ''}${rnd ? '<span class="rnd">？</span>' : ''}
       <img class="face" src="${face(c)}" alt="">
       <div class="fig"><img src="${stand(c)}" alt=""></div>
@@ -588,6 +701,7 @@ function render() {
 
   /* 底部名字条 */
   const bar = (side) => {
+    if (survival && side === 2) return `<span class="role">系统随机</span><span class="ent">按资产集抽取</span><span class="job">胜+1 续关</span>`;
     const n = firstOf(side);
     const c = n ? byName(n) : null;
     const lineup = (side === 1 ? L1 : L2).slice(0, team).map((x) => {
@@ -601,19 +715,100 @@ function render() {
   document.getElementById('bar1').innerHTML = bar(1);
   document.getElementById('bar2').innerHTML = bar(2);
 
-  /* 开始可点条件 */
-  const has1 = L1.slice(0, team).some((x) => x);
-  const has2 = L2.slice(0, team).some((x) => x);
-  document.getElementById('start').disabled = !(has1 && (mode !== '对战' || has2));
+  /* ---- 阶段条 / 【确定队员】/ 面板锁定（《选人.md》两段式） ---- */
+  const pb = document.getElementById('phasebar');
+  pb.innerHTML = `<span class="${phase === 1 ? 'on' : 'done'}"><em>①</em> 我方选人</span>
+    <span class="${phase === 2 ? 'on' : phase === 3 ? 'done' : ''}"><em>②</em> 对方选人</span>
+    <span class="${phase === 3 ? 'on' : ''}"><em>③</em> 开始</span>`;
+  if (mode === '生存') pb.querySelectorAll('span')[1].innerHTML = '<em>②</em> 对手随机';
+
+  const ok1 = document.getElementById('ok1');
+  ok1.className = 'okbtn' + (phase === 1 ? (filled(1) ? '' : ' off') : ' cancel');
+  ok1.innerHTML = phase === 1
+    ? '<b>✔</b> 确定队员<i>轻拳</i>'
+    : '<b>↺</b> 取消确定<i>重拳 B</i>';
+  ok1.disabled = phase === 1 ? !filled(1) : false;
+
+  const ok2 = document.getElementById('ok2');
+  ok2.className = 'okbtn' + (phase === 2 ? (filled(2) ? '' : ' off') : ' cancel');
+  ok2.innerHTML = phase === 2 ? '<b>✔</b> 确定队员<i>轻拳</i>'
+    : mode === '生存' ? '<b>·</b> 对手由系统随机' : '<b>·</b> 等待我方确定';
+  ok2.disabled = phase !== 2 || !filled(2);
+
+  const p1p = document.querySelector('.panel.p1'), p2p = document.getElementById('p2panel');
+  p1p.classList.toggle('locked', locked(1));
+  p2p.classList.toggle('locked', locked(2));
+  p1p.classList.toggle('active', !locked(1));
+  p2p.classList.toggle('active', !locked(2));
+  p1p.classList.toggle('idle', locked(1));
+  p2p.classList.toggle('idle', locked(2));
+
+  /* 开始：必须双方（或生存我方）都确定 */
+  document.getElementById('start').disabled = phase !== 3;
+  document.getElementById('start').textContent = phase === 3 ? '开 始' : '待 确 定';
 }
 
 /* ---------------- 交互 ---------------- */
-function act(side, i) { active = { side, idx: i }; pageLock = false; render(); }
+/* 两段式：① 我方选人 →【确定队员】→ ② 对方选人 →【开始】；生存模式确定后对手系统随机 */
+const locked = (side) => (side === 1 ? phase >= 2 : phase < 2);
+const filled = (side) => (side === 1 ? p1 : p2).slice(0, team).some((x) => x);
+
+/* 轻拳 = 选中/确定：点名单里的角色，或点【确定队员】 */
+function lightPunch(side) {
+  if (side === 1) {
+    if (phase === 1) {
+      if (!filled(1)) { toast('我方还没有选人，轻拳点名单里挑一个'); return; }
+      phase = mode === '生存' ? 3 : 2;
+      active = { side: mode === '生存' ? 1 : 2, idx: 0 };
+      randSlots.clear(); page = 0; pageLock = false;
+      render();
+      toast(mode === '生存' ? '我方已确定：对手由系统按资产集随机' : '我方已确定，现在选对方的角色');
+    } else {
+      phase = 1; active = { side: 1, idx: 0 }; randSlots.clear(); page = 0; pageLock = false;
+      render(); toast('已取消确定，回到我方继续选人');
+    }
+    return;
+  }
+  if (phase === 2) {
+    if (!filled(2)) { toast('对手还没选人，轻拳点名单里挑一个'); return; }
+    phase = 3; render(); toast('双方已确定，按【开始】开打');
+  } else if (phase < 2) toast('先确定我方队员');
+  else toast('已确定，重拳（B）可以取消确定');
+}
+
+/* 重拳 = 取消：已确定阶段→取消确定；选人阶段→取消「已选人列表」最后面那一位 */
+function heavyPunch() {
+  if (phase >= 2) {
+    phase = 1; active = { side: 1, idx: 0 }; randSlots.clear(); page = 0; pageLock = false;
+    render();
+    toast('重拳：已取消确定，回到我方选人');
+    return;
+  }
+  const L = active.side === 1 ? p1 : p2;
+  let last = -1;
+  for (let i = 0; i < team; i++) if (L[i]) last = i;
+  if (last < 0) { toast('已选人列表是空的，没有可取消的角色'); return; }
+  const who = L[last];
+  L[last] = null; randSlots.delete(active.side + ':' + last);
+  if (active.side === 1 && active.idx === last) active = { side: 1, idx: last };
+  render();
+  toast('重拳：取消最后一位（' + (who === '?' ? '随机位' : who) + '）');
+}
+
+function act(side, i) {
+  if (locked(side)) { toast(side === 2 ? '先确定我方队员，再选对方' : '我方已确定，重拳（B）可取消确定'); return; }
+  active = { side, idx: i }; pageLock = false; render();
+}
 
 /* 翻页：一页 6 个，装满才翻，格子尺寸不变 */
 function setPage(d) { pageLock = true; page = Math.max(0, page + d); render(); }
 
 function pick(name) {
+  if (locked(active.side)) {
+    if (active.side === 2) { toast('对手先锁着：先在我方名单下方点【确定队员】'); } 
+    else toast('我方已确定，重拳（B）可以取消确定继续选人');
+    return;
+  }
   pageLock = false;
   if (mode === '生存' && active.side === 2) { toast('生存模式：对手由系统随机生成，不能手选'); return; }
   const L = active.side === 1 ? p1 : p2;
@@ -629,6 +824,7 @@ function pick(name) {
 }
 
 function randomOne() {
+  if (locked(active.side)) { toast(active.side === 2 ? '先确定我方队员，再选对方' : '我方已确定，重拳（B）可取消确定'); return; }
   pageLock = false;
   if (mode === '生存' && active.side === 2) { toast('生存模式：对手系统随机生成'); return; }
   const L = active.side === 1 ? p1 : p2;
@@ -659,6 +855,7 @@ document.querySelectorAll('.tb[data-m]').forEach((b) => {
     b.classList.add('on');
     mode = b.dataset.m;
     active = { side: 1, idx: 0 };
+    phase = 1;
     randSlots.clear(); page = 0; pageLock = false;
     render();
     toast(mode === '练习' ? '练习：只需选我方，对手进对局后默认站桩'
@@ -673,7 +870,7 @@ function setTeam(n) {
   document.getElementById('c1').classList.toggle('on', n === 1);
   document.getElementById('c3').classList.toggle('on', n === 3);
   order[1] = [0, 1, 2]; order[2] = [0, 1, 2];
-  page = 0; pageLock = false;
+  page = 0; pageLock = false; phase = 1;
   /* 缩编时把多余位上的角色清掉，避免看不见的占位冲突 */
   for (const L of [p1, p2]) for (let i = n; i < 3; i++) L[i] = null;
   randSlots.clear();
@@ -683,10 +880,95 @@ function setTeam(n) {
 }
 
 function go() {
+  if (phase !== 3) { toast('先点【确定队员】把双方确定下来'); return; }
   const q = '?mode=' + encodeURIComponent(mode) + '&n=' + team;
   location.href = 'fight.html' + q;
 }
 
+/* ---------- 虚拟手柄（照搬战斗界面：摇杆拖动注入方向键 + 六键 + START） ---------- */
+const padEl = document.getElementById('pad'), padtogEl = document.getElementById('padtog');
+function togglePad() {
+  const on = !padEl.classList.contains('on');
+  padEl.classList.toggle('on', on);
+  padtogEl.classList.toggle('on', on);
+}
+/* 手柄按钮：A=轻拳(选中/确定) B=重拳(取消最后一位/取消确定)，其余只演示注入 */
+function padBtn(k) {
+  if (k === 'A' || k === 'Start') lightPunch(phase === 2 ? 2 : 1);
+  else if (k === 'B') heavyPunch();
+  else toast('注入按键 ' + k);
+  const btn = [...padEl.querySelectorAll('button')].find((b) => b.dataset.k === kMap(k));
+  if (btn) { btn.classList.add('pressed'); setTimeout(() => btn.classList.remove('pressed'), 180); }
+}
+const kMap = (n) => ({ A:'z', B:'x', C:'c', X:'a', Y:'s', Z:'d', Start:'Enter' }[n]);
+
+/* 摇杆：拖动 → 八方向注入（R=46 死区 13，判角口径同 fight.html） */
+const joy = document.getElementById('joy'), stick = document.getElementById('stick'), dirLbl = document.getElementById('joydir');
+const R = 46, DEAD = 13;
+let lastKeys = '';
+function injectKeys(keys) {
+  const sig = keys.join('+');
+  if (sig === lastKeys) return;
+  lastKeys = sig;
+  dirLbl.textContent = keys.length ? keys.join('+') : '';
+  if (keys.length) { joy.classList.add('grabbing'); toast('摇杆注入 ' + keys.join('+')); }
+  else joy.classList.remove('grabbing');
+}
+function joyMove(e) {
+  const r = joy.getBoundingClientRect();
+  let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  const d = Math.hypot(dx, dy);
+  if (d > R) { dx *= R / d; dy *= R / d; }
+  stick.style.transform = `translate(${dx}px,${dy}px)`;
+  if (d < DEAD) { injectKeys([]); return; }
+  /* 八方向：按位移分量判定（fight.html 里用 atan2 判角，正右 0° 会漏判「→」，这里按分量修好） */
+  const nx = dx / d, ny = dy / d;
+  const keys = [];
+  if (ny < -0.38) keys.push('↑');
+  if (ny > 0.38) keys.push('↓');
+  if (nx > 0.38) keys.push('→');
+  if (nx < -0.38) keys.push('←');
+  injectKeys(keys);
+}
+joy.addEventListener('pointerdown', (e) => { joy.setPointerCapture(e.pointerId); joyMove(e); });
+joy.addEventListener('pointermove', (e) => { if (joy.hasPointerCapture(e.pointerId)) joyMove(e); });
+joy.addEventListener('pointerup', () => { joy.classList.remove('grabbing'); stick.style.transform = ''; injectKeys([]); });
+joy.addEventListener('pointercancel', () => { joy.classList.remove('grabbing'); stick.style.transform = ''; injectKeys([]); });
+
+/* 键盘按下时把手柄对应键压下去（视觉反馈），A/B/START 顺带执行轻拳/重拳 */
+document.addEventListener('contextmenu', (e) => {
+  const k = e.target.closest('.k'), slot = e.target.closest('.slot'), okb = e.target.closest('.okbtn');
+  if (!k && !slot && !okb) return;
+  e.preventDefault();                         /* 右键 = 轻拳，不弹浏览器菜单 */
+  if (k) { if (!k.classList.contains('void')) pick(k.dataset.r); return; }
+  if (okb) { heavyPunch(); return; }           /* 确定按钮上重拳 = 取消确定 */
+  if (slot) {
+    const side = Number(slot.dataset.side), i = Number(slot.dataset.idx);
+    if (locked(side)) { toast('已确定，重拳（B）可取消确定再改'); return; }
+    const L = side === 1 ? p1 : p2;
+    if (!L[i]) { toast('这一位还是空的'); return; }
+    const who = L[i]; L[i] = null; randSlots.delete(side + ':' + i);
+    active = { side, idx: i }; render();
+    toast('轻拳：已取消 ' + (who === '?' ? '随机位' : who));
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  const btn = [...padEl.querySelectorAll('button')].find((b) => b.dataset.k === k);
+  if (btn) { e.preventDefault(); btn.classList.add('pressed'); }
+  const arrow = { ArrowLeft:[-34,0], ArrowRight:[34,0], ArrowUp:[0,-34], ArrowDown:[0,34] }[k];
+  if (arrow) stick.style.transform = `translate(${arrow[0]}px,${arrow[1]}px)`;
+  if (k === 'x') heavyPunch();                        /* 重拳 B */
+  else if (k === 'z' || k === 'Enter') lightPunch(phase === 2 ? 2 : 1);  /* 轻拳 A / START = 确定 */
+});
+document.addEventListener('keyup', (e) => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  const btn = [...padEl.querySelectorAll('button')].find((b) => b.dataset.k === k);
+  if (btn) btn.classList.remove('pressed');
+  stick.style.transform = '';
+});
+padtogEl.classList.toggle('on', padEl.classList.contains('on'));
 /* URL 预选模式 */
 (function () {
   const q = new URLSearchParams(location.search);

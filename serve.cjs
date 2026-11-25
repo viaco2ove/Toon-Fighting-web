@@ -21,7 +21,7 @@
 //   GET  /api/assetpacks                         # 资产集列表（map_design 扫描 + assets/assetpacks 登记簿）
 //   GET  /api/packs/:dir                         # 资产集元数据 pack/story/roster/mapping
 //   POST /api/packs/register                     # 登记用户自选的资产集文件夹（body {dirName,pack,story,roster,mapping}）
-const { listPacks, packMeta, localCharIds, registerPack } = require('./server/lib/packs.cjs');
+const { listPacks, packMeta, localCharIds, registerPack, packCharDirs } = require('./server/lib/packs.cjs');
 const { portraitFor } = require('./server/lib/portrait.cjs');
 const { buildSpeechRequest, cleanLine } = require('./server/lib/speech-agent.cjs');
 const http = require('http');
@@ -250,6 +250,17 @@ async function handleApi(req, res, urlPath) {
       localChars: localCharIds(),
       story: storyName || null,
     });
+  }
+
+  // 资产集下真实存在的角色目录（<dir>/chars/<charId>）
+  // 查看器用它把「本地选文件夹」载入的资产反查成 (pack, charId)，
+  // 刷新页面后按服务器路径恢复 —— 本地 File 对象不可持久化，只能走这条路。
+  {
+    const mc = /^\/api\/packs\/([^/]+)\/chars$/.exec(urlPath);
+    if (mc) {
+      const dir = decodeURIComponent(mc[1]);
+      return json(res, 200, { ok: true, dir, chars: packCharDirs(dir) });
+    }
   }
 
   // 登记用户自选的资产集文件夹（只落元数据 JSON，不拷引擎资产、不上传后端）

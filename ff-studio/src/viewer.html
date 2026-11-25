@@ -651,11 +651,62 @@ function aiCategoryOf(actionId) {
   if (actionId >= 200 && actionId < 400) return 'light';
   return 'stand';
 }
-// 角色帧高（localcoord 高 × 0.92）与锚点（底部中心）
+// 角色帧高（localcoord 高 × 0.92）——「全」模式用，等价于真实组装包（assemble-ai-char）
 function aiCharHeight() {
   const lc = state.def && state.def.info && state.def.info.localcoord;
   const m = /(\d+)\s*,\s*(\d+)/.exec(lc || '320,240');
   return Math.round((m ? +m[2] : 240) * 0.92);
+}
+// 原精灵的**内容包围盒**（只看非透明像素）——对齐用。
+// 白模包是灰度素体，整张图几乎都有内容；但精灵里可能带一块底座/影子，
+// 用包围盒比用图幅更准（AI 图是裁过透明边的，两者基准一致）。
+const nativeBoxCache = new Map();
+function nativeContentBox(img, key) {
+  if (key && nativeBoxCache.has(key)) return nativeBoxCache.get(key);
+  if (!img) return null;
+  const rgba = img.rgba, w = img.w, h = img.h;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (rgba[(y * w + x) * 4 + 3] > 24) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  const box = x1 < 0 ? null : {
+    x0, y0, x1, y1,
+    w: x1 - x0 + 1, h: y1 - y0 + 1,
+    cx: (x0 + x1) / 2,            // 内容中心 x（图内坐标）
+    bottom: y1,                    // 内容下缘（图内坐标）
+  };
+  if (key) nativeBoxCache.set(key, box);
+  return box;
+}
+
+// AI 帧的目标几何。
+//  目标高   —— 与参照帧的**内容高度**一致（不再用 localcoord×0.92=221px：
+//               那是真实组装包里的错误口径，会让角色比原型大一倍）。
+//  锚点 x   —— 让 AI 图的内容中心与原帧内容中心重合（ax = 原内容中心 - AI图半宽）。
+//  锚点 y   —— 让 AI 图的脚底与原帧脚底齐平（ay = AI图高 - (原内容下缘 - 原锚点y)）。
+//  'some' 模式用该帧自己作参照；'all' 模式用该动作的代表帧作参照
+//            （同一动作内 AI 图尺寸必须稳定，否则人物会忽大忽小）。
+function aiGeometryFor(actionId, frameIdx) {
+  const act = state.actions.get(actionId);
+  if (!act || !act.frames.length) return { targetH: aiCharHeight(), axRatio: 0.5, footGap: 0 };
+  const refIdx = state.aiMode === 'some' ? frameIdx : aiRepresentativeFrame(actionId);
+  const fr = act.frames[Math.min(refIdx, act.frames.length - 1)];
+  const pal = currentPal();
+  const img = getSpriteRgba(fr.grp, fr.num, pal);
+  const box = nativeContentBox(img, fr.grp + ',' + fr.num + '|' + (pal ? palNameOf(pal) : ''));
+  if (!box) return { targetH: img && img.h ? img.h : aiCharHeight(), axRatio: 0.5, footGap: 0 };
+  return {
+    targetH: box.h,
+    // 原帧内容中心相对锚点的偏移（正 = 在锚点右边）
+    centerShift: box.cx - img.ax,
+    // 原帧内容下缘相对锚点的偏移（正 = 在锚点下方）
+    footGap: box.bottom - img.ay,
+  };
 }
 // AI 图按目标高缩放后的绘制尺寸（透明边距裁掉后按比例）
 let aiFitCache = new Map();
@@ -684,11 +735,12 @@ function preloadAiFrames() {
 }
 const aiRaw = new Map();   // sprite index → HTMLImageElement（原图）
 
-function aiFitted(spriteIdx) {
-  if (aiFitCache.has(spriteIdx)) return aiFitCache.get(spriteIdx);
+function aiFitted(spriteIdx, geom) {
+  const key = spriteIdx + '|' + (geom ? geom.targetH + ',' + geom.centerShift + ',' + geom.footGap : '');
+  if (aiFitCache.has(key)) return aiFitCache.get(key);
   const img = aiRaw.get(spriteIdx);
   if (!img) return null;
-  const targetH = aiCharHeight();
+  const targetH = geom ? geom.targetH : aiCharHeight();
   // 与 assemble-ai-char 的 fitFrame 一致：裁掉透明边 → 按目标高缩放
   const cv = document.createElement('canvas');
   cv.width = img.naturalWidth; cv.height = img.naturalHeight;
@@ -704,7 +756,7 @@ function aiFitted(spriteIdx) {
       }
     }
   }
-  if (maxX < 0) { aiFitCache.set(spriteIdx, null); return null; }
+  if (maxX < 0) { aiFitCache.set(key, null); return null; }
   const srcW = maxX - minX + 1, srcH = maxY - minY + 1;
   const scale = targetH / srcH;
   const dstW = Math.max(1, Math.round(srcW * scale));
@@ -713,9 +765,16 @@ function aiFitted(spriteIdx) {
   const octx = out.getContext('2d');
   octx.imageSmoothingEnabled = false;
   octx.drawImage(cv, minX, minY, srcW, srcH, 0, 0, dstW, targetH);
-  // 锚点：底部中心（与 assemble-ai-char 一致）
-  const fit = { canvas: out, w: dstW, h: targetH, ax: Math.round(dstW / 2), ay: -targetH };
-  aiFitCache.set(spriteIdx, fit);
+  // 锚点（相对 AI 图内坐标）：
+  //   ay = targetH - footGap —— 锚点到图底的距离 = 原帧内容下缘到锚点的距离
+  //        → AI 图脚底与原帧脚底线齐平。
+  //        （之前写 -targetH 是错的：SFF 的 ay 是「从精灵顶边往下的锚点距离」，
+  //         负值把整张图推到角色原点下方，人物陷进地里。）
+  //   ax = dstW/2 + centerShift —— AI 图内容中心与原帧内容中心横向对齐。
+  const ay = Math.max(1, targetH - (geom ? geom.footGap : 0));
+  const ax = Math.round(dstW / 2 + (geom ? (geom.centerShift || 0) : 0));
+  const fit = { canvas: out, w: dstW, h: targetH, ax, ay };
+  aiFitCache.set(key, fit);
   return fit;
 }
 // AI 整帧 → 动作帧的映射。
@@ -751,7 +810,7 @@ function aiFrameFor(actionId, frameIdx) {
   if (!entry) return null;
   // '抽' 模式：只有代表帧用 AI 图
   if (state.aiMode === 'some' && frameIdx !== aiRepresentativeFrame(actionId)) return null;
-  return aiFitted(entry.sprite);
+  return aiFitted(entry.sprite, aiGeometryFor(actionId, frameIdx));
 }
 
 /* ---------- 渲染：动画帧 或 单帧浏览 ---------- */
@@ -926,7 +985,7 @@ function reset() {
   state.sffBuf = null; state.sff = null; state.def = null; state.actions = null;
   state.pals = []; state.curActNo = null; state.selSprite = null;
   state.stateTexts = []; state.keyInfo = null; state.keyAssets = null;
-  aiRepCache.clear(); aiFitCache.clear(); aiRaw.clear();
+  aiRepCache.clear(); aiFitCache.clear(); aiRaw.clear(); nativeBoxCache.clear();
   // 预览开关也复位：恢复逻辑依赖「当前是关的」这个前提，
   // 否则 state.aiPreview 残留 true 会跳过预加载 → aiRaw 为空 → AI 图画不出来
   state.aiPreview = false;
@@ -1455,7 +1514,7 @@ $('btnPickFiles').onclick = () => $('pickFiles').click();
 $('pickDir').onchange = (e) => { loadFromFiles([...e.target.files].map(f => [f.webkitRelativePath || f.name, f])); e.target.value = ''; };
 $('pickFiles').onchange = (e) => { loadFromFiles([...e.target.files].map(f => [f.name, f])); e.target.value = ''; };
 
-function loadFromFiles(arr) {
+function loadFromFiles(arr, opts) {
   // 若有多个 def，优先选带同名的
   const defs = arr.filter(([p]) => /\.def$/i.test(p));
   const map = new Map(arr.map(([p, f]) => [p.replace(/\\/g, '/'), f]));
@@ -1470,6 +1529,55 @@ function loadFromFiles(arr) {
     } else defPath = defs[0][0];
   }
   loadFiles(map, defPath);
+  // 「本地选文件夹」载入：反查它是哪个资产集的哪个角色 → 刷新后可按服务器路径恢复
+  // （浏览器给的 File 对象不可持久化，本地路径也拿不到绝对路径，只能靠文件指纹反查）
+  // 服务器模式载入时已经知道 (pack, charId)，不用再反查。
+  if (!opts || !opts.fromServer) rememberLocalLoad(map);
+}
+
+/* ---------- 本地文件夹载入 → 反查 (pack, charId) → 刷新后按服务器路径恢复 ---------- */
+// 本地指纹 = 相对路径 + 字节数
+// webkitdirectory 选文件夹时，每条路径都带一层「用户选中的文件夹名」前缀，
+// 需要去掉才能和服务器端「相对角色目录」的路径对齐。
+// 但服务器模式载入时路径没有统一前缀（"LinYu.def" 与 "keyframes/xx.png" 混排），
+// 所以只有当**所有**路径都 ≥2 段且首段相同时才剥掉首段。
+function localFingerprint(map) {
+  const paths = [...map.keys()].map((p) => p.replace(/\\/g, '/'));
+  const firsts = new Set(paths.map((p) => p.split('/')[0]));
+  const strip = paths.every((p) => p.includes('/')) && firsts.size === 1;
+  const out = [];
+  for (const [p, f] of map) {
+    const norm = p.replace(/\\/g, '/');
+    const rel = strip ? norm.split('/').slice(1).join('/') : norm;
+    out.push(rel.toLowerCase() + '|' + (f && f.size != null ? f.size : -1));
+  }
+  out.sort();
+  return out;
+}
+function serverFingerprint(files) {
+  return files.map((f) => String(f.name).replace(/\\/g, '/').toLowerCase() + '|' + f.size).sort();
+}
+async function rememberLocalLoad(map) {
+  if (location.protocol === 'file:') return;
+  const fp = localFingerprint(map).join('\n');
+  try {
+    const packs = await (await fetch('/api/assetpacks')).json();
+    for (const p of (packs.packs || [])) {
+      const dir = p.dirName || p.dir;
+      if (!dir) continue;
+      const r = await fetch('/api/packs/' + encodeURIComponent(dir) + '/chars');
+      if (!r.ok) continue;
+      const j = await r.json();
+      for (const c of (j.chars || [])) {
+        if (serverFingerprint(c.files).join('\n') === fp) {
+          saveLastAsset(dir, c.id);
+          console.log('[viewer] 本地载入已反查为资产集角色：' + dir + ' / ' + c.id);
+          return { pack: dir, charId: c.id };
+        }
+      }
+    }
+  } catch (e) { console.warn('[viewer] 反查资产集失败', e); }
+  return null;
 }
 /* 拖放 */
 window.addEventListener('dragover', (e) => { e.preventDefault(); });
@@ -1569,24 +1677,33 @@ function loadAiMode() {
       if (last && last.pack === name) row.click();
     }
     // 自动恢复上次载入的角色（不再要求用户重新点一遍）
+    // 注意：不能只靠 localChars（引擎目录）判断 —— 上次可能是用「本地选文件夹」
+    // 载入的 map_design 资产集角色，那份不一定装进引擎目录。
     if (last && last.pack && last.charId) {
-      const canRestore = ids.includes(last.charId);
-      if (canRestore) {
-        $('warn').textContent = '正在恢复上次载入：' + last.pack + ' / ' + last.charId + ' …';
-        await loadFromServer(last.pack, last.charId);
-        $('warn').textContent = '';
-      } else {
-        $('warn').textContent = '上次载入的角色「' + last.charId + '」已不在引擎里，请重新选择';
-      }
+      $('warn').textContent = '正在恢复上次载入：' + last.pack + ' / ' + last.charId + ' …';
+      const okRestore = await loadFromServer(last.pack, last.charId);
+      if (!okRestore) $('warn').textContent = '上次载入的资产「' + last.charId + '」已不可用，请重新选择';
+      else $('warn').textContent = '';
     }
   } catch (e) { /* 非 8100 环境静默 */ }
 })();
 
 async function loadFromServer(pack, charId) {
   try {
-    // pack 传的是目录名（dirName）；找不到时退回用包 id 试一次
-    let base = '/workshops/toon-fighting-web/map_design/' + encodeURIComponent(pack) + '/chars/' + encodeURIComponent(charId) + '/';
-    let defBuf = await fetchBuf(base + charId + '.def');
+    // pack 传的是目录名（dirName）
+    // 角色目录名可能和 charId 不同（资产集里 chars/<id>/ 的 def 文件名也不一定同名），
+    // 所以先问服务器要这个资产集下的角色清单，拿 def 的真实文件名。
+    let dirId = charId, defName = charId + '.def';
+    let listing = null;
+    try {
+      const r = await fetch('/api/packs/' + encodeURIComponent(pack) + '/chars');
+      if (r.ok) listing = (await r.json()).chars || [];
+    } catch (e) { /* 忽略，走兜底 */ }
+    const hit = listing && listing.find((c) => c.id === charId);
+    if (hit) { dirId = hit.id; defName = hit.def; }
+
+    let base = '/workshops/toon-fighting-web/map_design/' + encodeURIComponent(pack) + '/chars/' + encodeURIComponent(dirId) + '/';
+    let defBuf = await fetchBuf(base + defName);
     if (!defBuf) {
       // 兜底：按 /api/assetpacks 的目录列表找包含该角色的资产集
       const packs = await (await fetch('/api/assetpacks')).json().catch(() => null);
@@ -1594,13 +1711,13 @@ async function loadFromServer(pack, charId) {
       for (const p of cands) {
         const d = p.dirName || p.dir;
         if (!d) continue;
-        const b2 = '/workshops/toon-fighting-web/map_design/' + encodeURIComponent(d) + '/chars/' + encodeURIComponent(charId) + '/';
-        const buf = await fetchBuf(b2 + charId + '.def');
+        const b2 = '/workshops/toon-fighting-web/map_design/' + encodeURIComponent(d) + '/chars/' + encodeURIComponent(dirId) + '/';
+        const buf = await fetchBuf(b2 + defName);
         if (buf) { base = b2; defBuf = buf; break; }
       }
     }
-    if (!defBuf) throw new Error('取不到 ' + charId + '.def');
-    const files = { [charId + '.def']: mkFile(charId + '.def', defBuf, 'text/plain') };
+    if (!defBuf) throw new Error('取不到 ' + defName);
+    const files = { [defName]: mkFile(defName, defBuf, 'text/plain') };
     const def = parseDef(new TextDecoder('utf-8').decode(defBuf));
     for (const [k, rel] of Object.entries(def.files || {})) {
       if (!rel) continue;
@@ -1624,9 +1741,11 @@ async function loadFromServer(pack, charId) {
         }
       }
     }
-    loadFromFiles(Object.entries(files));
+    loadFromFiles(Object.entries(files), { fromServer: true });
+    return true;
   } catch (e) {
     $('warn').textContent = '服务器载入失败：' + e.message;
+    return false;
   }
 }
 async function fetchBuf(url) {

@@ -127,96 +127,210 @@
     font-weight:900;color:#fff;overflow:hidden}
   .chip .mini img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
   .chip .ord{color:var(--gold)}
-  /* 左右斜切大头像面板 */
-  .port{position:absolute;top:64px;bottom:86px;z-index:4;display:none;flex-direction:column}
-  .port.p1{left:14px;width:340px;clip-path:polygon(0 0,100% 0,74% 100%,0 100%)}
-  .port.p2{right:14px;width:300px;clip-path:polygon(24% 0,100% 0,100% 100%,0 100%)}
-  #select.on .port.p1,#select.on .port.p2{display:flex}
-  #select.on.survival .port.p2{display:none}
-  .pface{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;
-    transition:background .15s}
-  .pface .ini{font-size:150px;font-weight:900;color:rgba(255,255,255,.92);text-shadow:0 10px 40px rgba(0,0,0,.45);
-    transform:translateY(-8%);display:flex;align-items:center;justify-content:center;width:100%;height:100%}
-  .pname{position:absolute;left:18px;bottom:6px;z-index:6;font-size:44px;font-weight:900;font-style:italic;
-    letter-spacing:.02em;white-space:nowrap;max-width:88%;overflow:hidden;text-overflow:ellipsis;
-    background:linear-gradient(180deg,#fdf8ec 0%,#d8cfc0 40%,#8a8074 52%,#efe9dc 58%,#5a5248 100%);
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-    filter:drop-shadow(2px 3px 0 rgba(0,0,0,.6));transform:skewX(-6deg)}
-  .pinfo{position:absolute;left:16px;right:76px;bottom:64px;z-index:6;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
-    background:rgba(10,10,14,.66);border:1px solid rgba(255,255,255,.22);border-radius:9px;padding:7px 12px;backdrop-filter:blur(3px)}
-  .port.p2 .pinfo{left:76px;right:16px}
-  .pinfo .mini{width:30px;height:30px;border-radius:7px;overflow:hidden;display:flex;align-items:center;justify-content:center;
-    font-weight:900;font-size:13px;color:#fff;background:linear-gradient(160deg,#2a3140,#12161f);flex:none}
-  .pinfo .mini img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
-  .pinfo .who{font-size:13.5px;font-weight:900}
-  .pinfo .ent{font-size:11px;color:var(--cyan);font-family:Consolas,monospace}
-  .pinfo .job{font-size:9.5px;letter-spacing:.12em;color:var(--gold);border:1px solid rgba(255,194,51,.5);
-    border-radius:12px;padding:1.5px 9px}
-  /* 面板头：出场顺序 chips */
-  .phd{position:absolute;top:10px;left:16px;right:16px;z-index:6;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .port.p2 .phd{flex-direction:row-reverse}
-  .phd .t{font-size:10.5px;letter-spacing:.18em;color:#ffe9e0;text-shadow:0 1px 3px #000;font-weight:800}
-  .swp{cursor:pointer;font-family:inherit;font-size:11px;font-weight:900;letter-spacing:.08em;padding:4px 12px;
-    border-radius:14px;border:1px solid rgba(255,255,255,.4);background:rgba(10,10,14,.5);color:var(--cyan)}
+  /* ---------------- 三栏选人（对齐 prototype/select.html《选人.md》） ---------------- */
+  #select .stage{position:absolute;top:76px;bottom:96px;left:14px;right:14px;z-index:10;display:grid;
+    grid-template-columns:clamp(168px,21%,320px) minmax(0,1fr) clamp(140px,19%,290px);gap:14px}
+  #select .panel{position:relative;display:flex;flex-direction:column;min-width:0;border-radius:6px;overflow:hidden;
+    background:linear-gradient(160deg,rgba(55,38,44,.72),rgba(14,11,16,.86));border:1px solid rgba(255,255,255,.34);
+    box-shadow:0 12px 30px rgba(0,0,0,.35)}
+  #select .panel.p1{clip-path:polygon(0 0,100% 0,92% 100%,0 100%)}
+  #select .panel.p2{clip-path:polygon(8% 0,100% 0,100% 100%,0 100%)}
+  #select .panel .phead{display:flex;align-items:center;gap:8px;padding:10px 14px 6px}
+  #select .panel.p1 .phead{padding-right:34px}
+  #select .panel.p2 .phead{padding-left:34px}
+  #select .panel .title{font-size:10px;letter-spacing:.16em;color:#ffe9e0;font-weight:800;text-shadow:0 1px 3px #000;white-space:nowrap}
+  .swp{margin-left:auto;cursor:pointer;font-family:inherit;font-size:10.5px;font-weight:900;letter-spacing:.06em;padding:4px 10px;
+    border-radius:14px;border:1px solid rgba(255,255,255,.4);background:rgba(10,10,14,.5);color:var(--cyan);white-space:nowrap}
   .swp:hover{color:#fff;border-color:var(--cyan)}
-  .chips{display:flex;gap:6px;flex-wrap:wrap}
-  /* 已选小头像行（P1 出场顺序） */
-  .selrow{position:absolute;left:50%;top:41%;transform:translateX(-50%);z-index:5;display:flex;gap:8px;align-items:flex-end}
-  .selrow .sc{width:44px;text-align:center;position:relative}
-  .selrow .sc .mv{width:44px;height:44px;border-radius:8px;border:2px solid rgba(255,255,255,.85);overflow:hidden;
-    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#fff;cursor:pointer;
-    box-shadow:0 4px 10px rgba(0,0,0,.35);background:rgba(10,10,14,.45)}
-  .selrow .sc .mv img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
-  .selrow .sc .lb{font-size:9px;color:#ffe9e0;margin-top:3px;text-shadow:0 1px 3px #000;overflow:hidden;
-    text-overflow:ellipsis;white-space:nowrap}
-  .selrow .sc .od{position:absolute;top:-7px;left:-5px;font-size:10px;font-weight:900;color:var(--gold);text-shadow:0 1px 3px #000}
-  .selrow .sc.empty .mv{border-style:dashed;color:rgba(255,255,255,.35)}
-  /* 透视地板选人格 */
-  .floor{position:absolute;left:50%;top:56%;transform:translateX(-50%) perspective(820px) rotateX(52deg);
-    width:680px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
-  .k{position:relative;cursor:pointer;aspect-ratio:1;border:2px solid rgba(255,255,255,.75);padding:0;font-family:inherit;
-    background:linear-gradient(160deg,rgba(70,50,55,.88),rgba(38,26,30,.92));
-    display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.12s;color:#fff}
-  .k:hover{border-color:var(--gold);background:linear-gradient(160deg,rgba(110,70,70,.9),rgba(50,32,36,.94))}
-  .k .ini{font-size:34px;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5);line-height:1;
-    display:flex;align-items:center;justify-content:center;width:100%;height:46%;overflow:hidden}
-  .k .nm{font-size:9.5px;color:#f0d8cf;margin-top:4px;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .k .ent{font-size:8px;color:#caa79e;font-family:Consolas,monospace;margin-top:1px;max-width:88px;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .k .ord{position:absolute;top:3px;left:5px;font-size:10px;font-weight:900;color:var(--gold);text-shadow:0 1px 3px #000}
-  .k.q .ini{color:#e8cfc6;font-size:32px}
-  .k.sel{border-color:#ffd34d;box-shadow:0 0 14px rgba(255,211,77,.55),inset 0 0 14px rgba(255,211,77,.18)}
+  /* 出场位（含出场序号） */
+  #select .slots{display:flex;gap:8px;padding:0 14px 8px}
+  #select .panel.p2 .slots{padding-left:24px}
+  #select .slot{position:relative;width:clamp(54px,6.2vw,86px);flex:0 0 auto;cursor:pointer;display:flex;flex-direction:column;gap:4px;align-items:center;
+    padding:5px 4px 4px;border-radius:8px;border:1px solid rgba(255,255,255,.26);background:rgba(8,8,14,.42)}
+  #select .slot.on{border-color:var(--hot);box-shadow:0 0 10px rgba(255,59,48,.45);background:rgba(180,40,30,.28)}
+  #select .slot .th{width:100%;height:clamp(54px,6.2vw,86px);border-radius:5px;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    background:repeating-linear-gradient(45deg,rgba(255,255,255,.06) 0 6px,rgba(0,0,0,.18) 6px 12px);border:1px solid rgba(255,255,255,.28);
+    font-weight:900;color:rgba(255,255,255,.4)}
+  #select .slot .th img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+  #select .slot .lb{font-size:9px;color:#ffe9e0;letter-spacing:.04em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #select .slot .od{position:absolute;top:-6px;left:-4px;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:8px;
+    font-size:9.5px;font-weight:900;color:#241a06;background:linear-gradient(180deg,#ffe08a,#e2a308);box-shadow:0 2px 6px rgba(0,0,0,.45);z-index:2}
+  /* 大头像 + 铭牌 */
+  #select .portrait{position:relative;flex:1;margin:0 12px;border:2px solid rgba(255,255,255,.6);border-radius:4px;overflow:hidden;
+    background:#0b0b12;min-height:0}
+  #select .portrait img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+  #select .portrait::after{content:'';position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(0,0,0,.18),transparent 30%,transparent 55%,rgba(6,6,10,.92))}
+  #select .plate{position:absolute;left:0;right:0;bottom:0;padding:8px 12px 10px;z-index:2}
+  #select .plate .nm{font-size:clamp(18px,2.4vw,30px);font-weight:900;letter-spacing:.02em;line-height:1.05;
+    background:linear-gradient(180deg,#fdf8ec 0%,#d8cfc0 40%,#8a8074 52%,#efe9dc 58%,#5a5248 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;font-style:italic;
+    filter:drop-shadow(2px 3px 0 rgba(0,0,0,.6));transform:skewX(-6deg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #select .plate .jobs{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  #select .plate .ent{font-size:11px;color:var(--cyan);font-family:Consolas,monospace;white-space:nowrap}
+  #select .plate .job{font-size:9.5px;letter-spacing:.12em;color:var(--gold);border:1px solid rgba(255,194,51,.55);border-radius:12px;padding:1.5px 9px;white-space:nowrap}
+  #select .portrait .vacant{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:1;
+    background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 10px,rgba(0,0,0,.22) 10px 20px)}
+  #select .portrait .vacant .q{font-size:46px;font-weight:900;color:rgba(255,255,255,.55)}
+  #select .portrait .vacant .t{font-size:11px;color:#ffe9e0;letter-spacing:.1em}
+  /* 面板底部信息 */
+  #select .meta{padding:9px 14px 12px;display:flex;flex-direction:column;gap:5px;font-size:11.5px}
+  #select .meta .row{display:flex;justify-content:space-between;gap:6px;color:#f0e6da;white-space:nowrap;min-width:0}
+  #select .meta .k{color:#c8b8b0;letter-spacing:.06em;font-size:10px;flex:none}
+  #select .meta .v{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
+  #select .meta .v.ent{font-family:Consolas,monospace;color:var(--cyan);font-weight:700}
+  /* 中栏：2 · MUGEN 角色 */
+  #select .mid{display:flex;flex-direction:column;min-width:0;min-height:0;gap:8px}
+  #select .hero{position:relative;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;align-items:center;padding-top:2px}
+  #select .hero .hlab{font-size:9.5px;letter-spacing:.2em;font-weight:800;color:#ffe9e0;text-shadow:0 1px 3px #000}
+  #select .hero .figbox{position:relative;flex:1 1 auto;min-height:70px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+  #select .hero .figbox .ghost{position:absolute;left:50%;top:11%;transform:translate(-50%,-50%) skewX(-6deg);z-index:0;
+    font-size:clamp(46px,7.2vh,92px);font-weight:900;font-style:italic;letter-spacing:.04em;white-space:nowrap;pointer-events:none;
+    color:rgba(255,236,214,.30);-webkit-text-stroke:1px rgba(255,255,255,.30);
+    text-shadow:0 6px 24px rgba(0,0,0,.35)}
+  #select .hero .figbox::before{content:'';position:absolute;left:50%;bottom:-6px;width:min(72%,520px);height:74%;transform:translateX(-50%);
+    background:radial-gradient(ellipse at 50% 78%,rgba(255,226,196,.50),rgba(255,176,132,.22) 46%,transparent 74%);pointer-events:none}
+  #select .hero .figbox::after{content:'';position:absolute;left:50%;bottom:-4px;width:240px;height:26px;transform:translateX(-50%);
+    background:radial-gradient(ellipse,rgba(0,0,0,.45),transparent 70%);pointer-events:none}
+  #select .hero .figbox img{position:relative;z-index:1;height:100%;width:auto;max-width:96%;object-fit:contain;image-rendering:pixelated;
+    filter:drop-shadow(0 14px 16px rgba(0,0,0,.55)) drop-shadow(0 0 22px rgba(255,180,120,.18))}
+  #select .hero .figbox img.silh{filter:brightness(0) opacity(.42) !important}
+  #select .hero .figbox .none{position:relative;z-index:1;font-size:12px;color:#ffe9e0;align-self:center;letter-spacing:.1em}
+  #select .hero .hinfo{display:flex;align-items:center;gap:10px;margin-top:2px;padding:5px 16px;border-radius:20px;
+    background:rgba(8,8,12,.78);border:1px solid rgba(255,255,255,.24);backdrop-filter:blur(3px);max-width:100%}
+  #select .hero .hinfo .who{font-size:14px;font-weight:900;white-space:nowrap}
+  #select .hero .hinfo .x{color:#8b96a8;font-size:11px}
+  #select .hero .hinfo .ent{font-size:11.5px;color:var(--cyan);font-family:Consolas,monospace;white-space:nowrap}
+  #select .hero .hinfo .job{font-size:9.5px;letter-spacing:.12em;color:var(--gold);border:1px solid rgba(255,194,51,.5);border-radius:12px;padding:1.5px 9px}
+  #select .hero .hdesc{margin-top:4px;font-size:10.5px;color:#ffe4da;opacity:.9;text-shadow:0 1px 3px #000;text-align:center;
+    max-width:92%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  /* 阶段条 / 确定队员（两段式） */
+  .phasebar{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;height:20px;font-size:10px;letter-spacing:.08em;color:#ffe9e0}
+  .phasebar span{display:flex;align-items:center;gap:4px;padding:0 7px;height:18px;border-radius:9px;
+    background:rgba(10,8,18,.55);border:1px solid rgba(255,255,255,.16);opacity:.5;white-space:nowrap}
+  .phasebar span.on{opacity:1;border-color:#ffd76a;color:#ffe487;box-shadow:0 0 0 1px rgba(255,215,106,.25)}
+  .phasebar span.done{opacity:1;border-color:rgba(120,240,170,.6);color:#b9ffd2}
+  .phasebar em{font-style:normal;opacity:.6}
+  .okbtn{flex:none;display:flex;align-items:center;justify-content:center;gap:7px;width:calc(100% - 26px);margin:2px 13px 8px;
+    height:26px;font-family:inherit;cursor:pointer;border-radius:4px;font-size:11px;letter-spacing:.12em;
+    color:#1a1200;background:linear-gradient(180deg,#ffe487,#d8a12e);border:1px solid rgba(60,40,0,.55);
+    box-shadow:0 1px 0 rgba(255,255,255,.35) inset}
+  .okbtn b{font-size:12px}
+  .okbtn i{font-style:normal;font-size:9px;opacity:.6;letter-spacing:.04em}
+  .okbtn.off{color:#c6c0b0;background:linear-gradient(180deg,#4a4550,#2c2933);border-color:rgba(255,255,255,.16)}
+  .okbtn.cancel{color:#ffe9e0;background:linear-gradient(180deg,#5a2230,#341018);border-color:rgba(255,120,140,.45)}
+  .okbtn.cancel b{color:#ffd0d8}
+  .okbtn:disabled{opacity:.4;cursor:default}
+  #select .panel.locked .slots,#select .panel.locked .okbtn,#select .panel.locked .swp,#select .panel.locked .portrait{opacity:.5}
+  #select .panel.idle{filter:saturate(.55) brightness(.82)}
+  #select .panel.active{border-color:rgba(255,215,106,.65);box-shadow:0 0 0 1px rgba(255,215,106,.3) inset}
+  /* 生存模式：对手面板变系统随机 */
+  #select .panel.p2.sysrand .portrait img{filter:grayscale(1) brightness(.55) contrast(1.1)}
+  #select .panel.p2.sysrand .plate .nm{opacity:.45}
+  #select .surnote{display:none;padding:0 14px 10px;font-size:10px;line-height:1.7;color:#ffe9e0}
+  #select .panel.p2.sysrand .surnote{display:block}
+  #select .panel.p2.sysrand .swp{display:none}
+  /* 选人列表（一页 6 个，3 列 × 2 行，超 6 翻页） */
+  .listrow{flex:none;display:flex;align-items:center;gap:10px;height:26px}
+  .qbtn{font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 9px;height:22px;border-radius:4px;
+    font-size:10.5px;letter-spacing:.06em;color:#ffe9e0;background:rgba(12,10,22,.55);border:1px solid rgba(255,212,120,.5)}
+  .qbtn b{font-size:14px;color:#ffd76a;line-height:1}
+  .qbtn span{font-size:9px;opacity:.7}
+  .qbtn:hover{border-color:#ffd76a;background:rgba(60,20,30,.7)}
+  .qbtn.sel{color:#0b0b12;background:linear-gradient(180deg,#ffe487,#c99a2e);border-color:#3a2606}
+  .qbtn.sel b,.qbtn.sel span{color:#0b0b12;opacity:.85}
+  .qbtn:disabled{opacity:.35;cursor:default}
+  .pager{flex:none;display:none;align-items:center;gap:8px;height:22px;margin-left:auto;font-size:10px;letter-spacing:.1em;color:#ffe9e0;text-shadow:0 1px 3px #000}
+  .pager .pg{font-family:inherit;cursor:pointer;width:24px;height:18px;line-height:16px;text-align:center;padding:0;border-radius:3px;font-size:12px;font-weight:900;
+    color:#0b0b12;background:linear-gradient(180deg,#ffe487,#c99a2e);border:1px solid rgba(0,0,0,.45)}
+  .pager .pg:disabled{opacity:.35;cursor:default}
+  .pager .pgt b{font-size:12.5px;color:#ffd76a}
+  .pager .pgt i{font-style:normal;opacity:.75;margin-left:6px}
+  .rozlist{flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  #select .rozlist .k{position:relative;cursor:pointer;font-family:inherit;text-align:left;padding:6px 7px 7px;border-radius:4px;
+    border:2px solid rgba(255,255,255,.72);color:#fff;overflow:hidden;
+    background:linear-gradient(160deg,rgba(74,52,58,.9),rgba(30,20,24,.94))}
+  #select .rozlist .k:hover{border-color:var(--gold);background:linear-gradient(160deg,rgba(112,72,72,.9),rgba(46,30,34,.94))}
+  #select .rozlist .k.sel{border-color:#ffd34d;box-shadow:0 0 14px rgba(255,211,77,.6),inset 0 0 16px rgba(255,211,77,.2)}
+  #select .rozlist .k .face{position:absolute;top:5px;left:5px;width:clamp(20px,2.1vw,30px);height:clamp(20px,2.1vw,30px);image-rendering:pixelated;
+    border:1px solid rgba(255,255,255,.55);border-radius:3px;background:#0b0b12}
+  #select .rozlist .k .ord{position:absolute;top:-1px;right:-1px;min-width:18px;height:18px;line-height:18px;text-align:center;font-size:10px;font-weight:900;
+    color:#241a06;background:linear-gradient(180deg,#ffe08a,#e2a308);border-bottom-left-radius:8px;z-index:2}
+  #select .rozlist .k .fig{display:flex;align-items:flex-end;justify-content:center;height:clamp(44px,7vh,74px);margin-top:3px}
+  #select .rozlist .k .fig img{max-height:100%;width:auto;image-rendering:pixelated;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+  #select .rozlist .k .nm{display:block;font-size:11.5px;font-weight:900;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #select .rozlist .k .sub{display:block;font-size:9px;color:#dcc6ba;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #select .rozlist .k .sub em{font-style:normal;color:var(--cyan);font-family:Consolas,monospace}
+  #select .rozlist .k .jobline{display:inline-block;font-size:8.5px;letter-spacing:.1em;color:var(--gold);border:1px solid rgba(255,194,51,.45);
+    border-radius:10px;padding:0 6px;margin-top:3px}
+  #select .rozlist .k.void{visibility:hidden;pointer-events:none}
   /* 底部 */
-  .foot{position:absolute;left:14px;right:14px;bottom:14px;z-index:7;display:flex;gap:12px;align-items:stretch;height:58px}
-  .namebar{flex:1;display:flex;gap:10px;align-items:center;background:rgba(8,8,12,.82);
-    border:1px solid rgba(255,255,255,.28);border-radius:11px;padding:8px 16px;overflow:hidden;backdrop-filter:blur(3px)}
-  .namebar .who{font-size:14px;font-weight:900;white-space:nowrap}
-  .namebar .ent{font-size:12.5px;color:var(--cyan);font-family:Consolas,monospace;white-space:nowrap}
-  .namebar .job{font-size:10px;letter-spacing:.12em;color:var(--gold);border:1px solid rgba(255,194,51,.5);
+  #select .foot{position:absolute;left:14px;right:14px;bottom:14px;height:66px;z-index:20;display:flex;gap:10px;align-items:stretch}
+  .namebar{flex:1;min-width:0;display:flex;gap:10px;align-items:center;padding:8px 14px;border-radius:10px;overflow:hidden;
+    background:rgba(8,8,12,.84);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(3px)}
+  .namebar .role{font-size:13px;font-weight:900;white-space:nowrap}
+  .namebar .ent{font-size:11.5px;color:var(--cyan);font-family:Consolas,monospace;white-space:nowrap}
+  .namebar .job{font-size:9px;letter-spacing:.12em;color:var(--gold);border:1px solid rgba(255,194,51,.5);
     border-radius:12px;padding:2px 10px;white-space:nowrap}
+  .namebar .lineup{margin-left:auto;display:flex;gap:4px;flex:none}
+  .namebar .lineup img{width:26px;height:26px;border-radius:4px;object-fit:cover;object-position:top center;display:block;
+    border:1px solid rgba(255,255,255,.5);background:#0b0b12}
   .diff{display:flex;gap:6px;align-items:center;font-size:12px;color:#f0e6da;white-space:nowrap}
   .diff b{letter-spacing:.14em;color:#f0e6da}
   .diff select{font-family:inherit;font-size:12px;padding:7px 10px;border-radius:8px;
     background:rgba(10,10,14,.7);border:1px solid rgba(255,255,255,.3);color:#fff}
-  .surnote{position:absolute;right:18px;top:64px;z-index:6;font-size:10.5px;color:#ffe9e0;text-align:right;
-    line-height:1.9;text-shadow:0 1px 3px #000}
-  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:rgba(10,10,14,.9);
+  .toast{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);background:rgba(10,10,14,.92);
     border:1px solid var(--cyan);color:#fff;font-size:13px;padding:10px 22px;border-radius:22px;
-    opacity:0;transition:.3s;pointer-events:none;z-index:99}
+    opacity:0;transition:.3s;pointer-events:none;z-index:99;white-space:nowrap;max-width:92vw}
   .toast.on{opacity:1}
-  #btn-fight{cursor:pointer;font-family:inherit;font-size:17px;font-weight:900;letter-spacing:.3em;text-indent:.3em;
-    padding:0 46px;border-radius:12px;border:1px solid rgba(255,255,255,.45);color:#fff;
+  #btn-fight{cursor:pointer;font-family:inherit;font-size:16px;font-weight:900;letter-spacing:.28em;text-indent:.28em;
+    padding:0 40px;border-radius:11px;border:1px solid rgba(255,255,255,.45);color:#fff;
     background:linear-gradient(180deg,#c8281e,#7a1410);box-shadow:0 6px 20px rgba(200,40,30,.4);transition:.16s}
   #btn-fight:hover{filter:brightness(1.15)}
-  #btn-fight:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;filter:none}
-  @media (max-width:900px){
+  #btn-fight:disabled{opacity:.42;cursor:not-allowed;box-shadow:none;filter:none}
+  .padtog{flex:none;font-family:inherit;cursor:pointer;height:24px;padding:0 10px;border-radius:12px;font-size:10px;letter-spacing:.06em;
+    color:#ffe9e0;background:rgba(12,10,22,.55);border:1px solid rgba(255,255,255,.22)}
+  .padtog.on{border-color:#ffd76a;color:#ffe487}
+  /* 手柄浮到选人屏之上（z-index 40 的 #select 挡住了战斗用的 z-index 35），并抬离页脚条 */
+  #pad.selmode{z-index:60;bottom:92px}
+  #pad.selmode .joyu{display:none}
+  @media (max-width:920px){
     #sel-title{font-size:30px}
-    .port.p1{width:250px}.port.p2{width:225px}
-    .floor{width:470px;gap:9px}
-    .pface .ini{font-size:110px}
-    .pname{font-size:32px}
-    .foot{height:auto;flex-wrap:wrap;padding:6px 0}
-    .selrow{top:38%}
+    #select .stage{left:10px;right:10px;top:72px;bottom:122px;gap:10px;
+      grid-template-columns:clamp(140px,25%,200px) minmax(0,1fr) clamp(120px,22%,180px)}
+    #select .panel .title{font-size:9px}
+    #select .panel.p1 .phead{padding-right:22px}
+    #select .panel.p2 .phead{padding-left:22px}
+    #select .plate .nm{font-size:clamp(18px,2.6vw,26px)}
+    #select .meta{font-size:10.5px;padding:7px 10px 9px}
+    #select .meta .row:nth-child(3){display:none}
+    #select .slots{padding:0 9px 6px;gap:5px}
+    #select .panel.p2 .slots{padding-left:16px}
+    #select .slot{width:auto;max-width:96px;flex:1 1 0;min-width:0;padding:2px}
+    #select .slot .th{height:36px}
+    #select .slot .lb{display:none}
+    #select .slot .od{min-width:13px;height:13px;line-height:13px;font-size:8px;top:-4px;left:-3px}
+    #select .portrait{margin:0 9px}
+    .phasebar{height:18px;font-size:9px;gap:4px}
+    .phasebar span{padding:0 5px;height:16px}
+    .okbtn{width:calc(100% - 16px);margin:0 8px 6px;height:22px;font-size:10px;letter-spacing:.06em}
+    .okbtn i{display:none}
+    .qbtn{white-space:nowrap;flex:none;padding:0 7px}
+    .qbtn span{display:none}
+    .pager{gap:6px;font-size:9.5px}
+    .pager .pgt i{display:none}
+    #select .rozlist .k{padding:5px 5px 6px}
+    #select .rozlist .k .nm{font-size:10.5px}
+    #select .rozlist .k .sub{font-size:8px}
+    #select .rozlist .k .jobline{display:none}
+    #select .foot{flex-wrap:wrap;height:auto;gap:6px;left:10px;right:10px;bottom:10px}
+    .namebar{flex:1 1 0;min-width:0;padding:7px 9px}
+    .namebar .lineup{display:none}
+    .diff{flex:1 1 auto}
+    #btn-fight{flex:0 0 auto;padding:8px 22px;font-size:13.5px;letter-spacing:.18em;text-indent:.18em}
+    #pad .joy{transform:scale(.8);transform-origin:left bottom}
+    #pad .bt{transform:scale(.8);transform-origin:right bottom}
+    #pad .stbtn{transform:scale(.85);transform-origin:center bottom}
   }
 
   /* ---------- 故事列表 ---------- */
@@ -645,7 +759,7 @@
   </div>
 </div>
 
-<!-- 选人屏（街机 KOF 风） -->
+<!-- 选人屏（三栏街机风 · 对齐 prototype/select.html） -->
 <div id="select">
 <div class="arcade">
   <h1 id="sel-title">TOON·FIGHTING</h1>
@@ -667,23 +781,73 @@
       <button class="chip" data-n="1">1 人</button>
       <button class="chip" data-n="3">3 人</button>
     </span>
+    <button class="padtog on" id="padtog">🎮 手柄</button>
   </div>
-  <div class="port p1">
-    <div class="phd"><span class="t">1 · 我方 TOONFLOW 角色</span><button class="swp" id="btn-swp">⇄ 出场顺序</button>
-      <div class="chips" id="p1chips"></div></div>
-    <div class="pface" id="p1face"><div class="ini"></div></div>
-    <div class="pname" id="p1name">&nbsp;</div>
-    <div class="pinfo" id="p1info"></div>
+  <div class="stage">
+    <!-- 1 · 我方 TOONFLOW 角色 -->
+    <aside class="panel p1" id="panelp1">
+      <div class="phead"><span class="title">1 · 我方 TOONFLOW 角色</span>
+        <button class="swp" id="btn-swp">⇄ 出场顺序</button></div>
+      <div class="slots" id="p1slots"></div>
+      <button class="okbtn" id="ok1">确定队员</button>
+      <div class="portrait" id="p1port">
+        <img id="p1img" alt="">
+        <div class="vacant" id="p1vac"><span class="q">？</span><span class="t">空位 · 点中间选人列表</span></div>
+        <div class="plate">
+          <div class="nm" id="p1name">&nbsp;</div>
+          <div class="jobs"><span class="ent" id="p1ent">&nbsp;</span><span class="job" id="p1job">—</span></div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="row"><span class="k">角色</span><span class="v" id="p1m1">—</span></div>
+        <div class="row"><span class="k">实体</span><span class="v ent" id="p1m2">—</span></div>
+        <div class="row"><span class="k">职业·出场</span><span class="v" id="p1m3">—</span></div>
+      </div>
+    </aside>
+    <!-- 2 · MUGEN 角色 -->
+    <main class="mid">
+      <div class="hero">
+        <div class="hlab">2 · MUGEN 角色（引擎实体）</div>
+        <div class="figbox">
+          <div class="ghost" id="hGhost"></div>
+          <img id="heroImg" alt="">
+          <div class="none" id="heroNone" style="display:none">点下面选人列表，选一个角色</div>
+        </div>
+        <div class="hinfo">
+          <span class="who" id="hWho">—</span><span class="x">/</span>
+          <span class="ent" id="hEnt">—</span><span class="job" id="hJob">—</span>
+        </div>
+        <div class="hdesc" id="hDesc"></div>
+      </div>
+      <div class="phasebar" id="phasebar"></div>
+      <div class="listrow">
+        <button class="qbtn" id="qbtn"><b>？</b> 随机<span>抽一个，可取消</span></button>
+        <div class="pager" id="pager"></div>
+      </div>
+      <div class="rozlist" id="kgrid"></div>
+    </main>
+    <!-- 3 · 对手 TOONFLOW 角色 -->
+    <aside class="panel p2" id="panelp2">
+      <div class="phead"><span class="title" id="p2cap">3 · 对手 TOONFLOW 角色</span>
+        <button class="swp" id="btn-swp2">⇄ 出场顺序</button></div>
+      <div class="slots" id="p2slots"></div>
+      <button class="okbtn" id="ok2">确定队员</button>
+      <div class="portrait" id="p2port">
+        <img id="p2img" alt="">
+        <div class="vacant" id="p2vac"><span class="q">？</span><span class="t">空位 · 点中间选人列表</span></div>
+        <div class="plate">
+          <div class="nm" id="p2name">&nbsp;</div>
+          <div class="jobs"><span class="ent" id="p2ent">&nbsp;</span><span class="job" id="p2job">—</span></div>
+        </div>
+      </div>
+      <div class="surnote">生存模式：对手由系统按资产集随机生成<br>胜利 +1 续关，失败回主界面</div>
+      <div class="meta">
+        <div class="row"><span class="k">角色</span><span class="v" id="p2m1">—</span></div>
+        <div class="row"><span class="k">实体</span><span class="v ent" id="p2m2">—</span></div>
+        <div class="row"><span class="k">职业·出场</span><span class="v" id="p2m3">—</span></div>
+      </div>
+    </aside>
   </div>
-  <div class="port p2">
-    <div class="phd"><span class="t" id="p2cap">3 · 对手 TOONFLOW 角色</span><div class="chips" id="p2chips"></div></div>
-    <div class="pface" id="p2face"><div class="ini"></div></div>
-    <div class="pname" id="p2name">&nbsp;</div>
-    <div class="pinfo" id="p2info"></div>
-  </div>
-  <div class="surnote" id="surnote" style="display:none">生存模式：只能选我方队员<br>对手随机生成 / 按资产集设定<br>胜利 +1 续关</div>
-  <div class="selrow" id="selrow"></div>
-  <div class="floor" id="kgrid"></div>
   <div class="foot">
     <div class="namebar" id="bar1"></div>
     <div class="namebar" id="bar2"></div>
@@ -1052,7 +1216,7 @@
   // 切换资产集后刷新选人屏的角色池（选人屏没开时不用管）
   function buildCharGrid() {
     try {
-      if (typeof renderCharGrid === 'function') renderCharGrid();
+      if (typeof renderSelect === 'function' && selEl.classList.contains('on')) renderSelect();
     } catch (e) { /* 选人屏未初始化 */ }
   }
 
@@ -2051,8 +2215,11 @@
     if (settings.pad === 'hide') return false;
     return isTouchDevice();
   }
+  let selPadOn = true;   // 选人屏虚拟手柄默认显示（《选人.md》：# 显示虚拟手柄）
   function applyPad() {
-    padEl.classList.toggle('on', engineStarted && padVisible());
+    const selOn = !engineStarted && selEl.classList.contains('on');
+    padEl.classList.toggle('selmode', selOn);
+    padEl.classList.toggle('on', selOn ? selPadOn : (engineStarted && padVisible()));
     document.getElementById('skills').classList.toggle('on', engineStarted && !!(movesFor(p1SlotChars()[0] || curP1) || []).length);
   }
   function padDispatch(btn, type) {
@@ -2063,6 +2230,17 @@
   }
   for (const btn of padEl.querySelectorAll('button[data-act]')) {
     btn.addEventListener('pointerdown', (e) => {
+      if (!engineStarted && selEl.classList.contains('on')) {
+        // 选人屏：A/START=轻拳（选中/确定队员） B/C=重拳（取消最后一位/取消确定）
+        e.preventDefault();
+        btn.classList.add('pressed');
+        setTimeout(() => btn.classList.remove('pressed'), 180);
+        const act = btn.dataset.act;
+        if (act === 'a' || act === 'start') lightPunch(phase === 2 ? 2 : 1);
+        else if (act === 'b' || act === 'c') heavyPunch();
+        else selToast('注入按键 ' + act.toUpperCase());
+        return;
+      }
       if (!engineStarted) return;
       e.preventDefault();
       try { btn.setPointerCapture(e.pointerId); } catch (err) {}
@@ -2124,7 +2302,7 @@
     for (const act of JOY_ACTS) joyKey(act, false);
   }
   joyEl.addEventListener('pointerdown', (e) => {
-    if (!engineStarted) return;
+    if (!engineStarted && !selEl.classList.contains('on')) return;
     e.preventDefault();
     try { joyEl.setPointerCapture(e.pointerId); } catch (err) {}
     joyEl.classList.add('grabbing');
@@ -2142,41 +2320,90 @@
     if (JOY_ACTS.some((a) => joyDown[a])) joyReset();
   });
 
-  // ---------------- 模式与选人（KOF 式） ----------------
+  // ---------------- 模式与选人（三栏街机式 · 对齐 prototype/select.html《选人.md》） ----------------
   const MODES = { practice: '练习模式', versus: '正式对战', survival: '生存模式' };
   let MODE = q.get('mode') && MODES[q.get('mode')] ? q.get('mode') : 'versus';
   let teamSize = Number(q.get('n')) === 3 ? 3 : 1;
-  const slots = { p1: [null, null, null], p2: [null, null, null] }; // charId 或 '?'→随机
+  const slots = { p1: [null, null, null], p2: [null, null, null] }; // 存 POOL 条目 key 或 '?'→随机
   let activeSlot = 'p1-0'; // 'side-idx'
-  // 兼容旧验证脚本：?p1=&p2= 预填
-  if (q.get('p1')) slots.p1[0] = q.get('p1');
-  if (q.get('p2')) slots.p2[0] = q.get('p2');
+  let phase = 1;                       // 两段式：1=选我方 2=选对方 3=双方已确定
+  const randSlots = new Set();         // 「？随机」抽中的位置（'1:0'）
+  let page = 0, pageLock = false;      // 名单分页；手动翻页后暂不跟随选中位
+  const PAGE_SIZE = 6;
+  let POOL = [];                       // 选人池：故事角色优先，否则本地 MUGEN 角色表
+  const STAND_SLUG = { Lin: 'lin', Hinako: 'hinako', "K'": 'k', Rugal2nd: 'rugal', Leona: 'leona' };
 
-  function p1SlotChars() { return slots.p1.filter(Boolean); }
-  function p2SlotChars() { return slots.p2.filter(Boolean); }
+  // 池：有故事绑定 → toonflow 角色各绑一个引擎实体（同一实体可被多角色复用）；无绑定 → 本地角色表
+  function buildPool() {
+    const chars = (CONN.roster && CONN.roster.storyChars) || [];
+    if (chars.length) {
+      POOL = chars.map((c) => ({
+        key: 'n:' + c.name, r: c.name, id: c.charId, job: c.profession || '',
+        desc: c.description || '', ava: rolePortraitUrl(c),
+      }));
+    } else {
+      POOL = packCharPool().map((id) => {
+        const m = MUGEN[id] || { cn: id, tag: '', style: '' };
+        return { key: 'e:' + id, r: m.cn, id, job: m.tag || '', desc: m.style || '', ava: null };
+      });
+    }
+  }
+  const poolByKey = (k) => (k && k !== '?' ? POOL.find((e) => e.key === k) || null : null);
+  function keyForEntity(id) { const e = POOL.find((x) => x.id === id); return e ? e.key : null; }
+  const faceUrlFor = (e) => mugPortraitUrl(e.id);
+  const standUrlFor = (e) => STAND_SLUG[e.id]
+    ? 'md/curdesign/ai格斗设计/界面设计/prototype/assets/select/m_' + STAND_SLUG[e.id] + '-stand.png'
+    : mugPortraitUrl(e.id);
+  // 图片链：主图挂了退下一张，全挂就隐藏（界面永不出现破图）
+  function setImgChain(img, sources) {
+    let i = 0;
+    img.onerror = () => {
+      i += 1;
+      if (i < sources.length) img.src = sources[i];
+      else { img.onerror = null; img.style.display = 'none'; }
+    };
+    img.style.display = '';
+    img.src = sources[0];
+  }
+
+  // 出场位里的 key → 引擎实体 charId（movesFor/技能条/换人链接都要实体 id）
+  function slotEntities(side) {
+    return slots[side].filter(Boolean).map((k) => {
+      const e = poolByKey(k);
+      return e ? e.id : null;
+    }).filter(Boolean);
+  }
+  function p1SlotChars() { return slotEntities('p1'); }
+  function p2SlotChars() { return slotEntities('p2'); }
 
   function openSelect(mode) {
     if (mode) MODE = mode;
+    buildPool();
     homeEl.classList.remove('on');
     selEl.classList.add('on');
-    document.getElementById('sel-title').textContent = 'TOON·FIGHTING';
+    phase = 1; activeSlot = 'p1-0'; page = 0; pageLock = false; randSlots.clear();
     selEl.classList.toggle('survival', MODE === 'survival');
     document.getElementById('p2cap').textContent = MODE === 'survival' ? '3 · 对手（系统随机）' : '3 · 对手 TOONFLOW 角色';
-    document.getElementById('surnote').style.display = MODE === 'survival' ? 'block' : 'none';
     document.querySelectorAll('.topbar .tb[data-m]').forEach((x) => x.classList.toggle('on', x.dataset.m === MODE));
     document.getElementById('difficulty').style.display = MODE === 'versus' ? '' : 'none';
-    // 预填：有故事绑定就按绑定预填第一格
+    // 预填：故事绑定的 p1/p2 → ?p1=/&p2=（实体 id 转 key）→ 上局角色
+    const pre = (side, entityId) => {
+      if (slots[side][0]) return;
+      const k = entityId && keyForEntity(entityId);
+      if (k) slots[side][0] = k;
+    };
     if (CONN.roster) {
-      const p1 = CONN.roster.storyChars.find((c) => c.side === 'p1');
-      const p2 = CONN.roster.storyChars.find((c) => c.side === 'p2');
-      if (p1 && !slots.p1[0]) slots.p1[0] = p1.charId;
-      if (p2 && !slots.p2[0] && MODE !== 'survival') slots.p2[0] = p2.charId;
+      const p1c = CONN.roster.storyChars.find((c) => c.side === 'p1');
+      const p2c = CONN.roster.storyChars.find((c) => c.side === 'p2');
+      if (p1c) pre('p1', p1c.charId);
+      if (p2c && MODE !== 'survival') pre('p2', p2c.charId);
     }
-    // 无故事绑定时预填默认阵容（练习/对战：P1=上次角色 P2=默认雏子）
-    if (!slots.p1[0] && MODE !== 'survival') slots.p1[0] = curP1;
-    if (!slots.p2[0] && MODE !== 'survival' && MODE !== 'versus') slots.p2[0] = curP2;
-    renderSlots();
-    renderCharGrid();
+    pre('p1', q.get('p1'));
+    if (MODE !== 'survival') pre('p2', q.get('p2'));
+    if (MODE !== 'survival') pre('p1', curP1);
+    if (MODE !== 'survival' && MODE !== 'versus') pre('p2', curP2);
+    applyPad();
+    renderSelect();
   }
   // 选人屏左上菜单（原型 menudd 六项的落地版）
   document.getElementById('btn-selmenu').addEventListener('click', (e) => {
@@ -2201,17 +2428,7 @@
   for (const b of document.querySelectorAll('.topbar .tb[data-m]')) {
     b.addEventListener('click', () => openSelect(b.dataset.m));
   }
-  // 出场顺序：交换我方前两个已占位
-  document.getElementById('btn-swp').addEventListener('click', () => {
-    const arr = slots.p1;
-    const filled = [];
-    for (let i = 0; i < teamSize; i++) if (arr[i]) filled.push(i);
-    if (filled.length >= 2) {
-      const t = arr[filled[0]]; arr[filled[0]] = arr[filled[1]]; arr[filled[1]] = t;
-      renderSlots(); renderCharGrid();
-      selToast('出场顺序已修改 ⇄');
-    }
-  });
+  // 出场顺序按钮（rotateOrder 在下方选人渲染区定义）
 
   for (const chip of document.querySelectorAll('#teamsz .chip')) {
     if (Number(chip.dataset.n) === teamSize) {
@@ -2227,7 +2444,8 @@
         for (let i = teamSize; i < 3; i++) slots[side][i] = null;
         if (!slots[side].slice(0, teamSize).some(Boolean)) slots[side][0] = null;
       }
-      renderSlots(); renderCharGrid();
+      phase = 1; activeSlot = 'p1-0'; randSlots.clear(); page = 0; pageLock = false;
+      renderSelect();
     });
   }
   // 难度下拉（对战模式）
@@ -2235,22 +2453,12 @@
   aiSel.value = String([1, 3, 6, 8].includes(curAI) ? curAI : 3);
   aiSel.addEventListener('change', () => { curAI = Number(aiSel.value); });
 
-  function slotInfo(side, idx) {
-    const id = slots[side][idx];
-    const isRand = id === '?';
-    const real = isRand ? null : id;
-    const m = real ? (MUGEN[real] || { cn: real, glyph: real.slice(0, 1) }) : null;
-    // 找该侧第一个绑定的故事角色做名字/职业展示
-    const tc = CONN.roster && CONN.roster.storyChars.find((c) => c.side === side);
-    return { id, isRand, real, m, tc };
-  }
-  // 角色专属渐变底（原型 pool[].g 的落地版：按名字 hash 出稳定双色）
-  function gradFor(str) {
-    let h = 0;
-    for (let i = 0; i < String(str).length; i++) h = (h * 31 + String(str).charCodeAt(i)) >>> 0;
-    const h1 = h % 360, h2 = (h1 + 40 + (h >> 8) % 40) % 360;
-    return 'linear-gradient(135deg,hsl(' + h1 + ',26%,24%),hsl(' + h2 + ',32%,12%))';
-  }
+  // ---------------- 渲染（三栏街机式） ----------------
+  const SIDE = { 1: 'p1', 2: 'p2' };
+  const sideNumOf = () => (activeSlot.startsWith('p1') ? 1 : 2);
+  const locked = (s) => (s === 1 ? phase >= 2 : phase < 2);
+  const filled = (s) => slots[SIDE[s]].slice(0, teamSize).some(Boolean);
+
   // 选人屏 toast（原型同款）
   let selToastT = 0;
   function selToast(s) {
@@ -2260,173 +2468,373 @@
     clearTimeout(selToastT);
     selToastT = setTimeout(() => t.classList.remove('on'), 1700);
   }
-  function renderSlots() {
-    // 出场顺序 chips（左右面板头）——点击切换当前编辑位
-    const chipsFor = (side) => {
-      const root = document.getElementById(side === 'p1' ? 'p1chips' : 'p2chips');
-      root.innerHTML = '';
-      if (MODE === 'survival' && side === 'p2') return;
-      for (let i = 0; i < teamSize; i++) {
-        const info = slotInfo(side, i);
-        const chip = document.createElement('button');
-        chip.className = 'chip' + (activeSlot === side + '-' + i ? ' on' : '');
-        let inner = '';
-        if (side === 'p1') inner += '<span class="ord">' + (i + 1) + '</span>';
-        inner += 'P' + (i + 1);
-        if (info.real) {
-          const label = info.tc ? info.tc.name : (info.m ? info.m.cn : info.real);
-          inner += '<span class="mini" style="background:' + gradFor(info.real) + '">' + esc(label.slice(0, 1)) + '</span>';
-        }
-        chip.innerHTML = inner;
-        chip.addEventListener('click', () => { activeSlot = side + '-' + i; renderSlots(); renderCharGrid(); });
-        root.appendChild(chip);
-      }
-    };
-    chipsFor('p1');
-    chipsFor('p2');
-    renderSelBig();
-  }
 
-  // 街机大面板：选中=专属渐变底+巨大首字；空态=透明面板+引导文案（原型同款）
-  function renderSelBig() {
+  function renderSelect() {
     const survival = MODE === 'survival';
-    const fill = (side, faceId, nameId, infoId, barId, fb) => {
-      const info = slotInfo(side, 0);
-      const face = document.getElementById(faceId);
-      const ini = face.querySelector('.ini');
-      const label = info.real
-        ? (info.tc ? info.tc.name : (info.m ? info.m.cn : info.real))
-        : '';
-      if (info.real) {
-        face.style.background = gradFor(info.real);
-        ini.textContent = label.slice(0, 1);
-      } else {
-        face.style.background = '';
-        ini.textContent = info.isRand ? '？' : '';
-      }
-      const who = info.isRand ? '随机对手' : info.real ? label : fb.name;
-      const ent = info.real ? info.real : (info.isRand ? '开打时随机抽取' : fb.ent);
-      const job = info.tc && info.tc.profession ? info.tc.profession : (info.m && info.m.tag ? info.m.tag : '');
-      const infoHtml = (info.real
-        ? '<span class="mini" style="background:' + gradFor(info.real) + '">' + esc(label.slice(0, 1)) + '</span>'
-        : '')
-        + '<span class="who">' + esc(who) + '</span>'
-        + '<span class="ent">' + esc(ent) + '</span>'
-        + (job ? '<span class="job">' + esc(job) + '</span>' : '');
-      document.getElementById(nameId).textContent = info.real || info.isRand ? who : '\u00A0';
-      document.getElementById(infoId).innerHTML = infoHtml;
-      document.getElementById(barId).innerHTML = infoHtml;
-    };
-    fill('p1', 'p1face', 'p1name', 'p1info', 'bar1',
-      { name: '2 · 空位 · 点中央选人格', ent: '' });
-    if (!survival) {
-      fill('p2', 'p2face', 'p2name', 'p2info', 'bar2', { name: '待选', ent: '对手未选' });
-    } else {
-      document.getElementById('bar2').innerHTML =
-        '<span class="who" style="color:#8b96a8">对手随机生成 · 胜利 +1 续关</span>';
-    }
-    // 开始键 disabled：我方至少选一个；对战模式还需对手
-    const p1Has = slots.p1.slice(0, teamSize).some(Boolean);
-    const p2Has = slots.p2.slice(0, teamSize).some(Boolean);
-    document.getElementById('btn-fight').disabled = !(p1Has && (survival || MODE !== 'versus' || p2Has));
-    // 已选小头像行（P1 出场顺序）
-    const row = document.getElementById('selrow');
-    row.innerHTML = '';
-    for (let i = 0; i < teamSize; i++) {
-      const info = slotInfo('p1', i);
-      const sc = document.createElement('div');
-      sc.className = 'sc' + (info.real ? '' : ' empty');
-      const od = document.createElement('span');
-      od.className = 'od';
-      od.textContent = String(i + 1);
-      sc.appendChild(od);
-      const mv = document.createElement('div');
-      mv.className = 'mv';
-      const label = info.real ? (info.tc ? info.tc.name : (info.m ? info.m.cn : info.real)) : '';
-      mv.textContent = info.real ? label.slice(0, 1) : '?';
-      if (info.real) mv.style.background = gradFor(info.real); else mv.style.background = '';
-      mv.addEventListener('click', () => { activeSlot = 'p1-' + i; renderSlots(); renderCharGrid(); });
-      sc.appendChild(mv);
-      const lb = document.createElement('div');
-      lb.className = 'lb';
-      lb.textContent = info.real ? label : 'P' + (i + 1);
-      sc.appendChild(lb);
-      row.appendChild(sc);
-    }
-  }
+    const L = { p1: slots.p1, p2: slots.p2 };
+    const actIdx = () => Number(activeSlot.slice(-1));
 
-  function renderCharGrid() {
+    // 出场位 tiles（左右两栏）
+    const renderSlotsRow = (s) => {
+      const root = document.getElementById(SIDE[s] + 'slots');
+      root.innerHTML = '';
+      for (let i = 0; i < teamSize; i++) {
+        const e = poolByKey(L[SIDE[s]][i]);
+        const div = document.createElement('div');
+        div.className = 'slot' + (activeSlot === SIDE[s] + '-' + i ? ' on' : '');
+        div.dataset.side = String(s);
+        div.dataset.idx = String(i);
+        if (e) {
+          const od = document.createElement('span');
+          od.className = 'od';
+          od.textContent = String(i + 1);
+          div.appendChild(od);
+        }
+        const th = document.createElement('div');
+        th.className = 'th';
+        if (e) {
+          const img = document.createElement('img');
+          img.alt = '';
+          setImgChain(img, [e.ava || faceUrlFor(e), faceUrlFor(e)]);
+          th.appendChild(img);
+        } else th.textContent = '?';
+        div.appendChild(th);
+        const lb = document.createElement('span');
+        lb.className = 'lb';
+        lb.textContent = e ? e.r : 'P' + (i + 1) + ' 空位';
+        div.appendChild(lb);
+        div.addEventListener('click', () => act(s, i));
+        root.appendChild(div);
+      }
+    };
+    renderSlotsRow(1);
+    renderSlotsRow(2);
+
+    // 左右大头像：优先「当前正在编辑的出场位」，否则回落到该队第一个已选角色
+    const fillPanel = (s) => {
+      const pre = SIDE[s];
+      const arr = L[pre];
+      const img = document.getElementById(pre + 'img');
+      const vac = document.getElementById(pre + 'vac');
+      const setVac = (t) => { img.style.display = 'none'; vac.style.display = 'flex'; vac.querySelector('.t').textContent = t; };
+      if (survival && s === 2) {
+        const rnd = POOL[(teamSize + 1) % Math.max(1, POOL.length)] || null;
+        if (rnd) {
+          setImgChain(img, [rnd.ava || faceUrlFor(rnd), faceUrlFor(rnd)]);
+          img.style.display = 'block'; vac.style.display = 'none';
+        } else setVac('对手随机');
+        document.getElementById(pre + 'name').textContent = '系统随机';
+        document.getElementById(pre + 'ent').textContent = '？';
+        document.getElementById(pre + 'job').textContent = '按资产集抽取';
+        document.getElementById(pre + 'm1').textContent = '系统随机';
+        document.getElementById(pre + 'm2').textContent = '？';
+        document.getElementById(pre + 'm3').textContent = '胜+1 续关';
+        return;
+      }
+      let want = activeSlot.startsWith(pre) ? arr[actIdx()] : null;
+      if (!want) want = arr.slice(0, teamSize).find(Boolean) || null;
+      const e = poolByKey(want);
+      if (e) {
+        setImgChain(img, [e.ava || faceUrlFor(e), faceUrlFor(e)]);
+        img.style.display = 'block'; vac.style.display = 'none';
+        document.getElementById(pre + 'name').textContent = e.r;
+        document.getElementById(pre + 'ent').textContent = e.id;
+        document.getElementById(pre + 'job').textContent = e.job || '—';
+        document.getElementById(pre + 'm1').textContent = e.r;
+        document.getElementById(pre + 'm2').textContent = e.id;
+        document.getElementById(pre + 'm3').textContent = (e.job || '—') + ' · 第 ' + (arr.indexOf(want) + 1) + ' 位出场';
+        return;
+      }
+      setVac(want === '?' ? '随机位 · 开打时抽一个' : '空位 · 点中间选人列表');
+      document.getElementById(pre + 'name').textContent = want === '?' ? '？ 随机' : '空位';
+      for (const suf of ['ent', 'job', 'm1', 'm2', 'm3']) document.getElementById(pre + suf).textContent = '—';
+    };
+    fillPanel(1);
+    fillPanel(2);
+
+    // 中栏 MUGEN 角色（当前编辑位的引擎实体）
+    const curKey = L[activeSlot.startsWith('p1') ? 'p1' : 'p2'][actIdx()];
+    const ce = poolByKey(curKey);
+    const heroImg = document.getElementById('heroImg');
+    document.getElementById('hGhost').textContent = ce ? ce.id : (curKey === '?' ? '？' : '');
+    if (ce) {
+      setImgChain(heroImg, [standUrlFor(ce), faceUrlFor(ce)]);
+      heroImg.style.display = 'block';
+      heroImg.classList.remove('silh');
+      document.getElementById('hWho').textContent = ce.r;
+      document.getElementById('hEnt').textContent = ce.id;
+      document.getElementById('hJob').textContent = ce.job || '—';
+      document.getElementById('hDesc').textContent = ce.desc || '';
+    } else {
+      const ref = POOL[0];
+      if (ref) {
+        setImgChain(heroImg, [standUrlFor(ref), faceUrlFor(ref)]);
+        heroImg.style.display = 'block';
+        heroImg.classList.add('silh');
+      } else heroImg.style.display = 'none';
+      document.getElementById('hWho').textContent = curKey === '?' ? '随机' : '待选';
+      document.getElementById('hEnt').textContent = curKey === '?' ? '？' : '—';
+      document.getElementById('hJob').textContent = curKey === '?' ? '开打时抽取' : '—';
+      document.getElementById('hDesc').textContent = curKey === '?'
+        ? '再点一次「？」可取消，回到空位重新选'
+        : '从下面选人列表点一个角色（再点一次可取消）';
+    }
+
+    // 选人列表：一页 6 个（3 列 × 2 行），超 6 翻页；「？」随机是列表外常驻按钮
     const grid = document.getElementById('kgrid');
     grid.innerHTML = '';
-    const pool = packCharPool();
-    const actSide = activeSlot.split('-')[0];
-    const actIdx = Number(activeSlot.split('-')[1] || 0);
-    const usedIds = {};
-    for (const side of ['p1', 'p2']) {
-      slots[side].forEach((id, i) => {
-        if (id && id !== '?' && (side !== actSide || i !== actIdx)) usedIds[id] = true;
-      });
-    }
-    for (const id of pool) {
-      const m = MUGEN[id] || { glyph: id.slice(0, 1), cn: id, tag: '' };
-      const tc = CONN.roster && CONN.roster.storyChars.find((c) => c.charId === id);
+    const total = POOL.length;
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const selIdx = POOL.findIndex((x) => x.key === curKey);
+    if (!pageLock && selIdx >= 0) page = Math.floor(selIdx / PAGE_SIZE);
+    page = Math.max(0, Math.min(page, pages - 1));
+    for (const e of POOL.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)) {
+      const inP1 = L.p1.indexOf(e.key);
       const b = document.createElement('button');
-      b.className = 'k' + (slots[actSide][actIdx] === id ? ' sel' : '');
-      // 我方已选该实体 → 左上角出场序号
-      const ord = slots.p1.indexOf(id) + 1;
-      if (ord) { const o = document.createElement('span'); o.className = 'ord'; o.textContent = String(ord); b.appendChild(o); }
-      const ini = document.createElement('div');
-      ini.className = 'ini';
-      ini.textContent = tc ? tc.name.slice(0, 1) : m.glyph;
-      b.appendChild(ini);
-      const nm = document.createElement('div');
+      b.className = 'k' + (curKey === e.key ? ' sel' : '');
+      b.dataset.r = e.key;
+      if (inP1 >= 0) {
+        const od = document.createElement('span');
+        od.className = 'ord';
+        od.textContent = String(inP1 + 1);
+        b.appendChild(od);
+      }
+      const face = document.createElement('img');
+      face.className = 'face';
+      face.alt = '';
+      setImgChain(face, [faceUrlFor(e)]);
+      b.appendChild(face);
+      const fig = document.createElement('div');
+      fig.className = 'fig';
+      const fi = document.createElement('img');
+      fi.alt = '';
+      setImgChain(fi, [standUrlFor(e), faceUrlFor(e)]);
+      fig.appendChild(fi);
+      b.appendChild(fig);
+      const nm = document.createElement('span');
       nm.className = 'nm';
-      nm.textContent = (tc ? tc.name : m.cn) + (tc && tc.profession ? '·' + tc.profession : '');
+      nm.textContent = e.r;
       b.appendChild(nm);
-      const ent = document.createElement('div');
-      ent.className = 'ent';
-      ent.textContent = id;
-      b.appendChild(ent);
-      b.addEventListener('click', () => {
-        const L = slots[actSide];
-        if (L[actIdx] === id) {          // 再点同一个 → 取消，可重新选择
-          L[actIdx] = null;
-          selToast('已取消，可重新选择');
-        } else if (slots.p1.includes(id) || slots.p2.includes(id)) {
-          selToast('该角色已在本队其他出场位，先取消再选');
-          return;
-        } else {
-          L[actIdx] = id;
-          // 我方：选完自动跳到下一个空出场位（原型行为）
-          if (actSide === 'p1' && actIdx < teamSize - 1 && !L[actIdx + 1]) {
-            activeSlot = 'p1-' + (actIdx + 1);
-          }
-        }
-        renderSlots(); renderCharGrid();
-      });
+      const sub = document.createElement('span');
+      sub.className = 'sub';
+      const em = document.createElement('em');
+      em.textContent = e.id;
+      sub.appendChild(em);
+      b.appendChild(sub);
+      if (e.job) {
+        const jl = document.createElement('span');
+        jl.className = 'jobline';
+        jl.textContent = e.job;
+        b.appendChild(jl);
+      }
+      b.addEventListener('click', () => pick(e.key));
       grid.appendChild(b);
     }
-    // 「？」随机格
-    const r = document.createElement('button');
-    r.className = 'k q' + (slots[actSide][actIdx] === '?' ? ' sel' : '');
-    const rini = document.createElement('div');
-    rini.className = 'ini';
-    rini.textContent = '？';
-    r.appendChild(rini);
-    const rnm = document.createElement('div');
-    rnm.className = 'nm';
-    rnm.textContent = '随机';
-    r.appendChild(rnm);
-    r.addEventListener('click', () => {
-      if (slots[actSide][actIdx] === '?') slots[actSide][actIdx] = null;
-      else {
-        const picked = randomCharId();
-        slots[actSide][actIdx] = picked;
-        selToast('？→ 随机：' + ((MUGEN[picked] || {}).cn || picked) + '（再点可取消重选）');
+    while (grid.children.length < PAGE_SIZE) {
+      const v = document.createElement('button');
+      v.className = 'k void';
+      v.disabled = true;
+      grid.appendChild(v);
+    }
+
+    // 「？」随机 + 分页
+    const qSel = randSlots.has(sideNumOf() + ':' + actIdx());
+    const qb = document.getElementById('qbtn');
+    qb.className = 'qbtn' + (qSel ? ' sel' : '');
+    qb.innerHTML = qSel ? '<b>？</b> 已随机<span>点一下取消</span>' : '<b>？</b> 随机<span>抽一个，可取消</span>';
+    qb.disabled = survival;
+    const pager = document.getElementById('pager');
+    pager.style.display = total > PAGE_SIZE ? 'flex' : 'none';
+    if (total > PAGE_SIZE) {
+      pager.innerHTML = '';
+      const pv = document.createElement('button');
+      pv.className = 'pg';
+      pv.textContent = '‹';
+      pv.disabled = page === 0;
+      pv.addEventListener('click', () => setPage(-1));
+      const t = document.createElement('span');
+      t.className = 'pgt';
+      const tb = document.createElement('b');
+      tb.textContent = String(page + 1);
+      t.appendChild(tb);
+      t.appendChild(document.createTextNode(' / ' + pages));
+      const ti = document.createElement('i');
+      ti.textContent = '· 共 ' + total + ' 个角色';
+      t.appendChild(ti);
+      const nx = document.createElement('button');
+      nx.className = 'pg';
+      nx.textContent = '›';
+      nx.disabled = page === pages - 1;
+      nx.addEventListener('click', () => setPage(1));
+      pager.append(pv, t, nx);
+    }
+
+    // 底部名字条
+    const bar = (s) => {
+      if (survival && s === 2) {
+        return '<span class="role">系统随机</span><span class="ent">按资产集抽取</span><span class="job">胜+1 续关</span>';
       }
-      renderSlots(); renderCharGrid();
-    });
-    grid.appendChild(r);
+      const arr = L[SIDE[s]];
+      const e = poolByKey(arr.slice(0, teamSize).find(Boolean));
+      const lineup = arr.slice(0, teamSize).map((k) => {
+        const x = poolByKey(k);
+        return x ? '<img src="' + esc(x.ava || faceUrlFor(x)) + '" alt="" onerror="this.style.display=\'none\'">' : '';
+      }).join('');
+      if (!e) {
+        return '<span class="role" style="color:#5a6478">' +
+          (s === 1 ? '我方未选' : (survival ? '对手随机生成' : '对手未选')) + '</span>';
+      }
+      return '<span class="role">' + esc(e.r) + '</span><span class="ent">' + esc(e.id) + '</span>' +
+        (e.job ? '<span class="job">' + esc(e.job) + '</span>' : '') +
+        '<span class="lineup">' + lineup + '</span>';
+    };
+    document.getElementById('bar1').innerHTML = bar(1);
+    document.getElementById('bar2').innerHTML = bar(2);
+
+    // 阶段条 / 【确定队员】/ 面板锁定（两段式：《选人.md》先我方→确定→再对方→开始）
+    const pb = document.getElementById('phasebar');
+    pb.innerHTML = '<span class="' + (phase === 1 ? 'on' : 'done') + '"><em>①</em> 我方选人</span>' +
+      '<span class="' + (phase === 2 ? 'on' : phase === 3 ? 'done' : '') + '"><em>②</em> ' +
+      (survival ? '对手随机' : '对方选人') + '</span>' +
+      '<span class="' + (phase === 3 ? 'on' : '') + '"><em>③</em> 开始</span>';
+    const ok1 = document.getElementById('ok1');
+    ok1.className = 'okbtn' + (phase === 1 ? (filled(1) ? '' : ' off') : ' cancel');
+    ok1.innerHTML = phase === 1 ? '<b>✔</b> 确定队员<i>轻拳</i>' : '<b>↺</b> 取消确定<i>重拳 B</i>';
+    ok1.disabled = phase === 1 ? !filled(1) : false;
+    const ok2 = document.getElementById('ok2');
+    ok2.className = 'okbtn' + (phase === 2 ? (filled(2) ? '' : ' off') : ' cancel');
+    ok2.innerHTML = phase === 2 ? '<b>✔</b> 确定队员<i>轻拳</i>'
+      : survival ? '<b>·</b> 对手由系统随机' : '<b>·</b> 等待我方确定';
+    ok2.disabled = phase !== 2 || !filled(2);
+    const p1p = document.getElementById('panelp1');
+    const p2p = document.getElementById('panelp2');
+    p2p.classList.toggle('sysrand', survival);
+    p1p.classList.toggle('locked', locked(1));
+    p2p.classList.toggle('locked', locked(2));
+    p1p.classList.toggle('active', !locked(1));
+    p2p.classList.toggle('active', !locked(2));
+    p1p.classList.toggle('idle', locked(1));
+    p2p.classList.toggle('idle', locked(2));
+    // 开始：必须两段式走完
+    const bf = document.getElementById('btn-fight');
+    bf.disabled = phase !== 3;
+    bf.textContent = phase === 3 ? '开 始' : '待 确 定';
+  }
+
+  // ---------------- 交互（轻拳=选中/确定 · 重拳=取消 · 右键同轻拳） ----------------
+  function act(s, i) {
+    if (locked(s)) { selToast(s === 2 ? '先确定我方队员，再选对方' : '我方已确定，重拳（B）可取消确定'); return; }
+    activeSlot = SIDE[s] + '-' + i;
+    pageLock = false;
+    renderSelect();
+  }
+  // 翻页：一页 6 个，装满才翻，格子尺寸不变
+  function setPage(d) { pageLock = true; page = Math.max(0, page + d); renderSelect(); }
+
+  function pick(key) {
+    const s = sideNumOf();
+    if (locked(s)) {
+      selToast(s === 2 ? '对手先锁着：先在我方名单下方点【确定队员】' : '我方已确定，重拳（B）可以取消确定继续选人');
+      return;
+    }
+    pageLock = false;
+    const pre = SIDE[s];
+    const arr = slots[pre];
+    const i = Number(activeSlot.slice(-1));
+    randSlots.delete(s + ':' + i);
+    if (arr[i] === key) { arr[i] = null; renderSelect(); selToast('已取消，可重新选择'); return; }
+    if (arr.some((x, k) => k !== i && x === key)) { selToast('该角色已在本队其他出场位，先取消再选'); return; }
+    arr[i] = key;
+    // 我方：选完自动跳下一个空出场位
+    if (s === 1 && i < teamSize - 1 && !arr[i + 1]) activeSlot = 'p1-' + (i + 1);
+    const e = poolByKey(key);
+    renderSelect();
+    selToast('已选择：' + (e ? e.r + ' · ' + e.id : key));
+  }
+
+  function randomOne() {
+    const s = sideNumOf();
+    if (locked(s)) { selToast(s === 2 ? '先确定我方队员，再选对方' : '我方已确定，重拳（B）可取消确定'); return; }
+    pageLock = false;
+    const arr = slots[SIDE[s]];
+    const i = Number(activeSlot.slice(-1));
+    const key = s + ':' + i;
+    // 同一个位置再点一次「？」= 取消这次随机，回到空位重选
+    if (arr[i] && randSlots.has(key)) {
+      arr[i] = null; randSlots.delete(key);
+      renderSelect();
+      selToast('已取消随机结果，可重新选择');
+      return;
+    }
+    const free = POOL.filter((e) => !arr.some((x, k) => k !== i && x === e.key));
+    const src = free.length ? free : POOL;
+    const e = src[Math.floor(Math.random() * src.length)];
+    arr[i] = e.key;
+    randSlots.add(key);
+    renderSelect();
+    selToast('随机抽到：' + e.r + ' · ' + e.id + '（再点「？」可取消）');
+  }
+
+  function rotateOrder(s) {
+    if (MODE === 'survival' && s === 2) return;
+    const arr = slots[SIDE[s]];
+    const idxs = [];
+    for (let i = 0; i < teamSize; i++) if (arr[i]) idxs.push(i);
+    if (idxs.length < 2) { selToast('先选至少两位队员再调出场顺序'); return; }
+    const vals = idxs.map((i) => arr[i]);
+    vals.push(vals.shift());
+    idxs.forEach((i, k) => { arr[i] = vals[k]; });
+    renderSelect();
+    selToast('出场顺序已修改 ⇄');
+  }
+
+  // 两段式：① 我方选人 →【确定队员】→ ② 对方选人 →【开始】；生存确定后对手系统随机
+  function lightPunch(s) {
+    if (s === 1) {
+      if (phase === 1) {
+        if (!filled(1)) { selToast('我方还没有选人，先在中间名单里挑一个'); return; }
+        phase = MODE === 'survival' ? 3 : 2;
+        activeSlot = MODE === 'survival' ? 'p1-0' : 'p2-0';
+        randSlots.clear(); page = 0; pageLock = false;
+        renderSelect();
+        selToast(MODE === 'survival' ? '我方已确定：对手由系统按资产集随机' : '我方已确定，现在选对方的角色');
+      } else {
+        phase = 1; activeSlot = 'p1-0'; randSlots.clear(); page = 0; pageLock = false;
+        renderSelect();
+        selToast('已取消确定，回到我方继续选人');
+      }
+      return;
+    }
+    if (phase === 2) {
+      if (!filled(2)) { selToast('对手还没选人，先在中间名单里挑一个'); return; }
+      phase = 3;
+      renderSelect();
+      selToast('双方已确定，按【开始】开打');
+    } else if (phase < 2) selToast('先确定我方队员');
+    else selToast('已确定，重拳（B）可以取消确定');
+  }
+
+  // 重拳 = 取消：已确定阶段→取消确定；选人阶段→取消「已选人列表」最后面那一位
+  function heavyPunch() {
+    if (phase >= 2) {
+      phase = 1; activeSlot = 'p1-0'; randSlots.clear(); page = 0; pageLock = false;
+      renderSelect();
+      selToast('重拳：已取消确定，回到我方选人');
+      return;
+    }
+    const s = sideNumOf();
+    const pre = SIDE[s];
+    const arr = slots[pre];
+    let last = -1;
+    for (let i = 0; i < teamSize; i++) if (arr[i]) last = i;
+    if (last < 0) { selToast('已选人列表是空的，没有可取消的角色'); return; }
+    const who = arr[last];
+    arr[last] = null;
+    randSlots.delete(s + ':' + last);
+    activeSlot = pre + '-' + last;
+    renderSelect();
+    const we = poolByKey(who);
+    selToast('重拳：取消最后一位（' + (we ? we.r : '随机位') + '）');
   }
 
   function resolveSlots() {
@@ -2434,9 +2842,10 @@
     for (const side of ['p1', 'p2']) {
       const n = MODE === 'survival' && side === 'p2' ? 1 : teamSize;
       for (let i = 0; i < n; i++) {
-        const id = slots[side][i];
-        if (!id) continue;
-        out[side].push(id === '?' ? randomCharId() : id);
+        const k = slots[side][i];
+        if (!k) continue;
+        const e = poolByKey(k);
+        out[side].push(e ? e.id : randomCharId());
       }
     }
     // 生存模式 P2 随机生成
@@ -2447,7 +2856,55 @@
   }
 
   document.getElementById('btn-fight').addEventListener('click', () => {
+    if (phase !== 3) { selToast('先点【确定队员】把双方确定下来'); return; }
     beginMatch(MODE);
+  });
+  document.getElementById('ok1').addEventListener('click', () => lightPunch(1));
+  document.getElementById('ok2').addEventListener('click', () => lightPunch(2));
+  document.getElementById('qbtn').addEventListener('click', randomOne);
+  document.getElementById('btn-swp').addEventListener('click', () => rotateOrder(1));
+  document.getElementById('btn-swp2').addEventListener('click', () => rotateOrder(2));
+  const padtogEl = document.getElementById('padtog');
+  padtogEl.addEventListener('click', () => {
+    selPadOn = !selPadOn;
+    padtogEl.classList.toggle('on', selPadOn);
+    applyPad();
+  });
+  padtogEl.classList.toggle('on', selPadOn);
+
+  // 右键 = 轻拳：名单格选中 / 出场位取消该位 / 确定按钮上 = 重拳取消确定（不弹浏览器菜单）
+  document.addEventListener('contextmenu', (e) => {
+    if (engineStarted || !selEl.classList.contains('on')) return;
+    const kc = e.target.closest('#kgrid .k');
+    const slot = e.target.closest('#select .slot');
+    const okb = e.target.closest('#select .okbtn');
+    if (!kc && !slot && !okb) return;
+    e.preventDefault();
+    if (kc) {
+      if (!kc.classList.contains('void') && kc.dataset.r) pick(kc.dataset.r);
+      return;
+    }
+    if (okb) { heavyPunch(); return; }
+    const s = Number(slot.dataset.side);
+    const i = Number(slot.dataset.idx);
+    if (locked(s)) { selToast('已确定，重拳（B）可取消确定再改'); return; }
+    const arr = slots[SIDE[s]];
+    if (!arr[i]) { selToast('这一位还是空的'); return; }
+    const we = poolByKey(arr[i]);
+    arr[i] = null;
+    randSlots.delete(s + ':' + i);
+    activeSlot = SIDE[s] + '-' + i;
+    renderSelect();
+    selToast('已取消 ' + (we ? we.r : '随机位'));
+  });
+
+  // 键盘：z/Enter=轻拳（A/START） x=重拳（B）
+  document.addEventListener('keydown', (e) => {
+    if (engineStarted || !selEl.classList.contains('on')) return;
+    if (e.target.matches && e.target.matches('input,select,textarea')) return;
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (k === 'x') { e.preventDefault(); heavyPunch(); }
+    else if (k === 'z' || k === 'Enter') { e.preventDefault(); lightPunch(phase === 2 ? 2 : 1); }
   });
 
   // ---------------- 招式（快捷技能 + 菜单查看） ----------------

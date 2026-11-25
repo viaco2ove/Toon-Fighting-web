@@ -118,6 +118,50 @@ function packCharPool(dir) {
   return pool.filter((id) => localCharExists(id));
 }
 
+// 资产集目录下真实存在的角色包（<map_design>/<dir>/chars/<charId>/ 内有 .def）
+// 用途：查看器用「本地选文件夹」载入后能反查这是哪个资产集的哪个角色，
+// 从而刷新页面时按服务器路径恢复（本地 File 对象本身不可持久化）。
+// 返回 [{ id, def, files: [{ name, size }] }]：name 是相对角色目录的路径（正斜杠）
+function packCharDirs(dir) {
+  const byId = new Map();
+  for (const base of [path.join(MAP_ROOT, dir), path.join(ASSETS_ROOT, dir)]) {
+    const charsDir = path.join(base, 'chars');
+    let names = [];
+    try { names = fs.readdirSync(charsDir); } catch { continue; }
+    for (const name of names) {
+      const cd = path.join(charsDir, name);
+      let files = [];
+      try {
+        if (!fs.statSync(cd).isDirectory()) continue;
+        files = listFilesRecursive(cd);
+      } catch { continue; }
+      const def = files.find((f) => /\.def$/i.test(f.name));
+      if (!def) continue;
+      const prev = byId.get(name);
+      if (prev && prev.files.length >= files.length) continue;
+      byId.set(name, { id: name, def: def.name, files });
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+// 递归列文件（相对 root 的正斜杠路径 + 字节数），跳过二进制体积过大的？不跳过，
+// 查看器要用 (name,size) 做「本地选中的文件夹 ↔ 服务器角色目录」指纹比对。
+function listFilesRecursive(root, sub = '') {
+  const out = [];
+  let names = [];
+  try { names = fs.readdirSync(path.join(root, sub)); } catch { return out; }
+  for (const n of names) {
+    const rel = sub ? sub + '/' + n : n;
+    const abs = path.join(root, rel);
+    let st;
+    try { st = fs.statSync(abs); } catch { continue; }
+    if (st.isDirectory()) out.push(...listFilesRecursive(root, rel));
+    else out.push({ name: rel, size: st.size });
+  }
+  return out;
+}
+
 // 本地引擎已装角色目录
 const LOCAL_CHARS_DIR = path.join(__dirname, '..', '..', 'ikemen-fs', 'file', 'chars');
 // 资源残缺、引擎跑不起来的角色（见资产集 mapping.charPoolExcluded）
@@ -139,4 +183,4 @@ function localCharIds() {
   } catch { return []; }
 }
 
-module.exports = { MAP_ROOT, ASSETS_ROOT, REGISTRY_PATH, listPacks, packMeta, packCharPool, localCharIds, localCharExists, readRegistry, registerPack };
+module.exports = { MAP_ROOT, ASSETS_ROOT, REGISTRY_PATH, listPacks, packMeta, packCharPool, packCharDirs, localCharIds, localCharExists, readRegistry, registerPack };
