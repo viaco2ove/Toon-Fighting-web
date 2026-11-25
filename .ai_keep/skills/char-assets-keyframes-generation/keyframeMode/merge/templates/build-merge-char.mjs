@@ -22,30 +22,22 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const { decodePng, quantize } = require('./sprite-pack.cjs');
-const { mergeSprites, MERGE_ALPHA } = require('./merge-sprite.cjs');
-const { parseAir, scanFrames, classifyAction, SPRITE_OF } = require('./air-some.cjs');
-const { appendSprites, readSffV1Dir } = require('./sff-append.cjs');
-// 找项目根（含 server/lib/sff.cjs 的目录）—— 模板可能放在任意层级
-function findProjectRoot(start) {
-  let d = start;
-  for (let i = 0; i < 12; i++) {
-    if (fs.existsSync(path.join(d, 'server', 'lib', 'sff.cjs'))) return d;
-    const up = path.dirname(d);
-    if (up === d) break;
-    d = up;
-  }
-  throw new Error('找不到项目根（含 server/lib/sff.cjs）');
-}
-const { loadSff, spriteRgba, readPaletteFile } = require(path.join(findProjectRoot(__dirname), 'server', 'lib', 'sff.cjs'));
+const { decodePng, quantize } = require('./lib/sprite-pack.cjs');
+const { mergeSprites, MERGE_ALPHA, MERGE_BODY_ALPHA } = require('./lib/merge-sprite.cjs');
+const { parseAir, scanFrames, classifyAction, SPRITE_OF } = require('./lib/air-some.cjs');
+const { appendSprites, readSffV1Dir } = require('./lib/sff-append.cjs');
+const { loadSff, spriteRgba, readPaletteFile } = require(path.resolve('server/lib/sff.cjs'));
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const baseCharDir = process.argv[2];
 const framesDir = process.argv[3];
 const outDir = process.argv[4];
 const id = process.argv[5] || 'MergeChar';
 const alphaArg = Number(process.argv[6]);
 const ALPHA = Number.isFinite(alphaArg) && alphaArg > 0 ? alphaArg : MERGE_ALPHA;
+// 第 7 个参数：原精灵不透明度（默认 1，即旧行为）
+const bodyArg = Number(process.argv[7]);
+const BODY_ALPHA = Number.isFinite(bodyArg) && bodyArg > 0 && bodyArg <= 1 ? bodyArg : MERGE_BODY_ALPHA;
 
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -75,7 +67,7 @@ manifest.frames.sort((a, b) => a.sprite - b.sprite);
 for (const f of manifest.frames) {
   if (!f.file && f.aiFile) f.file = path.isAbsolute(f.aiFile) ? f.aiFile : path.join(framesDir, f.aiFile);
 }
-console.log('AI 图：', manifest.frames.length, '张 · 融合不透明度', ALPHA);
+console.log('AI 图：', manifest.frames.length, '张 · 融合不透明度 AI', ALPHA, '/ 原', BODY_ALPHA);
 
 // ---------- 2) 原包 ----------
 const baseSffPath = findFile(baseCharDir, /\.sff$/i);
@@ -88,13 +80,14 @@ const baseDef = fs.readFileSync(baseDefPath, 'latin1');
 console.log('底座：', path.basename(baseSffPath));
 
 // 角色默认调色板（def 的 pal1）。引擎对局里普通精灵吃的是这个 .act，
-// 不是 sff 内嵌调色板 —— 融合图必须按「玩家实际看到的颜色」烘。
-// （ps!=0 的精灵块尾常带尾部数据 / RLE 里含 0x0C，解码器去扫标记会读到垃圾调色板）
+// 不是 sff 内嵌调色板 —— 融合图必须按「玩家实际看到的颜色」烘，
+// 否则会拿解码器猜出来的内嵌色（Lin.sff 的 0,1/0,2/0,3 会读到假 0x0C 的垃圾调色板）。
 const ACT_PAL = (() => {
   const m = /^[ \t]*pal1[ \t]*=[ \t]*(.+)$/im.exec(baseDef);
   if (!m) return null;
   const rel = m[1].trim().replace(/\\/g, '/');
-  try { return readPaletteFile(fs.readFileSync(path.join(baseCharDir, rel))); } catch { return null; }
+  const p = path.join(baseCharDir, rel);
+  try { return readPaletteFile(fs.readFileSync(p)); } catch { return null; }
 })();
 console.log('角色调色板 pal1：', ACT_PAL ? '已加载' : '缺（退回精灵内嵌调色板）');
 
@@ -176,7 +169,7 @@ for (const [key, spec] of needMerge) {
   // 但**锚点用共享块自己的**（轴点可能与被链接者不同）。
   const tgtG = sp.group, tgtN = sp.index;
   let body = null;
-  // 自带调色板的精灵（ps==0，如 AI 精灵）用自己那块；
+  // 自带调色板的精灵（ps==0，如 AI 精灵）用自己那块调色板；
   // 其余（ps!=0，白模素体）用 def 的 pal1 —— 与引擎对局渲染、/api/anim 同一口径。
   const ownPal = !!(baseSff.sprites.get(tgtG + ',' + tgtN) || {}).ownPal;
   try { body = spriteRgba(baseSffBuf, baseSff, tgtG, tgtN, ownPal ? null : ACT_PAL); } catch { body = null; }
@@ -184,7 +177,7 @@ for (const [key, spec] of needMerge) {
   body.ax = sp.ax; body.ay = sp.ay;
   const ai = aiBySprite.get(SPRITE_OF[spec.cat]);
   if (!ai) { stats.fail++; continue; }
-  const merged = mergeSprites(body, ai, ALPHA);
+  const merged = mergeSprites(body, ai, ALPHA, BODY_ALPHA);
   if (!merged) {
     // 原精灵全透明（白模包里的废区精灵）→ 没有可融合的东西，保持原样
     stats.fail++; stats.blank = (stats.blank || 0) + 1; continue;

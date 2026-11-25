@@ -19,6 +19,11 @@
 
 // 融合时 AI 图的不透明度（与 viewer 的 state.aiMergeAlpha 一致）
 const MERGE_ALPHA = 0.55;
+// 融合时原精灵的不透明度（与 viewer 的 state.aiMergeBodyAlpha 一致）
+// 注意：SFF v1 调色板只有二值透明（alpha<128 → 索引 0 透明），写 20% alpha 会让
+// body-only 像素整片消失。所以 bodyAlpha 走「相对权重」烘进 RGB，
+// 输出 alpha 仍沿用 max(bodyAlpha, aiAlpha) 的二值 mask 口径。
+const MERGE_BODY_ALPHA = 1;
 
 /**
  * 求不透明像素的包围盒。
@@ -68,10 +73,11 @@ function fitFrame(rgba, w, h, targetH) {
  *
  * @param body  {rgba,w,h,ax,ay}  原精灵（已解成 RGBA）
  * @param ai    {rgba,w,h}         AI 整帧（原图，未缩放）
- * @param alpha MERGE_ALPHA
+ * @param alpha MERGE_ALPHA          AI 图叠上去的不透明度
+ * @param bodyAlpha MERGE_BODY_ALPHA 原精灵的不透明度（烘进 RGB 权重，不改 mask）
  * @returns {w,h,rgba,ax,ay}      融合后的精灵（自带锚点）
  */
-function mergeSprites(body, ai, alpha = MERGE_ALPHA) {
+function mergeSprites(body, ai, alpha = MERGE_ALPHA, bodyAlpha = MERGE_BODY_ALPHA) {
   const bBox = contentBox(body.rgba, body.w, body.h);
   if (!bBox) return null;                       // 原精灵全透明 → 无从融起
 
@@ -96,12 +102,19 @@ function mergeSprites(body, ai, alpha = MERGE_ALPHA) {
   const out = new Uint8Array(w * h * 4);
 
   // 1) 先铺原精灵（整体搬到画布）
+  // bodyAlpha < 1 时用 4×4 Bayer 有序抖动把「淡」烘进二值 mask：
+  // 保留约 bodyAlpha 比例的像素为不透明，其余写到 alpha=0（索引 0 透明）。
+  // SFF v1 没有每像素 alpha，只能这样近似查看器里 globalAlpha 的效果。
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   for (let y = bBox.y0; y <= bBox.y1; y++) {
     for (let x = bBox.x0; x <= bBox.x1; x++) {
       const so = (y * body.w + x) * 4;
       const dof = ((y - minY) * w + (x - minX)) * 4;
+      const a = body.rgba[so + 3];
+      if (a <= 24) continue;
+      if (bodyAlpha < 1 && BAYER[((y - minY) & 3) * 4 + ((x - minX) & 3)] / 16 >= bodyAlpha) continue;
       out[dof] = body.rgba[so]; out[dof + 1] = body.rgba[so + 1];
-      out[dof + 2] = body.rgba[so + 2]; out[dof + 3] = body.rgba[so + 3];
+      out[dof + 2] = body.rgba[so + 2]; out[dof + 3] = a;
     }
   }
 
@@ -110,7 +123,6 @@ function mergeSprites(body, ai, alpha = MERGE_ALPHA) {
     for (let x = aBox.x0; x <= aBox.x1; x++) {
       const sa = fit.rgba[(y * fit.w + x) * 4 + 3];
       if (sa === 0) continue;
-      const k = (sa / 255) * alpha;
       const px = aiX + x, py = aiY + y;
       const dof = ((py - minY) * w + (px - minX)) * 4;
       const sr = fit.rgba[(y * fit.w + x) * 4];
@@ -118,11 +130,19 @@ function mergeSprites(body, ai, alpha = MERGE_ALPHA) {
       const sb = fit.rgba[(y * fit.w + x) * 4 + 2];
       const dr = out[dof], dg = out[dof + 1], db = out[dof + 2], da = out[dof + 3];
       const ba = da / 255;
-      // 先把原精灵当背景（按 alpha 预乘合成），再叠 AI
+      // 两个 alpha 作为「相对权重」烘进 RGB：
+      //   ka = ai 像素覆盖 × aiAlpha，kb = 原精灵像素覆盖 × bodyAlpha
+      //   AI 先叠，原精灵透出比例 = kb × (1 - ka)；最后按总权重归一化，
+      //   避免 bodyAlpha 调低时颜色整体变暗（亮度不该随比例掉）。
+      // bodyAlpha=1 时退化为旧公式：ai×alpha + body×(1-alpha)。
+      const ka = (sa / 255) * alpha;
+      const kb = ba * bodyAlpha;
+      const denom = ka + kb * (1 - ka);
+      if (denom <= 0) continue;
       const bgR = ba ? dr : 0, bgG = ba ? dg : 0, bgB = ba ? db : 0;
-      out[dof] = Math.round(sr * k + bgR * (1 - k));
-      out[dof + 1] = Math.round(sg * k + bgG * (1 - k));
-      out[dof + 2] = Math.round(sb * k + bgB * (1 - k));
+      out[dof] = Math.round((sr * ka + bgR * kb * (1 - ka)) / denom);
+      out[dof + 1] = Math.round((sg * ka + bgG * kb * (1 - ka)) / denom);
+      out[dof + 2] = Math.round((sb * ka + bgB * kb * (1 - ka)) / denom);
       out[dof + 3] = Math.max(da, sa);
     }
   }

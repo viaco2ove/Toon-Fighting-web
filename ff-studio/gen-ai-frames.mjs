@@ -17,7 +17,10 @@ const sharp = require('D:/Users/viaco/tools/Toonflow-game/toonflow-game-app/node
 
 const outDir = process.argv[2] || '.cache/ai-frames/linyu-v2';
 const only = process.argv[3] ? process.argv[3].split(',') : null;
-const CHAR = path.resolve('workshops/toon-fighting-web/map_design/末世选择，从解析神明开始成神/chars/LinYu');
+// 角色来源：FRAME_CHAR_DIR 指向含 avatar/full.png + head.png 的目录；
+// FRAME_PERSONA 是该角色的英文外貌描述（不设则沿用 LinYu v2 的兜底）。
+const CHAR = path.resolve(process.env.FRAME_CHAR_DIR
+  || 'workshops/toon-fighting-web/map_design/末世选择，从解析神明开始成神/chars/LinYu');
 
 // ---------- 登录一次 ----------
 const env = {};
@@ -41,7 +44,8 @@ const refImages = [
   du(path.join(CHAR, 'avatar/head.png')),
 ];
 
-const PERSONA = 'the same young man as in the reference images: short messy black hair, black hoodie, black cargo pants, black combat boots, lean build';
+const PERSONA = process.env.FRAME_PERSONA
+  || 'the same young man as in the reference images: short messy black hair, black hoodie, black cargo pants, black combat boots, lean build';
 const PROMPTS = {
   stand:   'standing idle pose, arms relaxed, facing right, full body visible from head to toe',
   walk:    'walking forward, one leg forward, facing right, full body visible',

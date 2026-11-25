@@ -12,7 +12,11 @@ description: 为白模角色资产生成/落盘「AI 整帧关键帧」资产（
 给 \workshops\toon-fighting-web\map_design\末世选择，从解析神明开始成神
 这个故事的（toonflow ai game）全部角色 生成
 融合关键帧 的格斗角色资产 xxxKFM
-不透明度 原55%,ai帧 90%
+不透明度 原20%,ai帧 95%
+
+- /char-assets-keyframes-generation merge 融合模式 
+不透明度 原20%,ai帧 95%  重新生成
+ \workshops\toon-fighting-web\map_design\末世选择，从解析神明开始成神\chars\LinYuKFM
 ## Purpose
 
 把「白模角色包」升级为「AI 换身资产」：按用户拍板的 **≤10 张 AI 整帧**方案（一帧一动作
