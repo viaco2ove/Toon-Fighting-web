@@ -383,9 +383,10 @@ async function handleApi(req, res, urlPath) {
   // toonflow 角色头像代理：avatarPath（OSS 相对路径）→ 图片字节。
   // 前端不直接连后端 OSS（可能跨域、也可能带鉴权），统一走这里；
   // 并用 sharp 缩到 192px（后端存的是 1024 级 webp，8–10MB，直接进页面会拖死）。
+  // 注意：前端会带 ?v= 版本号破缓存，这里匹配时要把 query 去掉。
   m = /^\/api\/role-avatar\/(.+)$/.exec(urlPath);
   if (m && req.method === 'GET') {
-    let rel = decodeURIComponent(m[1]);
+    let rel = decodeURIComponent(m[1]).split('?')[0];
     if (!rel.startsWith('/')) rel = '/' + rel;
     if (!/^\/[A-Za-z0-9_\-./]+\.(png|jpe?g|webp|gif)$/i.test(rel)) {
       return json(res, 400, { ok: false, error: '头像路径不合法' });

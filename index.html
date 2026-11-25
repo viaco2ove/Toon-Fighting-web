@@ -1098,13 +1098,18 @@
   // MUGEN 头像：由服务端从角色包的 sff 里解出（/api/portrait/<id>）；
   // toonflow 角色头像：故事侧角色的 avatarPath，经 /api/role-avatar/<path> 代理。
   // 两者都失败时回退到文字（首字），界面永不出现破图。
+  // 头像版本号：服务端转换逻辑变更时递增，用于绕开浏览器旧缓存。
+  const AVATAR_VER = '2';
   function mugPortraitUrl(charId) {
     return '/api/portrait/' + encodeURIComponent(charId);
   }
   function rolePortraitUrl(role) {
     if (!role || !role.avatarPath) return null;
     if (/^data:image/i.test(role.avatarPath)) return role.avatarPath;
-    return '/api/role-avatar/' + role.avatarPath.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/');
+    // 带版本号：服务端处理方式变了（例如 webp 动图修复）时，旧缓存不会继续命中，
+    // 否则浏览器会一直用之前那张静态图，看起来像「改了没生效」。
+    return '/api/role-avatar/' + role.avatarPath.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/')
+      + '?v=' + AVATAR_VER;
   }
   // 生成一个头像节点（img 或首字），onerror 时自动退回文字
   function avatarNode(src, fallbackText, cls) {
