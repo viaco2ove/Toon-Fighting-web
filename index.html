@@ -1208,32 +1208,12 @@
 
   // ---------------- 本地 MUGEN 角色表（引擎已装且可跑） ----------------
   // tag/style 是「没有 char.json 时的兜底」；char.json 里的 profession/description 优先。
+  // 改为完全来自资产集
   const MUGEN = {
-    LinYu:    { glyph: '羽', cn: '林羽',  tag: '武道家', style: '白模底座（无 AI 帧）' },
-    // 同一角色的三种关键帧变体（char.json 的 variantOf 都指向 LinYu）：
-    //   KF = 抽（每个动作只换代表帧）/ KFM = 融（AI 图与原精灵叠加）/ KFA = 全（整个动作都用 AI 帧）
-    LinYuKF:  { glyph: '羽', cn: '林羽',  tag: '武道家', style: '抽关键帧 · 只换代表帧' },
-    LinYuKFM: { glyph: '羽', cn: '林羽',  tag: '武道家', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    LinYuKFA: { glyph: '羽', cn: '林羽',  tag: '武道家', style: '全替关键帧 · 整个动作都用 AI 帧' },
-    Lin:      { glyph: '林', cn: '麟',    tag: '速度型', style: '紫电连段 · 轻快突进' },
-    Hinako:   { glyph: '雏', cn: '雏子',  tag: '力量型', style: '相扑压制 · 近身重投' },
-    "K'":     { glyph: "K'", cn: 'K 达什', tag: '均衡型', style: '炽焰拳击 · 中距火力' },
-    Rugal2nd: { glyph: '卢', cn: '卢卡尔', tag: 'BOSS 型', style: '全距离压制 · 重负载' },
-    Leona:    { glyph: '莉', cn: '莉安娜', tag: '军人佣兵', style: '怒队 · 军刀与火药' },
-    // 故事的 8 个融合关键帧变体（2026-11-25 批量生成，AI 0.95 / 原 0.2）
-    SuWanqingKFM: { glyph: '晴', cn: '苏晚晴', tag: '异能者', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    LinYueKFM:    { glyph: '悦', cn: '林悦',   tag: '异能者', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    LaoLeiKFM:    { glyph: '雷', cn: '老雷',   tag: '军人佣兵', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    CaipanKFM:    { glyph: '裁', cn: '裁判',   tag: 'Boss神明', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    BaishuKFM:    { glyph: '术', cn: '白术',   tag: '黑帮街头', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    JiangHaoKFM:  { glyph: '浩', cn: '江浩',   tag: '摔跤力量', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    ZhenXuanshiKFM:{ glyph: '甄', cn: '甄选使', tag: '特工搜查', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    XiaoLingdangKFM:{ glyph: '铃', cn: '小铃铛', tag: '异能者', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    ChenAyiKFM:    { glyph: '陈', cn: '陈阿姨', tag: '辅助医疗', style: '融合关键帧 · AI 帧与原精灵叠加' },
-    ZhaoDachuanKFM:{ glyph: '川', cn: '赵大川', tag: '军人佣兵', style: '融合关键帧 · AI 帧与原精灵叠加' },
   };
   // 引擎本地已装且验证可跑的角色（98-kim/MasterRyu 资源残缺，不进池）
-  const LOCAL_OK = ["LinYu", "Lin", "Hinako", "K'", "Rugal2nd", "Leona"];
+  // 改为完全来自资产集
+  const LOCAL_OK = [];
 
   // ---------------- 头像 ----------------
   // MUGEN 头像：由服务端从角色包的 sff 里解出（/api/portrait/<id>）；

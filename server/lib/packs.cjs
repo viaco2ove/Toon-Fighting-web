@@ -179,9 +179,12 @@ function listFilesRecursive(root, sub = '') {
   return out;
 }
 
-// 本地引擎已装角色目录
+// ---------------- 兜底资产层（只读） ----------------
+// ikemen-fs/file 是「随站点分发的默认集合」，不是资产集仓库。
+// 资产集的角色永远不拷进这里 —— 见 md/curdesign/ai格斗设计/资产集/资产绑定方案.md。
 const LOCAL_CHARS_DIR = path.join(__dirname, '..', '..', 'ikemen-fs', 'file', 'chars');
-// 资源残缺、引擎跑不起来的角色（见资产集 mapping.charPoolExcluded）
+// 兜底层里资源残缺、引擎跑不起来的包（缺 sff / def 引用了不存在的文件）。
+// 这条名单只管兜底层；资产集里的角色由资产集自己负责完整性。
 const BROKEN_CHARS = new Set(['98-kim', 'MasterRyu']);
 
 function localCharExists(id) {
@@ -200,6 +203,179 @@ function localCharIds() {
   } catch { return []; }
 }
 
+// ---------------- 资产集目录解析 ----------------
+// 一个资产集可能有两个落点：
+//   1) map_design/<dir>/            —— 仓库里的资产集（开发者维护）
+//   2) assets/assetpacks/<dir>/     —— 用户登记的资产集（只落了元数据 JSON）
+// 运行时资源（角色包等）只在 1) 里；2) 是登记快照。
+// 下面所有「资产集自带文件」的解析都走 packBase()，保证一处口径。
+function packBase(dir) {
+  const a = path.join(MAP_ROOT, dir);
+  if (fs.existsSync(a)) return a;
+  const b = path.join(ASSETS_ROOT, dir);
+  if (fs.existsSync(b)) return b;
+  return null;
+}
+
+// 资产集里某个角色的包目录（找不到返回 null）
+function packCharDir(dir, charId) {
+  const base = packBase(dir);
+  if (!base) return null;
+  const cd = path.join(base, 'chars', charId);
+  try { return fs.statSync(cd).isDirectory() ? cd : null; } catch { return null; }
+}
+
+// 资产集里某个角色用哪个 .def 作为入口。
+// 一个角色包里常常有多个 .def（主角色 + 变体，例如 LaoLeiKFM 里有
+// LaoLeiKFM.def / RalfAct.def / ikari.def），引擎的约定是「目录名同名的那个」
+// 才是这个角色的入口 —— 它上面的 [Info] name 也是这个角色的名字。
+// 找不到同名 .def 才退回第一个（按文件名排序）。
+function packCharDefName(dir, charId) {
+  const cd = packCharDir(dir, charId);
+  if (!cd) return null;
+  const names = listFilesRecursive(cd).filter((f) => /\.def$/i.test(f.name)).map((f) => f.name).sort();
+  if (!names.length) return null;
+  const exact = names.find((n) => n.toLowerCase() === (charId + '.def').toLowerCase());
+  return exact || names[0];
+}
+
+// .def 里 [Files] 引用的资产是否都能找到
+// extraRoot：额外的查找根（兜底层 ikemen-fs/file），引擎本来就会去那里找。
+function defAssetsResolve(base, defRel, extraRoot) {
+  let text;
+  try { text = fs.readFileSync(path.join(base, defRel), 'latin1'); } catch { return false; }
+  const KEYS = ['cns', 'st', 'st1', 'st2', 'st3', 'st4', 'st5', 'st6', 'st7', 'st8', 'stcommon',
+    'sprite', 'anim', 'sound', 'cmd',
+    'pal1', 'pal2', 'pal3', 'pal4', 'pal5', 'pal6'];
+  const defDir = path.posix.dirname(defRel);
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.split(';')[0].trim();
+    if (!line || line[0] === '[') continue;
+    const eq = line.indexOf('=');
+    if (eq < 0) continue;
+    const k = line.slice(0, eq).trim().toLowerCase();
+    const v = line.slice(eq + 1).trim();
+    if (!KEYS.includes(k) || !v) continue;
+    // 引擎的查找根：def 所在目录 / 根 / data/
+    const roots = [defDir, '', 'data'];
+    let found = false;
+    for (const r of roots) {
+      const rel = r ? r + '/' + v : v;
+      for (const cand of [rel, rel + '.zss']) {
+        try { if (fs.statSync(path.join(base, cand)).isFile()) { found = true; break; } } catch { /* 继续找 */ }
+      }
+      if (found) break;
+    }
+    if (!found && extraRoot) {
+      for (const r of roots) {
+        const rel = r ? r + '/' + v : v;
+        for (const cand of [rel, rel + '.zss']) {
+          try { if (fs.statSync(path.join(extraRoot, cand)).isFile()) { found = true; break; } } catch { /* 继续找 */ }
+        }
+        if (found) break;
+      }
+    }
+    if (!found) return false;
+  }
+  return true;
+}
+
+// 资产集里实际存在的角色 id 列表（目录里有角色包就算存在）
+function packCharIds(dir) {
+  const base = packBase(dir);
+  if (!base) return [];
+  const charsDir = path.join(base, 'chars');
+  let names = [];
+  try { names = fs.readdirSync(charsDir); } catch { return []; }
+  return names
+    .filter((n) => { try { return fs.statSync(path.join(charsDir, n)).isDirectory(); } catch { return false; } })
+    .sort();
+}
+
+// 资产集里真正「能用」的角色：入口 .def 引用的资产齐。
+// 注意 MasterRyu：它的 Sprite.sff 是合法的 SFF v2（不是残缺文件），
+// 但 def 里写的 stcommon=common1.cns 在角色包内不存在 —— 引擎的查找根
+// 里有 data/，兜底层有 data/common1.cns.zss，所以它靠兜底层才跑得起来。
+// 资产集自带 data/ 时同样成立，因此这里按「资产集根 + 兜底层」一起解析。
+function packCharUsable(dir, charId) {
+  const defName = packCharDefName(dir, charId);
+  if (!defName) return false;
+  const base = packBase(dir);
+  const defRel = 'chars/' + charId + '/' + defName;
+  if (defAssetsResolve(base, defRel)) return true;
+  // 回落：允许引用兜底层的 data/（引擎本来就会去那里找）
+  return defAssetsResolve(base, defRel, path.join(__dirname, '..', '..', 'ikemen-fs', 'file'));
+}
+
+// 资产集声明的角色池 ∩ 资产集自带且可用的角色
+// 这是「这个资产集能跑哪些角色」的唯一真源 —— 不再看引擎目录。
+function packCharPool(dir) {
+  const meta = packMeta(dir);
+  const pool = meta && meta.mapping && Array.isArray(meta.mapping.charPool) ? meta.mapping.charPool : [];
+  const have = packCharIds(dir).filter((id) => packCharUsable(dir, id));
+  const haveSet = new Set(have);
+  const own = pool.filter((id) => haveSet.has(id));
+  // 声明的池里没有可用的，但资产集目录里确实有能跑的角色 → 用目录里的
+  // （声明可能过期，目录才是实物）
+  return own.length ? own : have;
+}
+
+// ---------------- 资产集的文件清单（挂载用） ----------------
+// 返回 { baseUrl, files: {vpath: size} }：
+//   baseUrl 是这个资产集在 HTTP 上的根（相对仓库根的路径），
+//   files 是「相对资产集根」的路径 → 字节数。
+// 引擎按这个清单懒加载：只拉它真正打开的文件，一个 800 文件的资产集
+// 不会一次性下载。
+//
+// 用资产集自带的 manifest.json（若存在）作为清单来源，它就是资产集自己的
+// 「打包清单」；没有就现扫一遍目录。
+function packFiles(dir) {
+  const base = packBase(dir);
+  if (!base) return null;
+  const relBase = path.relative(path.join(__dirname, '..', '..'), base).split(path.sep).join('/');
+  const files = {};
+  const mf = readJson(path.join(base, 'manifest.json'));
+  if (mf && mf.files && typeof mf.files === 'object') {
+    for (const [k, v] of Object.entries(mf.files)) {
+      if (typeof v === 'number') files[k] = v;
+    }
+  } else {
+    for (const f of listFilesRecursive(base)) files[f.name] = f.size;
+  }
+  // 元数据 JSON 不是引擎资产，挂上去只会让引擎误以为有同名 .def
+  for (const meta of ['manifest.json', 'pack.json', 'story.json', 'roster.json', 'mapping.json']) {
+    delete files[meta];
+  }
+  return { baseUrl: './' + relBase, files, root: relBase };
+}
+
+// ---------------- 资产集的角色名单（select.def） ----------------
+// 引擎的选人屏读 data/select.def 的 [Characters]。这份名单必须跟着
+// 绑定到资产集走，所以按资产集自己的 chars/ 目录生成，运行时覆盖掉兜底层的那份。
+function packSelectDef(dir) {
+  // 只列真正能跑的角色（入口 .def 引用的资产齐），坏包不进名单
+  const ids = packCharIds(dir).filter((id) => packCharUsable(dir, id));
+  const lines = ['; 由服务端按资产集 ' + dir + ' 的 chars/ 目录生成（运行时覆盖 data/select.def）', '[Characters]'];
+  for (const id of ids) {
+    const defName = packCharDefName(dir, id);
+    if (!defName) continue;
+    lines.push(id + '/' + defName);
+  }
+  const base = packBase(dir);
+  const stages = [];
+  if (base) {
+    let names = [];
+    try { names = fs.readdirSync(path.join(base, 'stages')); } catch { names = []; }
+    for (const n of names) {
+      if (!/\.def$/i.test(n)) continue;
+      stages.push('stages/' + n);
+    }
+  }
+  lines.push('', '[ExtraStages]');
+  for (const s of stages) lines.push(s);
+  return lines.join('\n') + '\n';
+}
+
 // ---------------- 角色资产元信息（char.json） ----------------
 // 每个角色包目录里可以放一个 char.json，声明：
 //   { charId, displayName, roleType, profession, keyframeMode, description, ... }
@@ -207,15 +383,16 @@ function localCharIds() {
 //                / 'all' = 全替关键帧 / 'none' = 不用
 //
 // 查找顺序（先到先得）：
-//   1) 引擎目录 ikemen-fs/file/chars/<id>/char.json   ← 实际跑起来的角色
-//   2) 资产集目录 map_design/<dir>/chars/<id>/char.json ← 资产集自带的标记
-// 3) 登记目录 assets/assetpacks/<dir>/chars/<id>/char.json
+//   1) 资产集目录 map_design/<dir>/chars/<id>/char.json ← 资产集拥有这份标记
+//   2) 登记目录 assets/assetpacks/<dir>/chars/<id>/char.json
+//   3) 兜底目录 ikemen-fs/file/chars/<id>/char.json   ← 只有兜底角色才有
 function readCharMeta(charId, packDir) {
-  const dirs = [path.join(LOCAL_CHARS_DIR, charId)];
+  const dirs = [];
   if (packDir) {
     dirs.push(path.join(MAP_ROOT, packDir, 'chars', charId));
     dirs.push(path.join(ASSETS_ROOT, packDir, 'chars', charId));
   }
+  dirs.push(path.join(LOCAL_CHARS_DIR, charId));
   for (const d of dirs) {
     const m = readJson(path.join(d, 'char.json'));
     if (m && typeof m === 'object') return m;
@@ -235,10 +412,10 @@ function packCharMetas(dir) {
 
 // ---------------- 写入角色资产标记（char.json） ----------------
 // 写到哪里（先到先得，只写一处，避免同一角色有两份不一致的标记）：
-//   1) 引擎目录 ikemen-fs/file/chars/<id>/char.json   ← 实际跑起来的角色
-//   2) 资产集目录 map_design/<dir>/chars/<id>/char.json
-//   3) 登记目录 assets/assetpacks/<dir>/chars/<id>/char.json
-// 引擎目录不存在时（资产集里的角色还没装进引擎），退到资产集目录。
+//   1) 资产集目录 map_design/<dir>/chars/<id>/char.json   ← 资产集拥有这份标记
+//   2) 登记目录 assets/assetpacks/<dir>/chars/<id>/char.json
+//   3) 兜底目录 ikemen-fs/file/chars/<id>/char.json（只有兜底角色才有）
+// 引擎目录是只读的兜底层，不写。
 function writeCharMeta({ charId, packDir, meta }) {
   const id = String(charId || '').trim();
   if (!id || !/^[A-Za-z0-9_'\-]+$/.test(id)) throw new Error('角色名不合法');
@@ -249,12 +426,11 @@ function writeCharMeta({ charId, packDir, meta }) {
   }
   const dir = packDir ? String(packDir) : '';
   const targets = [];
-  const engDir = path.join(LOCAL_CHARS_DIR, id);
-  if (fs.existsSync(engDir)) targets.push(engDir);
   if (dir) {
     targets.push(path.join(MAP_ROOT, dir, 'chars', id));
     targets.push(path.join(ASSETS_ROOT, dir, 'chars', id));
   }
+  targets.push(path.join(LOCAL_CHARS_DIR, id));
   if (!targets.length) throw new Error('找不到角色目录：' + id);
   // 已存在 char.json 的那个目录优先（避免同一角色出现两份不一致的标记）
   const existing = targets.find((d) => fs.existsSync(path.join(d, 'char.json')));
@@ -274,4 +450,12 @@ function writeCharMeta({ charId, packDir, meta }) {
   return { path: file, meta: out };
 }
 
-module.exports = { MAP_ROOT, ASSETS_ROOT, REGISTRY_PATH, listPacks, packMeta, packCharPool, packCharDirs, packCharMetas, readCharMeta, writeCharMeta, localCharIds, localCharExists, readRegistry, registerPack };
+module.exports = {
+  MAP_ROOT, ASSETS_ROOT, REGISTRY_PATH,
+  listPacks, packMeta, packCharPool, packCharDirs, packCharMetas,
+  readCharMeta, writeCharMeta,
+  localCharIds, localCharExists,
+  readRegistry, registerPack,
+  // 资产集自己的资源（挂载 / 名单 / 角色完整性）
+  packBase, packCharDir, packCharIds, packCharUsable, packFiles, packSelectDef,
+};

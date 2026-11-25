@@ -207,6 +207,29 @@
   const dirs = new Set(['']);   // known directory vpaths ('' = root)
   const fetching = new Map();   // vpath -> Promise<Uint8Array>
 
+  // --- Asset-pack mounts (L1) -------------------------------------------
+  // The engine's own tree (ikemen-fs/file) is the FALLBACK layer: a small,
+  // redistributable set of default characters/stages. An asset pack brings
+  // its OWN assets and must not be copied into that tree - one copy per pack
+  // does not scale to thousands of packs, and it would put third-party
+  // character binaries into the redistributed build.
+  //
+  // So a pack is MOUNTED instead: its files appear in the VFS under their
+  // own relative paths (chars/<id>/<id>.def, data/..., stages/...), served
+  // straight from the HTTP server (the static file server already exposes
+  // any directory in the repo) or from a CDN. Nothing is copied; the engine
+  // pulls only the files it actually opens, lazily.
+  //
+  // A mounted file SHADOWS the shipped file of the same vpath, which is
+  // exactly the semantics a pack wants for data/ and external/ - but it
+  // also means a pack can silently replace engine files, so packs declare
+  // which prefixes they overlay (see packs.cjs packFiles).
+  //
+  // mounts: vpath -> { url, size }
+  const mounts = new Map();
+  // mountId -> { prefix, baseUrl, files: Map<vpath, {url,size}> }
+  const mountSets = new Map();
+
   // --- Save persistence -----------------------------------------------
   // Files the engine writes under save/ (key remaps, options, stats) are
   // mirrored into localStorage so they survive page reloads. Writes are
@@ -292,11 +315,12 @@ try { for (var __i = localStorage.length - 1; __i >= 0; __i--) { var __k = local
   }
 
   function exists(vpath) {
-    return contents.has(vpath) || manifest.has(vpath) || dirs.has(vpath);
+    return contents.has(vpath) || mounts.has(vpath) || manifest.has(vpath) || dirs.has(vpath);
   }
   function isDir(vpath) { return dirs.has(vpath); }
   function sizeOf(vpath) {
     if (contents.has(vpath)) return contents.get(vpath).length;
+    if (mounts.has(vpath)) return mounts.get(vpath).size;
     if (manifest.has(vpath)) return manifest.get(vpath);
     return 0;
   }
@@ -319,9 +343,16 @@ try { for (var __i = localStorage.length - 1; __i >= 0; __i--) { var __k = local
     if (contents.has(vpath)) return contents.get(vpath);
     if (fetching.has(vpath)) return fetching.get(vpath);
     const p = (async () => {
+      // Resolution order (highest first):
+      //   contents  - browser-side overlay (Mod Studio / user folder), already in memory
+      //   mounts    - the bound asset pack, served over HTTP from wherever it lives
+      //   manifest  - the shipped fallback tree under ikemen-fs/file/
+      // A mounted file SHADOWS the shipped one with the same vpath.
+      const m = mounts.get(vpath);
       // Relative URL so the game works from any subfolder on a static host.
-      const res = await fetch('./ikemen-fs/file/' + encodeURIComponent(vpath).replace(/%2F/gi, '/')
-        + (globalThis.ikemenAssetStamp ? '?v=' + encodeURIComponent(globalThis.ikemenAssetStamp) : ''), { cache: 'no-cache' });
+      const url = m ? m.url : ('./ikemen-fs/file/' + encodeURIComponent(vpath).replace(/%2F/gi, '/')
+        + (globalThis.ikemenAssetStamp ? '?v=' + encodeURIComponent(globalThis.ikemenAssetStamp) : ''));
+      const res = await fetch(url, { cache: 'no-cache' });
       if (!res.ok) throw enoent(vpath);
       const buf = new Uint8Array(await res.arrayBuffer());
       contents.set(vpath, buf);
@@ -409,7 +440,7 @@ try { for (var __i = localStorage.length - 1; __i >= 0; __i--) { var __k = local
         fds.set(fd, { vpath, flags });
         callback(null, fd);
       };
-      if (!contents.has(vpath) && manifest.has(vpath) && !(flags & O_TRUNC)) {
+      if (!contents.has(vpath) && (manifest.has(vpath) || mounts.has(vpath)) && !(flags & O_TRUNC)) {
         fetchFile(vpath).then(finish, err => callback(err));
       } else {
         finish();
@@ -481,6 +512,7 @@ try { for (var __i = localStorage.length - 1; __i >= 0; __i--) { var __k = local
       };
       for (const p of manifest.keys()) collect(p);
       for (const p of contents.keys()) collect(p);
+      for (const p of mounts.keys()) collect(p);
       for (const d of dirs) collect(d);
       callback(null, Array.from(names));
     },
@@ -672,6 +704,66 @@ try { for (var __i = localStorage.length - 1; __i >= 0; __i--) { var __k = local
         tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error);
       });
     },
+  };
+
+  // --- Asset-pack mounts -------------------------------------------------
+  // Mount an asset pack into the VFS WITHOUT copying anything into
+  // ikemen-fs/file/. `files` maps a vpath ("chars/LinYu/LinYu.def") to its
+  // byte size; `baseUrl` is the directory those files live in on the
+  // server (or a CDN). The pack's own relative layout is preserved, so the
+  // engine finds a character exactly where it expects it: under chars/, with
+  // its assets resolved relative to its .def.
+  //
+  // Mounting is lazy: the engine asks for a file by vpath, and only then is
+  // the URL fetched. A pack with 800 files costs one small manifest up
+  // front, not 800 requests.
+  globalThis.ikemenVfsMount = function (id, baseUrl, files) {
+    const key = String(id || '');
+    if (!key) throw new Error('mount id is required');
+    const base = String(baseUrl || '').replace(/\/+$/, '');
+    const set = { prefix: key, baseUrl: base, files: new Map() };
+    // A previous mount of the same id is replaced wholesale.
+    globalThis.ikemenVfsUnmount(key);
+    for (const [vpath, size] of Object.entries(files || {})) {
+      const vp = norm(vpath);
+      if (!vp) continue;
+      // Each path segment is encoded separately: a vpath segment may contain
+      // characters that are legal in a filename but not in a URL (a Chinese
+      // directory name, a quote in "K'/K'.def"), and encoding the whole
+      // string would also escape the separators.
+      const enc = vp.split('/').map(encodeURIComponent).join('/');
+      set.files.set(vp, { url: base + '/' + enc, size: Number(size) || 0 });
+      mounts.set(vp, set.files.get(vp));
+      registerDirsFor(vp);
+    }
+    mountSets.set(key, set);
+    // The mounted pack changes the build, so the Build ID (which the netplay
+    // build-check exchanges) has to be recomputed. Until the VFS is
+    // initialized there is nothing to hash yet.
+    if (typeof globalThis.ikemenComputeBuildIdNow === 'function') {
+      try { globalThis.ikemenComputeBuildIdNow(); } catch (e) { console.warn('[vfs] build id recompute failed', e); }
+    }
+    return { id: key, count: set.files.size };
+  };
+  // Remove a mount. Files already pulled into memory stay (they are the
+  // bytes the engine is already using); the rest go back to the shipped tree.
+  globalThis.ikemenVfsUnmount = function (id) {
+    const key = String(id || '');
+    const set = mountSets.get(key);
+    if (!set) return 0;
+    for (const [vp, m] of set.files) {
+      if (mounts.get(vp) === m) mounts.delete(vp);
+    }
+    mountSets.delete(key);
+    if (typeof globalThis.ikemenComputeBuildIdNow === 'function') {
+      try { globalThis.ikemenComputeBuildIdNow(); } catch (e) { console.warn('[vfs] build id recompute failed', e); }
+    }
+    return set.files.size;
+  };
+  globalThis.ikemenVfsMounts = function () {
+    return [...mountSets.values()].map((s) => ({
+      id: s.prefix, baseUrl: s.baseUrl, count: s.files.size,
+    }));
   };
 
   // Called by the boot page before starting the wasm module.
@@ -1158,18 +1250,32 @@ try { for (var __i = localStorage.length - 1; __i >= 0; __i--) { var __k = local
     // picks are deliberately NOT hashed - music is render-side and cannot
     // desync lockstep.
     //
+    // The MOUNTED ASSET PACK counts as part of the build too: two players
+    // bound to different packs play different characters, so their builds
+    // must not match. Its files are not in `shipped` (they live on a server
+    // or a CDN) and we do not want to download them just to hash them, so
+    // the mount set enters the ID as a SIGNATURE (path + size + source),
+    // folded into the overlay part - which keeps this working with a
+    // build-id.js that knows only about `shipped` / `overlay` / `motif`.
+    //
     // ONE FUNCTION, CALLED FROM HERE AND FROM THE STUDIO. The Studio's "Send
     // my build" and the boot page's compare box need the same number this
     // page prints, and a second copy of the hash would drift. The combined
     // ID is byte-for-byte what it always was; three PART hashes (the shipped
     // list, the mods, the theme) ride along in the same pass so a mismatch
     // can be named, and are shown nowhere the combined ID was not.
-    {
+    globalThis.ikemenComputeBuildIdNow = function () {
       // Unpacked builds list their files in manifest, packed builds in
       // packedIndex. Hash whichever is populated - iterating only manifest
       // meant every packed build hashed nothing but its motif string.
       const shipped = new Map([...manifest, ...packedIndex]);
       const overlay = overlayPaths.sort().map((p) => [p, contents.get(p)]);
+      const mountSig = [...mounts.entries()]
+        .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+        .map(([vpath, m]) => vpath + '|' + m.size + '|' + m.url).join('\n');
+      if (mountSig) {
+        overlay.push(['__mounts__', new TextEncoder().encode(mountSig)]);
+      }
       // A vfs.js dropped onto an older upload without build-id.js beside
       // it must still boot: no Build ID (the boot line says so, netplay
       // refuses without one) beats a BOOT ERROR before the title screen.
@@ -1183,7 +1289,8 @@ try { for (var __i = localStorage.length - 1; __i >= 0; __i--) { var __k = local
         console.warn('[vfs] ' + globalThis.ikemenBuildIdError);
       }
       globalThis.ikemenMotif = effectiveMotif || '';
-    }
+    };
+    globalThis.ikemenComputeBuildIdNow();
 
     // The online name the player set in NETWORK > PLAYER NAME. It lives in
     // save/config.ini (the engine's own settings file), which this module

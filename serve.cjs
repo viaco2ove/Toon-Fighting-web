@@ -21,7 +21,7 @@
 //   GET  /api/assetpacks                         # 资产集列表（map_design 扫描 + assets/assetpacks 登记簿）
 //   GET  /api/packs/:dir                         # 资产集元数据 pack/story/roster/mapping
 //   POST /api/packs/register                     # 登记用户自选的资产集文件夹（body {dirName,pack,story,roster,mapping}）
-const { listPacks, packMeta, localCharIds, registerPack, packCharDirs, packCharMetas, writeCharMeta } = require('./server/lib/packs.cjs');
+const { listPacks, packMeta, localCharIds, registerPack, packCharDirs, packCharMetas, writeCharMeta, packFiles, packSelectDef, packCharPool, packCharIds, packBase, packCharDir, packCharDefName } = require('./server/lib/packs.cjs');
 const { portraitFor } = require('./server/lib/portrait.cjs');
 const { animFrames } = require('./server/lib/anim.cjs');
 const { buildSpeechRequest, cleanLine } = require('./server/lib/speech-agent.cjs');
@@ -33,6 +33,26 @@ const ROOT = __dirname;
 const PLUGIN_ID = 'com.viaco.toon-fighting';
 const SPRITE_AGENT = 'field-survival-sprite-gener'; // PluginAgentRunner sprite 分支
 const CHARS_DIR = path.join(ROOT, 'ikemen-fs', 'file', 'chars');
+
+// 角色包的查找根：绑定资产集时，角色在资产集自己的 chars/ 里；
+// 没有绑定（或角色不在资产集里）才回落到兜底层。
+// 这就是「资产集自带资产、引擎目录只放兜底」在读路径上的体现 ——
+// 同一个角色 id，在不同资产集下解析到不同的目录。
+function charPkgDir(packDir, charId) {
+  if (packDir) {
+    const cd = packCharDir(packDir, charId);
+    if (cd) return cd;
+  }
+  return path.join(CHARS_DIR, charId);
+}
+// 端口rait/anim/pose 用的「chars 根」：资产集优先
+function charPkgRoot(packDir) {
+  if (packDir) {
+    const base = packBase(packDir);
+    if (base) return path.join(base, 'chars');
+  }
+  return CHARS_DIR;
+}
 
 // ---------- 参数解析 ----------
 const argv = process.argv.slice(2);
@@ -239,7 +259,7 @@ function normalizeRole(raw) {
   };
 }
 
-async function handleApi(req, res, urlPath) {
+async function handleApi(req, res, urlPath, query) {
   // ---- 本地接口：不依赖 --conn（纯本地模式也要有资产集与头像） ----
 
   // 资产集列表（本地概念，扫 map_design/*/pack.json）
@@ -326,13 +346,39 @@ async function handleApi(req, res, urlPath) {
     return json(res, 200, { ok: true, meta });
   }
 
+  // 资产集的文件清单（挂载用）：vpath → 字节数 + 这个资产集在 HTTP 上的根。
+  // 前端拿它调 vfs 的 ikemenVfsMount，把资产集挂进 VFS —— 零拷贝。
+  m = /^\/api\/packs\/([^/]+)\/files$/.exec(urlPath);
+  if (m) {
+    const dir = decodeURIComponent(m[1]);
+    const f = packFiles(dir);
+    if (!f) return json(res, 200, { ok: false, error: '没有这个资产集：' + dir });
+    return json(res, 200, {
+      ok: true, dir, baseUrl: f.baseUrl, files: f.files,
+      chars: packCharIds(dir), pool: packCharPool(dir),
+    });
+  }
+
+  // 资产集的角色名单（select.def）：按资产集自己的 chars/ 目录生成，
+  // 运行时覆盖掉兜底层 data/select.def 的那份。
+  m = /^\/api\/packs\/([^/]+)\/select\.def$/.exec(urlPath);
+  if (m) {
+    const dir = decodeURIComponent(m[1]);
+    if (!packBase(dir)) return json(res, 200, { ok: false, error: '没有这个资产集：' + dir });
+    const text = packSelectDef(dir);
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(text);
+  }
+
   // MUGEN 角色头像（从角色包的 sff 里解 9000,0 立绘 → PNG）
+  // ?pack=<dir> 时从该资产集的角色包里取（资产集自带资产优先，兜底层其次）
   m = /^\/api\/portrait\/([^/]+)$/.exec(urlPath);
   if (m) {
     const charId = decodeURIComponent(m[1]);
     if (!/^[A-Za-z0-9_'\-]+$/.test(charId)) return json(res, 400, { ok: false, error: '角色名不合法' });
+    const packDir = query.get('pack') || '';
     let png = null;
-    try { png = portraitFor(CHARS_DIR, charId); } catch { png = null; }
+    try { png = portraitFor(charPkgRoot(packDir), charId); } catch { png = null; }
     if (!png) return json(res, 200, { ok: false, error: '这个角色没有可用头像' });
     res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.png.length, 'Cache-Control': 'no-store' });
     return res.end(png.png);
@@ -346,10 +392,11 @@ async function handleApi(req, res, urlPath) {
     const charId = decodeURIComponent(m[1]);
     const actionNo = Number(m[2]);
     if (!/^[A-Za-z0-9_'\-]+$/.test(charId)) return json(res, 400, { ok: false, error: '角色名不合法' });
-    const key = charId + '|' + actionNo;
+    const packDir = query.get('pack') || '';
+    const key = (packDir ? packDir + '|' : '') + charId + '|' + actionNo;
     let anim = ANIM_CACHE.get(key);
     if (anim === undefined) {
-      try { anim = animFrames(CHARS_DIR, charId, actionNo); } catch { anim = null; }
+      try { anim = animFrames(charPkgRoot(packDir), charId, actionNo); } catch { anim = null; }
       ANIM_CACHE.set(key, anim);
     }
     if (!anim) return json(res, 200, { ok: false, error: '这个角色没有可用的动作帧' });
@@ -361,10 +408,11 @@ async function handleApi(req, res, urlPath) {
   if (m) {
     const charId = decodeURIComponent(m[1]);
     if (!/^[A-Za-z0-9_'\-]+$/.test(charId)) return json(res, 400, { ok: false, error: '角色名不合法' });
-    const key = charId + '|0';
+    const packDir = query.get('pack') || '';
+    const key = (packDir ? packDir + '|' : '') + charId + '|0';
     let anim = ANIM_CACHE.get(key);
     if (anim === undefined) {
-      try { anim = animFrames(CHARS_DIR, charId, 0); } catch { anim = null; }
+      try { anim = animFrames(charPkgRoot(packDir), charId, 0); } catch { anim = null; }
       ANIM_CACHE.set(key, anim);
     }
     let pngBuf = null;
@@ -373,7 +421,7 @@ async function handleApi(req, res, urlPath) {
     }
     if (!pngBuf) {
       // 没有 air/动作帧 → 回退 9000,0 头像
-      try { const p = portraitFor(CHARS_DIR, charId); pngBuf = p && p.png; } catch { pngBuf = null; }
+      try { const p = portraitFor(charPkgRoot(packDir), charId); pngBuf = p && p.png; } catch { pngBuf = null; }
     }
     if (!pngBuf) return json(res, 200, { ok: false, error: '没有可用姿势' });
     res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': pngBuf.length, 'Cache-Control': 'no-store' });
@@ -674,8 +722,12 @@ const MIME = {
 };
 
 http.createServer((req, res) => {
-  const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-  if (urlPath.startsWith('/api/')) return handleApi(req, res, urlPath);
+  const rawUrl = req.url || '/';
+  const urlPath = decodeURIComponent(rawUrl.split('?')[0]);
+  // ?pack=<dir>：角色资源按资产集解析（资产集自带优先，兜底层其次）。
+  // 没有它就按兜底层解析 —— 纯本地模式、不绑定资产集时行为不变。
+  const query = new URLSearchParams(rawUrl.split('?')[1] || '');
+  if (urlPath.startsWith('/api/')) return handleApi(req, res, urlPath, query);
   let p = urlPath;
   if (p === '/' || p === '') p = '/index.html';
   const file = path.join(ROOT, p);

@@ -1,11 +1,12 @@
+; 兜底角色名单（随站点/APK 分发的通用角色）。
+; 资产集的角色名单由服务端按资产集自身 chars/ 目录运行时生成，
+; 绑定资产集时通过 VFS 覆盖层替换本文件 —— 本文件只列兜底层角色，不要往这里塞资产集角色。
 [Characters]
 Hinako/Hinako.def
 Rugal2nd/Rugal2nd.def
 Lin/Lin.def
 K'/K'.def
 Leona/Leona.def
-LinYu/LinYu.def
-LinYuAI/LinYuAI.def
 
 [ExtraStages]
 stages/kfm.def
