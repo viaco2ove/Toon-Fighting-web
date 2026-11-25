@@ -105,7 +105,13 @@ function listPacks() {
 // 登记目录存在的意义是「用户选了 map_design 之外的文件夹」，那种情况 map_design 没有，
 // 自然会回落到登记目录。
 function packMeta(dir) {
-  const bases = [path.join(MAP_ROOT, dir), path.join(ASSETS_ROOT, dir)];
+  // 候选目录：map_design/<dirName>（登记簿里记的磁盘目录名）→ map_design/<dir>
+  // → assets/assetpacks/<dir>。
+  const reg = readRegistry().packs.find((p) => p.id === dir || p.dir === dir);
+  const bases = [];
+  if (reg && reg.dirName) bases.push(path.join(MAP_ROOT, reg.dirName));
+  bases.push(path.join(MAP_ROOT, dir));
+  bases.push(path.join(ASSETS_ROOT, dir));
   const base = bases.find((b) => fs.existsSync(b));
   if (!base) return null;
   // 逐个文件取「先找到的那个」：map_design 有就用它，没有的（用户自选目录）用登记目录补
@@ -118,6 +124,7 @@ function packMeta(dir) {
   };
   return {
     dir,
+    dirName: reg && reg.dirName ? reg.dirName : dir,
     pack: pick('pack.json'),
     story: pick('story.json'),
     roster: pick('roster.json'),
@@ -139,7 +146,13 @@ function packCharPool(dir) {
 //   （职业 / roleType / 关键帧模式），没有该文件时为 null。
 function packCharDirs(dir) {
   const byId = new Map();
-  for (const base of [path.join(MAP_ROOT, dir), path.join(ASSETS_ROOT, dir)]) {
+  // 资产集资源目录（map_design/<dirName>/）+ 登记目录（assets/assetpacks/<dir>/）
+  const bases = [];
+  const reg = readRegistry().packs.find((p) => p.id === dir || p.dir === dir);
+  if (reg && reg.dirName) bases.push(path.join(MAP_ROOT, reg.dirName));
+  bases.push(path.join(MAP_ROOT, dir));
+  bases.push(path.join(ASSETS_ROOT, dir));
+  for (const base of bases) {
     const charsDir = path.join(base, 'chars');
     let names = [];
     try { names = fs.readdirSync(charsDir); } catch { continue; }
@@ -150,8 +163,11 @@ function packCharDirs(dir) {
         if (!fs.statSync(cd).isDirectory()) continue;
         files = listFilesRecursive(cd);
       } catch { continue; }
-      const def = files.find((f) => /\.def$/i.test(f.name));
-      if (!def) continue;
+      // 入口 def：与目录同名的那个（主角色），否则第一个
+      const defs = files.filter((f) => /\.def$/i.test(f.name)).sort((a, b) => a.name.localeCompare(b.name));
+      if (!defs.length) continue;
+      const exact = defs.find((f) => f.name.toLowerCase() === (name + '.def').toLowerCase());
+      const def = exact || defs[0];
       const prev = byId.get(name);
       if (prev && prev.files.length >= files.length) continue;
       const metaFile = files.find((f) => /^char\.json$/i.test(f.name));
@@ -209,11 +225,22 @@ function localCharIds() {
 //   2) assets/assetpacks/<dir>/     —— 用户登记的资产集（只落了元数据 JSON）
 // 运行时资源（角色包等）只在 1) 里；2) 是登记快照。
 // 下面所有「资产集自带文件」的解析都走 packBase()，保证一处口径。
-function packBase(dir) {
-  const a = path.join(MAP_ROOT, dir);
-  if (fs.existsSync(a)) return a;
-  const b = path.join(ASSETS_ROOT, dir);
-  if (fs.existsSync(b)) return b;
+//
+// 注意「标识符」有两种：
+//   dir     —— map_design 里的目录名，或登记簿里的 packId
+//   dirName —— 登记时用户在磁盘上的文件夹名
+// 登记簿里 dir=packId、dirName=磁盘目录名，而资源在 map_design/<dirName> 下，
+// 所以这里把三种候选都试一遍。
+function packBase(dir, dirName) {
+  const cands = [];
+  const reg = readRegistry().packs.find((p) => p.id === dir || p.dir === dir);
+  if (reg && reg.dirName) cands.push(path.join(MAP_ROOT, reg.dirName));
+  if (dirName) cands.push(path.join(MAP_ROOT, dirName));
+  cands.push(path.join(MAP_ROOT, dir));
+  cands.push(path.join(ASSETS_ROOT, dir));
+  for (const c of cands) {
+    try { if (fs.existsSync(c) && fs.statSync(c).isDirectory()) return c; } catch { /* 下一个 */ }
+  }
   return null;
 }
 
@@ -391,6 +418,8 @@ function readCharMeta(charId, packDir) {
   if (packDir) {
     dirs.push(path.join(MAP_ROOT, packDir, 'chars', charId));
     dirs.push(path.join(ASSETS_ROOT, packDir, 'chars', charId));
+    const reg = readRegistry().packs.find((p) => p.id === packDir || p.dir === packDir);
+    if (reg && reg.dirName) dirs.push(path.join(MAP_ROOT, reg.dirName, 'chars', charId));
   }
   dirs.push(path.join(LOCAL_CHARS_DIR, charId));
   for (const d of dirs) {
@@ -429,6 +458,8 @@ function writeCharMeta({ charId, packDir, meta }) {
   if (dir) {
     targets.push(path.join(MAP_ROOT, dir, 'chars', id));
     targets.push(path.join(ASSETS_ROOT, dir, 'chars', id));
+    const reg = readRegistry().packs.find((p) => p.id === dir || p.dir === dir);
+    if (reg && reg.dirName) targets.push(path.join(MAP_ROOT, reg.dirName, 'chars', id));
   }
   targets.push(path.join(LOCAL_CHARS_DIR, id));
   if (!targets.length) throw new Error('找不到角色目录：' + id);
@@ -457,5 +488,5 @@ module.exports = {
   localCharIds, localCharExists,
   readRegistry, registerPack,
   // 资产集自己的资源（挂载 / 名单 / 角色完整性）
-  packBase, packCharDir, packCharIds, packCharUsable, packFiles, packSelectDef,
+  packBase, packCharDir, packCharIds, packCharUsable, packFiles, packSelectDef, packCharDefName,
 };

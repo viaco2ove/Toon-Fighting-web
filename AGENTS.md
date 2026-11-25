@@ -30,10 +30,10 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
   - `packs.cjs` —— 资产集扫描与元数据读取。
   - `speech-agent.cjs` —— **发言 agent（写在本项目）**：按角色人设+故事世界观构造 system/user 提示词，走后端 `plugin-llm` 通道；输出清洗（剥围栏/引号/「角色名：」前缀）。
 - `ikemen.wasm`（约 24MB）/ `wasm_exec.js` —— 引擎本体与 Go runtime 胶水层。
-- `vfs.js` —— 引擎虚拟文件系统。入口 `ikemenVfsInit(manifestUrl, preloadList, onProgress)`，懒加载 + localStorage 覆盖层。
+- `vfs.js` —— 引擎虚拟文件系统。入口 `ikemenVfsInit(manifestUrl, preloadList, onProgress)`，懒加载 + localStorage 覆盖层 + **资产集挂载层**（`ikemenVfsMount(id, baseUrl, files)`，见机制 13）。
 - `ikemen-fs/manifest.json` —— `{"stamp": "...", "files": {"<相对 file/ 的路径>": <字节数>}}`。
-- `ikemen-fs/file/` —— 336 个游戏资源文件：
-  - `chars/{Hinako, K', Lin, Rugal2nd, Leona, 98-kim, MasterRyu}`（后两者资源残缺，缺 sff/cns，跑不起来；Leona=KOFA 版，var(59) 天然惰性免 AI 闸）
+- `ikemen-fs/file/` —— **兜底层**（只读）：随站点/APK 分发的默认资源。资产集的角色**永远不拷进这里**（见机制 13）。
+  - `chars/{Hinako, K', Lin, Rugal2nd, Leona}` —— 兜底角色。Leona=KOFA 版，var(59) 天然惰性免 AI 闸。（98-kim/MasterRyu 原为残缺包，已移出兜底层，备份在 `.cache/bak/p0-fallback-cleanup/`）
   - `stages/` 9 个 def
   - `data/`：`system.def`、`select.def`、`common.*`、`fight.*`、`training.zss`
   - `external/script/`：`main.lua`、`start.lua`、`menu.lua`、`options.lua`、`debug.lua`、`default.lua`、`headavatar.lua`（实体头顶悬浮头像的坐标输出，见机制 10）
@@ -125,6 +125,17 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
    - **诊断**：`window.__tfArgv` 在 startEngine 入口同步写入，点完【开始】立刻可读，不需要等引擎帧（headless 下引擎帧经常拿不到）。探针 `.cache/scripts/probe-kof-argv.mjs`（断言 tmode=2 + 1 人队 ×3）；`.cache/scripts/probe-kof.mjs` 走完整开打等帧。
    - **发言 agent**（`server/lib/speech-agent.cjs` + `/api/conn/agent/speech`，走后端 `/plugin/agentRun` plugin-llm）三层齐全：开场 intro（battleIntro 双方并发）、过程 random（22s 轮询 22% 概率）、胜负 win/lose（onMatchResult）。前端 index.html：开场/胜负 = 打字机流式上屏（55ms/字，`showSpeech(side,text,stream)`，被顶掉时清定时器），随机发言即时显示；fetch 统一 `AbortSignal.timeout(15000)`，出错/超时静默跳过。**台词不显示 ≠ 没对接**——实测后端可能回「已达到 Token Plan 用量上限(2056)」，额度耗尽时全部静默跳过，先用 curl POST `/api/conn/agent/speech` 验证再查代码。已知渲染限制：facebar/headav 只显示每队第一个角色，turns 换人时不跟随当前上场者。
    - 设置面板「战斗开场与发言」pane（st-speech：文字/文字+语音/关；st-countdown：3 秒倒计时开关）即发言的开关，语音用浏览器 speechSynthesis。
+
+14. **资产集挂载：资产集的资源不进 `ikemen-fs/file`，靠 VFS 挂载层零拷贝接入（2026-11-26）。**
+   - **`ikemen-fs/file/` 是只读的兜底层**，只放随站点/APK 分发的默认角色/舞台。资产集的角色**永远不拷进去** —— 一万个资产集塞一份拷贝进引擎目录既撑爆体积，又把第三方角色包混进分发物。设计文档：`md/curdesign/ai格斗设计/资产集/资产绑定方案.md`。
+   - **机制**：资产集目录（`workshops/toon-fighting-web/map_design/<dir>/`）原样保持自己的相对布局 → 前端调 `/api/packs/:dir/files` 拿到 `{baseUrl, files:{vpath:size}}` → `vfs.js` 的 `ikemenVfsMount(id, baseUrl, files)` 把它挂进 VFS → 引擎按 vpath 懒加载（`fetchFile` 顺序：contents(浏览器覆盖层) → mounts(资产集) → manifest(兜底)）。**零拷贝、零磁盘占用**，挂载的路径 + 大小 + 来源 URL 折进 Build ID（联机两个人挂不同资产集不会算成同一个 build）。
+   - **引擎零改动即可命中**：角色 def 在 `chars/` 下就能被找到（`system.go:5531` `SearchFile(def, []string{"", "data/"}, "chars/")`），附属资产按 **def 所在目录**相对解析（`system.go:5653`、`compiler.go:8362`），还支持 ZIP 角色包（`system.go:5482`）。所以「挂载后资产集自己的 chars/ 就是 chars/」这个约定是够的。
+   - **`-p<n>` 传完整相对路径**（`chars/<id>/<def>`，不是裸 id）：一个角色包里常有好几个 .def（LaoLeiKFM 里有 `LaoLeiKFM.def`/`RalfAct.def`/`ikari.def`），裸 id 会让引擎猜错入口。入口 def 由服务端按「与目录同名优先」给出（`/api/packs/:dir/files` 的 `defs` 字段）。
+   - **名单跟着资产集走**：`data/select.def` 由 `/api/packs/:dir/select.def` 按资产集自己的 `chars/` 现生成，运行时以挂载方式盖住兜底层那份（兜底那份只列兜底角色）。
+   - **「缺角色」的语义**：告警说的是「**资产集自己**缺的角色」（`mapping.charPool` 减资产集自带的可用角色），不是「引擎目录里没有」。旧口径拿引擎目录去比，资产集明明带着角色也会报「本地缺少 14 个」。
+   - **兜底层与资产集分家**：`localCharIds()` 只返回兜底角色；`packCharPool(dir)` 只看资产集自己的目录；`readCharMeta`/`writeCharMeta` 优先写资产集目录（引擎目录只读）。`/api/portrait` `/api/anim` `/api/pose` 接受 `?pack=<dir>`，先查资产集再回落兜底。
+   - **工具链落点**：AI 补丁 `patch-char-ai.mjs`（现在收一个角色包根目录参数）打资产集目录，不打引擎目录。`.cache/scripts/rebuild-manifest.mjs` 只管兜底层 —— 资产集有自己的 `manifest.json`。
+   - **验证**：`.cache/scripts/verify-pack-mount.mjs`（挂载表 + 引擎目录不变）、`.cache/scripts/verify-pack-char.mjs`（引擎真跑起资产集角色 + 零 `DEF not found` + manifest 前后不变）。
 
 ## 键位
 

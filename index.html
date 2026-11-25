@@ -1213,7 +1213,15 @@
   };
   // 引擎本地已装且验证可跑的角色（98-kim/MasterRyu 资源残缺，不进池）
   // 改为完全来自资产集
-  const LOCAL_OK = [];
+  //
+  // 两个概念，必须分开（见 md/curdesign/ai格斗设计/资产集/资产绑定方案.md）：
+  //   FALLBACK_CHARS —— 兜底角色，随站点/APK 分发的默认集合（ikemen-fs/file/chars，只读）
+  //   PACK_CHARS     —— 当前绑定资产集自带的角色（资产集自己的 chars/ 目录）
+  // 旧代码把两者混在一个 LOCAL_OK 里，还把服务端下发的兜底名单 push 进去，
+  // 于是「资产集声明的角色」要拿「引擎目录里的角色」去比，缺了就说「本地缺少」——
+  // 而那些角色其实就在资产集目录里。
+  const FALLBACK_CHARS = [];
+  const PACK_CHARS = [];
 
   // ---------------- 头像 ----------------
   // MUGEN 头像：由服务端从角色包的 sff 里解出（/api/portrait/<id>）；
@@ -1222,7 +1230,13 @@
   // 头像版本号：服务端转换逻辑变更时递增，用于绕开浏览器旧缓存。
   const AVATAR_VER = '3';
   function mugPortraitUrl(charId) {
-    return '/api/portrait/' + encodeURIComponent(charId);
+    return '/api/portrait/' + encodeURIComponent(charId) + packQuery();
+  }
+  // 资产集查询串：告诉服务端「这个角色在当前绑定的资产集里」，
+  // 服务端按资产集自己的 chars/ 目录找（找不到再回落兜底层）。
+  function packQuery() {
+    const d = PACKS.cur && PACKS.cur.dir;
+    return d ? '?pack=' + encodeURIComponent(d) : '';
   }
   function rolePortraitUrl(role) {
     if (!role || !role.avatarPath) return null;
@@ -1291,7 +1305,7 @@
   function loadLastSession() {
     try { return JSON.parse(localStorage.getItem(STORY_KEY) || 'null'); } catch { return null; }
   }
-  const PACKS = { list: [], cur: null, mapping: null, roster: null, localChars: [], charMeta: {}, pendingBind: null, bound: null };
+  const PACKS = { list: [], cur: null, mapping: null, roster: null, localChars: [], packChars: {}, packDefs: {}, charMeta: {}, pendingBind: null, bound: null, mounted: '', mount: null, selectDefInjected: false };
 
   // 角色资产元信息（服务端从各角色包的 char.json 汇总）：
   //   { charId: { profession, roleType, keyframeMode, displayName, description } }
@@ -1307,22 +1321,30 @@
     return v === 'some' || v === 'merge' || v === 'all' ? v : 'none';
   }
 
+  // 当前可用的角色池：资产集自带的角色（主）+ 兜底角色（备）。
+  // 资产集自带的角色是「这个资产集能跑的角色」，由服务端按资产集自己的
+  // chars/ 目录算出来（/api/packs/:dir/files 的 pool 字段），不再拿引擎目录去比。
   function packCharPool() {
-    // mapping.charPool ∩ 本地可跑集合
-    const pool = PACKS.mapping && Array.isArray(PACKS.mapping.charPool)
-      ? PACKS.mapping.charPool.filter((id) => LOCAL_OK.includes(id))
-      : LOCAL_OK.slice();
-    return pool.length ? pool : LOCAL_OK.slice();
+    if (PACK_CHARS.length) return PACK_CHARS.slice();
+    // 资产集还没给出自己的角色（老服务端 / 登记目录没有运行时资源）→ 退回声明的池
+    const declared = PACKS.mapping && Array.isArray(PACKS.mapping.charPool) ? PACKS.mapping.charPool : [];
+    return declared.length ? declared.slice() : FALLBACK_CHARS.slice();
   }
   async function loadPacks(force) {
     let r = null;
     try { r = await fetch('/api/assetpacks', { signal: AbortSignal.timeout(8000) }).then((x) => x.json()); } catch { /* 纯本地模式 */ }
     PACKS.list = (r && r.ok && Array.isArray(r.packs)) ? r.packs : [];
-    if (r && Array.isArray(r.localChars)) {
-      // 服务端给出的可跑角色（已过滤资源残缺的包）
-      for (const id of r.localChars) if (!LOCAL_OK.includes(id)) LOCAL_OK.push(id);
-      PACKS.localChars = r.localChars.slice();
+    // 兜底角色：随站点分发的默认集合（只读，不再往里 push 别的）
+    if (r && Array.isArray(r.fallbackChars)) {
+      FALLBACK_CHARS.length = 0;
+      for (const id of r.fallbackChars) FALLBACK_CHARS.push(id);
+    } else if (r && Array.isArray(r.localChars)) {
+      FALLBACK_CHARS.length = 0;
+      for (const id of r.localChars) FALLBACK_CHARS.push(id);
     }
+    PACKS.localChars = FALLBACK_CHARS.slice();
+    // 每个资产集自带的可跑角色（服务端按资产集自己的 chars/ 目录算）
+    PACKS.packChars = (r && r.packChars && typeof r.packChars === 'object') ? r.packChars : {};
     // 角色资产元信息（char.json）：职业 / roleType / 关键帧模式
     if (r && r.charMeta && typeof r.charMeta === 'object') PACKS.charMeta = r.charMeta;
     let id = null;
@@ -1336,6 +1358,51 @@
     }
     renderPackLine();
   }
+  // 把资产集挂进 VFS（零拷贝）+ 换掉引擎的角色名单。
+  //
+  // 资产集的资源在自己的目录里（workshops/.../map_design/<dir>/），服务器能直接
+  // 提供这些文件；这里只把「文件清单」交给 vfs，让引擎按需去拉 —— 不往
+  // ikemen-fs/file 里拷任何东西。
+  async function mountPack(dir) {
+    if (typeof globalThis.ikemenVfsMount !== 'function') return { ok: false, error: 'vfs 不支持挂载' };
+    let r = null;
+    try { r = await fetch('/api/packs/' + encodeURIComponent(dir) + '/files', { signal: AbortSignal.timeout(8000) }).then((x) => x.json()); } catch { /* 网络失败 */ }
+    if (!r || !r.ok || !r.files) return { ok: false, error: (r && r.error) || '拿不到资产集清单' };
+    try {
+      globalThis.ikemenVfsMount('pack:' + dir, r.baseUrl, r.files);
+    } catch (e) {
+      return { ok: false, error: (e && e.message) || String(e) };
+    }
+    PACKS.mounted = dir;
+    if (r.defs && typeof r.defs === 'object') PACKS.packDefs = r.defs;
+    if (Array.isArray(r.pool)) {
+      PACK_CHARS.length = 0;
+      for (const id of r.pool) PACK_CHARS.push(id);
+    }
+    // 角色名单（select.def）跟着资产集走：引擎的选人屏读 data/select.def，
+    // 这里用服务端按资产集现生成的那份盖住（资产集目录里那份可能是旧的，
+    // 写着已经删掉的角色）。它走挂载表，不写 IndexedDB —— 换资产集时
+    // 挂载一撤就干净了，不会留下上一个资产集的名单。
+    try {
+      const text = await fetch('/api/packs/' + encodeURIComponent(dir) + '/select.def', { signal: AbortSignal.timeout(8000) }).then((x) => x.text());
+      if (text && text.indexOf('[Characters]') >= 0) {
+        const bytes = new TextEncoder().encode(text);
+        globalThis.ikemenVfsMount('pack-select:' + dir, '', {
+          'data/select.def': { url: 'data:application/octet-stream;base64,' + btoa(bytesToB64(bytes)), size: bytes.length },
+        });
+        PACKS.selectDefInjected = true;
+      }
+    } catch (e) { /* 名单注入失败不影响开打（引擎仍能按 -p 直传角色） */ }
+    return { ok: true, count: Object.keys(r.files).length };
+  }
+  // Uint8Array → base64（大文件走分块，避免 apply 的参数上限）
+  function bytesToB64(u8) {
+    let s = '';
+    for (let i = 0; i < u8.length; i += 0x8000) {
+      s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+    }
+    return btoa(s);
+  }
   async function usePack(dir) {
     const p = PACKS.list.find((x) => x.dir === dir);
     if (!p) return false;
@@ -1347,8 +1414,16 @@
       PACKS.mapping = meta && meta.mapping ? meta.mapping : null;
       PACKS.roster = meta && meta.roster ? meta.roster : null;
     } catch { PACKS.mapping = null; PACKS.roster = null; }
+    // 角色池：先看服务端按资产集给的，没有就用声明的池
+    const pc = PACKS.packChars && PACKS.packChars[dir];
+    PACK_CHARS.length = 0;
+    if (Array.isArray(pc)) for (const id of pc) PACK_CHARS.push(id);
+    else if (PACKS.mapping && Array.isArray(PACKS.mapping.charPool)) for (const id of PACKS.mapping.charPool) PACK_CHARS.push(id);
+    // 挂载资产集资源（零拷贝）
+    PACKS.mount = await mountPack(dir);
     renderPackLine();
     refreshPackStat();
+    buildCharGrid();
     return true;
   }
   function renderPackLine() {
@@ -1402,10 +1477,15 @@
     setPackStat(lines.join('  ｜  '), miss.length ? 'warn' : (PACKS.bound ? 'ok' : ''));
   }
 
-  // 资产集声明了、但本地引擎没装的角色（版权红线：引擎资产不入库，需要用户自行放置）
+  // 资产集**自己**缺的角色（不是「引擎目录里没有」）。
+  // 旧口径拿 mapping.charPool 减「引擎目录里的角色」—— 资产集的角色本来就在
+  // 资产集目录里，拿引擎目录去比必然报缺，于是出现「资产集明明带了这个角色，
+  // 却说本地缺少 14 个角色」这种自相矛盾的告警。
+  // 现在：资产集声明的池 − 资产集自带的可用角色 = 真的缺。
   function missingPackChars() {
     if (!PACKS.mapping || !Array.isArray(PACKS.mapping.charPool)) return [];
-    const have = PACKS.localChars.length ? PACKS.localChars : LOCAL_OK;
+    const have = PACK_CHARS.length ? PACK_CHARS : (PACKS.packChars && PACKS.packChars[PACKS.cur && PACKS.cur.dir]) || [];
+    if (!have.length) return [];   // 还没算出资产集自己的角色 → 不知道缺什么，不报
     return PACKS.mapping.charPool.filter((id) => !have.includes(id));
   }
 
@@ -1724,7 +1804,7 @@
   function randomCharId(avoid) {
     const pool = packCharPool().filter((id) =>
       !avoid || (Array.isArray(avoid) ? !avoid.includes(id) : id !== avoid));
-    if (!pool.length) return LOCAL_OK[Math.floor(Math.random() * LOCAL_OK.length)];
+    if (!pool.length) return FALLBACK_CHARS[Math.floor(Math.random() * FALLBACK_CHARS.length)] || '';
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
@@ -2687,7 +2767,7 @@
     ? 'md/curdesign/ai格斗设计/界面设计/prototype/assets/select/m_' + STAND_SLUG[e.id] + '-stand.png'
     : poseUrlFor(e);
   // MUGEN 站立姿势单帧（动作 0 第一帧）：比 9000,0 头像更像「人」，列表卡片用
-  const poseUrlFor = (e) => '/api/pose/' + encodeURIComponent(e.id);
+  const poseUrlFor = (e) => '/api/pose/' + encodeURIComponent(e.id) + packQuery();
   // toonflow 角色头像（原型资产 t_<slug>.webp，按故事角色名的拼音）；webp 动图会自动播放
   const TF_SLUG = {
     '林羽': 'linyu', '苏晚晴': 'suwanqing', '林悦': 'linyue', '老雷': 'laolei',
@@ -2716,7 +2796,7 @@
   function loadAnim(charId) {
     if (!animCache.has(charId)) {
       animCache.set(charId,
-        fetch('/api/anim/' + encodeURIComponent(charId) + '/0')
+        fetch('/api/anim/' + encodeURIComponent(charId) + '/0' + packQuery())
           .then((r) => r.json())
           .then((j) => (j && j.ok ? j : null))
           .catch(() => null));
@@ -3789,14 +3869,31 @@
     const P2 = kof ? kofTeam(p2List) : (p2List || []);
     // 多人编队：side1 = -p1/-p3/-p5，side2 = -p2/-p4/-p6（main.f_commandLine 奇偶分边）
     const N1 = ['1', '3', '5'], N2 = ['2', '4', '6'];
+    // 角色 id → 引擎能解析的路径。
+    // 裸 id（"LinYu"）时引擎按 chars/<id>/<id>.def 猜 —— 但有些角色包里
+    // 有多个 .def（主角色 + 变体），猜的未必是入口。传完整相对路径
+    // （chars/<id>/<def>）就没有歧义了，引擎的 addChar 支持带 / 的路径
+    // （ikemen-go-web/src/script.go:3419）。
+    // 入口 def 由服务端给出（/api/packs/:dir/files 的 defs 字段），
+    // 拿不到就退回约定名 chars/<id>/<id>.def。
+    function charDefPath(charId) {
+      if (!charId) return charId;
+      if (charId.indexOf('/') >= 0 || /\.def$/i.test(charId)) return charId;
+      const defs = PACKS.packDefs || {};
+      if (defs[charId]) return defs[charId];
+      return 'chars/' + charId + '/' + charId + '.def';
+    }
     const argv = ['ikemen', '-config', 'save/user-config.ini'];
-    P1.forEach((c, i) => argv.push('-p' + N1[i], c, '-p' + N1[i] + '.ai', '0'));
-    P2.forEach((c, i) => argv.push('-p' + N2[i], c, '-p' + N2[i] + '.ai', String(aiVal)));
+    P1.forEach((c, i) => argv.push('-p' + N1[i], charDefPath(c), '-p' + N1[i] + '.ai', '0'));
+    P2.forEach((c, i) => argv.push('-p' + N2[i], charDefPath(c), '-p' + N2[i] + '.ai', String(aiVal)));
     if (kof) argv.push('-tmode1', '2', '-tmode2', '2'); // turns：逐个上场直到全灭
     else {
       if (P1.length > 1) argv.push('-tmode1', '1');
       if (P2.length > 1) argv.push('-tmode2', '1');
     }
+    // 舞台：默认 kfm.def。资产集可以带自己的舞台（挂载后 stages/kfm.def
+    // 可能来自资产集），所以这里仍然用引擎认识的写法 —— 引擎会先按
+    // stages/<name>、stages/<name>.def 去找，找不到才回落。
     argv.push('-s', 'stages/kfm.def', '-loadmotif');
     if (q.get('time')) argv.push('-time', q.get('time'));
     if (q.get('rounds')) argv.push('-rounds', q.get('rounds'));
@@ -3901,6 +3998,20 @@
         new TextEncoder().encode(buildConfigIni()));
     } catch (e) {
       console.warn('[settings] user-config.ini 注入失败，本次按引擎默认配置启动', e);
+    }
+    // 资产集挂载要在 VFS 初始化之前做完：
+    // 引擎启动时会立刻读 data/select.def、角色包和舞台，
+    // 挂晚了这些文件已经按兜底层解析过了。
+    // 挂载是零拷贝的 —— 引擎要哪个文件才去拉哪个。
+    try {
+      const want0 = q.get('pack') || localStorage.getItem(PACK_KEY) || '';
+      if (want0) {
+        progress(1, '挂载资产集');
+        const mm = await mountPack(want0);
+        if (!mm.ok) console.warn('[pack] 挂载失败：' + (mm.error || '未知原因'));
+      }
+    } catch (e) {
+      console.warn('[pack] 挂载异常', e);
     }
     let vfsDone = false;
     progress(2, '浏览资源清单');

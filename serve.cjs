@@ -269,15 +269,24 @@ async function handleApi(req, res, urlPath, query) {
     // 前端运行时（选人屏 / 角色绑定 / 战斗头像条）要读它，
     // 所以随资产集列表一起下发，避免多一次请求。
     const charMeta = {};
+    // 每个资产集自带的可跑角色（资产集自己的 chars/，不看引擎目录）
+    const packChars = {};
     for (const p of packs) {
-      const dir = p.dirName || p.dir;
-      if (!dir) continue;
-      try { Object.assign(charMeta, packCharMetas(dir)); } catch { /* 该资产集无 char.json */ }
+      // 键用 p.dir（前端认这个：登记簿里的 packId），值用 dirName 去查资源
+      const key = p.dir || p.dirName;
+      const res = p.dirName || p.dir;
+      if (!key || !res) continue;
+      try { Object.assign(charMeta, packCharMetas(res)); } catch { /* 该资产集无 char.json */ }
+      try { packChars[key] = packCharPool(res); } catch { packChars[key] = []; }
     }
     return json(res, 200, {
       ok: true,
       packs,
+      // 兜底角色：随站点分发的默认集合（ikemen-fs/file/chars，只读）
+      fallbackChars: localCharIds(),
+      // 旧字段保留：前端老代码读 localChars，语义等于兜底角色
       localChars: localCharIds(),
+      packChars,
       charMeta,
       story: storyName || null,
     });
@@ -353,9 +362,17 @@ async function handleApi(req, res, urlPath, query) {
     const dir = decodeURIComponent(m[1]);
     const f = packFiles(dir);
     if (!f) return json(res, 200, { ok: false, error: '没有这个资产集：' + dir });
+    // 每个角色的入口 def 的完整相对路径（chars/<id>/<def>）。
+    // 一个角色包里常常有多个 .def（主角色 + 变体），入口必须是「与目录同名」
+    // 那个，否则引擎会加载错角色（LaoLeiKFM 里有 ikari.def / RalfAct.def）。
+    const defs = {};
+    for (const id of packCharIds(dir)) {
+      const dn = packCharDefName(dir, id);
+      if (dn) defs[id] = 'chars/' + id + '/' + dn;
+    }
     return json(res, 200, {
       ok: true, dir, baseUrl: f.baseUrl, files: f.files,
-      chars: packCharIds(dir), pool: packCharPool(dir),
+      chars: packCharIds(dir), pool: packCharPool(dir), defs,
     });
   }
 

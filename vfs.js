@@ -724,15 +724,29 @@ try { for (var __i = localStorage.length - 1; __i >= 0; __i--) { var __k = local
     const set = { prefix: key, baseUrl: base, files: new Map() };
     // A previous mount of the same id is replaced wholesale.
     globalThis.ikemenVfsUnmount(key);
-    for (const [vpath, size] of Object.entries(files || {})) {
+    for (const [vpath, spec] of Object.entries(files || {})) {
       const vp = norm(vpath);
       if (!vp) continue;
       // Each path segment is encoded separately: a vpath segment may contain
       // characters that are legal in a filename but not in a URL (a Chinese
       // directory name, a quote in "K'/K'.def"), and encoding the whole
       // string would also escape the separators.
-      const enc = vp.split('/').map(encodeURIComponent).join('/');
-      set.files.set(vp, { url: base + '/' + enc, size: Number(size) || 0 });
+      //
+      // `spec` is either a byte size (the file lives under baseUrl) or
+      // { url, size } for a file that comes from somewhere else — the
+      // generated select.def, for instance, is text the server produced and
+      // is handed over as a data: URL.
+      let url, size;
+      if (spec && typeof spec === 'object') {
+        url = String(spec.url || '');
+        size = Number(spec.size) || 0;
+      } else {
+        const enc = vp.split('/').map(encodeURIComponent).join('/');
+        url = base + '/' + enc;
+        size = Number(spec) || 0;
+      }
+      if (!url) continue;
+      set.files.set(vp, { url, size });
       mounts.set(vp, set.files.get(vp));
       registerDirsFor(vp);
     }
