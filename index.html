@@ -34,116 +34,190 @@
   #boot .pct{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
   #boot .err{color:#ff7b72;max-width:min(560px,72vw);text-align:center;white-space:pre-wrap;font-size:13px}
 
-  /* ---------- 主界面 ---------- */
-  #home{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;
-    align-items:center;justify-content:center;gap:20px;padding:24px;
-    background:radial-gradient(1000px 520px at 50% 8%,#161a23 0%,#07080b 72%)}
+  /* ---------- 主界面（原型 home.html 同款：stage 760 + brand 行 + 三卡 + 一行四钮） ---------- */
+  #home{position:fixed;inset:0;z-index:40;display:none;
+    align-items:center;justify-content:center;padding:32px;
+    background:radial-gradient(1100px 640px at 75% -12%,#101a2a 0%,#07080b 62%)}
   #home.on{display:flex}
-  #home .logo{font-size:38px;font-weight:900;letter-spacing:.14em;line-height:1}
-  #home .logo span{color:var(--hot)}
-  #home .sub{color:var(--dim);letter-spacing:.3em;font-size:11px;margin-top:-12px}
-  #home .ctx{width:min(680px,92vw);display:flex;flex-direction:column;gap:8px}
-  .ctxline{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:9px;
-    background:#0d1017;border:1px solid var(--line);cursor:pointer;transition:.15s;text-align:left;
-    font-family:inherit;color:var(--txt)}
-  .ctxline:hover{border-color:#3b4557;transform:translateY(-1px)}
-  .ctxline .k{font-size:11px;letter-spacing:.16em;color:var(--dim);flex-shrink:0}
-  .ctxline .v{font-size:14px;font-weight:700;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-  .ctxline .v.free{color:var(--dim);font-weight:400}
-  .ctxline .act{font-size:11px;color:var(--cyan);letter-spacing:.14em;flex-shrink:0}
-  .ctxline .dot{width:8px;height:8px;border-radius:50%;background:#5d687a;flex-shrink:0}
-  .ctxline .dot.on{background:#3fb950;box-shadow:0 0 10px -2px rgba(63,185,80,.9)}
-  .ctxline .dot.off{background:#f85149}
-  #home .modes{display:grid;grid-template-columns:repeat(2,minmax(150px,190px));gap:12px;margin-top:6px}
-  @media (max-width:560px){#home .modes{grid-template-columns:1fr}}
-  .modebtn{cursor:pointer;font-family:inherit;font-size:16px;font-weight:900;letter-spacing:.3em;
-    padding:18px 10px;border-radius:10px;border:1px solid var(--line);color:var(--txt);
-    background:#12161f;transition:.16s}
-  .modebtn small{display:block;font-size:10.5px;font-weight:400;letter-spacing:.1em;color:var(--dim);margin-top:4px}
-  .modebtn:hover{border-color:#3b4557;color:#fff;transform:translateY(-2px)}
-  .modebtn.practice:hover{border-color:var(--cyan)}
-  .modebtn.versus:hover{border-color:var(--hot)}
-  .modebtn.survival:hover{border-color:var(--gold)}
-  #home .rowbtns{display:flex;gap:10px}
+  #home .stage{width:min(760px,100%)}
+  #home .brand{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:26px}
+  #home .brand h1{font-size:22px;font-weight:900;letter-spacing:.34em}
+  #home .brand h1 i{font-style:normal;color:var(--gold)}
+  #home .conn{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
+  #home .conn .dot{width:8px;height:8px;border-radius:50%;background:#5d687a;flex-shrink:0}
+  #home .conn .dot.on{background:#2ecc71;box-shadow:0 0 8px #2ecc71}
+  #home .conn .dot.off{background:#f85149}
+  #home .card{background:rgba(17,20,27,.88);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin-bottom:14px}
+  #home .row-t{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  #home .row-t b{font-size:13px;letter-spacing:.22em;color:var(--dim)}
+  #home .lnk{font-size:12px;color:var(--cyan);margin-left:auto;cursor:pointer}
+  #home .storyval{display:flex;align-items:center;gap:12px}
+  #home .storyval .nm{font-size:19px;font-weight:900;letter-spacing:.06em;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  #home .storyval .nm.free{color:var(--dim);font-weight:400;font-size:15px}
+  #home .sw{margin-left:auto;font-family:inherit;font-size:12px;color:var(--gold);flex-shrink:0;
+    border:1px solid #4d3d12;background:rgba(255,194,51,.08);padding:7px 16px;border-radius:8px;cursor:pointer}
+  #home .sw:hover{background:rgba(255,194,51,.16)}
+  #home .pack{display:flex;gap:10px;align-items:center;cursor:pointer;min-width:0}
+  #home .pack .pn{font-size:14px;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  #home .pack .pn.free{color:var(--dim);font-weight:400}
+  #home .pack .pv{font-size:11px;color:var(--dim);white-space:nowrap}
+  #home .pack .ch{margin-left:auto;font-size:12px;color:var(--cyan);flex-shrink:0;white-space:nowrap}
+  #home .pack .ch.act{border-bottom:1px dashed rgba(58,209,255,.5)}
+  #home .pack .ch.act:hover{border-bottom-color:var(--cyan)}
+  #home .packstat{margin-top:9px;font-size:11.5px;line-height:1.7;color:var(--dim);word-break:break-all}
+  #home .packstat.ok{color:#7ee2a8}
+  #home .packstat.warn{color:var(--gold)}
+  #home .packstat.err{color:#ffb4ad}
+  #home .btns{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+  @media (max-width:640px){#home .btns{grid-template-columns:repeat(2,1fr)}}
+  .modebtn{cursor:pointer;font-family:inherit;font-size:15px;font-weight:900;letter-spacing:.3em;text-indent:.3em;
+    padding:20px 0;border-radius:12px;border:1px solid var(--line);color:var(--txt);
+    background:linear-gradient(180deg,#141926,#0e1118);transition:.16s}
+  .modebtn small{display:block;margin-top:6px;font-size:10px;font-weight:400;letter-spacing:.2em;
+    color:var(--dim);text-indent:0}
+  .modebtn.versus{border-color:#3a2226}
+  .modebtn.survival{border-color:#2b3a22}
+  .modebtn:hover{border-color:var(--hot);color:#fff;box-shadow:0 6px 18px rgba(255,59,48,.15);transform:translateY(-2px)}
 
-  /* ---------- 选人屏（KOF 式） ---------- */
-  #select{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;
-    align-items:center;justify-content:center;gap:10px;padding:16px;overflow:auto;
-    background:radial-gradient(1000px 520px at 50% 8%,#161a23 0%,#07080b 72%)}
-  #select.on{display:flex}
-  #select h1{margin:0;font-size:22px;font-weight:900;letter-spacing:.06em;text-align:center}
-  #select h1 em{color:var(--hot);font-style:normal}
-  #teamsz,#sel-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
-  #teamsz b,#difficulty b{font-size:12px;letter-spacing:.14em;color:var(--dim);margin-right:4px}
-  .chip{cursor:pointer;font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;
-    background:#121722;border:1px solid var(--line);color:var(--dim);transition:.15s}
-  .chip:hover{border-color:#3b4557;color:var(--txt)}
-  .chip.on{background:rgba(255,59,48,.14);border-color:var(--hot);color:#fff}
-  /* 出场顺序条 */
-  #slots{width:min(960px,96vw);display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center}
-  .slot{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border-radius:22px;
-    background:#0d1017;border:1px solid var(--line);cursor:pointer;font-family:inherit;color:var(--txt);transition:.15s}
-  .slot:hover{border-color:#3b4557}
-  .slot.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
-  .slot .sg{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-    font-size:15px;font-weight:900;background:linear-gradient(160deg,#2a3140,#12161f);border:1px solid #3b4557;
-    overflow:hidden;flex-shrink:0}
-  .slot .sg img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
-  .slot.p2side .sg{background:linear-gradient(160deg,#20344a,#0d1015)}
-  .slot .sn{line-height:1.25;text-align:left;min-width:0}
-  .slot .sn b{display:block;font-size:12px;font-weight:700;max-width:130px;overflow:hidden;
-    white-space:nowrap;text-overflow:ellipsis}
-  .slot .sn i{font-style:normal;font-size:10px;color:var(--dim);letter-spacing:.08em;display:block;
-    max-width:130px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-  .slot .side-tag{font-size:10px;color:var(--cyan);letter-spacing:.1em}
-  .slot .rm{font-size:15px;color:#6f7b8d;padding:0 2px;line-height:1}
-  .slot .rm:hover{color:#ff7b72}
-  /* 选人时的双人大预览 */
-  #selbig{width:min(960px,96vw);display:flex;gap:10px;align-items:stretch;justify-content:center}
-  #selbig .side{flex:1;max-width:230px;display:flex;gap:10px;align-items:center;
-    padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:#0d1017}
-  #selbig .side .ava{width:52px;height:52px;border-radius:9px;overflow:hidden;flex-shrink:0;
-    background:linear-gradient(160deg,#2a3140,#12161f);border:1px solid #3b4557;
-    display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff}
-  #selbig .side .ava img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
-  #selbig .side .tx{min-width:0}
-  #selbig .side .tx b{display:block;font-size:14px}
-  #selbig .side .tx i{font-style:normal;font-size:11px;color:var(--dim);display:block;margin-top:2px}
-  #selbig .vs{align-self:center;font-weight:900;color:var(--gold);letter-spacing:.1em;font-size:16px}
-  /* 角色网格 */
-  #kgrid{width:min(960px,96vw);display:grid;grid-template-columns:repeat(6,1fr);gap:9px}
-  @media (max-width:900px){#kgrid{grid-template-columns:repeat(4,1fr)}}
-  @media (max-width:560px){#kgrid{grid-template-columns:repeat(3,1fr)}}
-  .kcard{position:relative;text-align:left;cursor:pointer;padding:10px 9px 9px;
-    background:linear-gradient(160deg,#161b24,#0d1015);border:1px solid var(--line);
-    border-radius:10px;color:var(--txt);font-family:inherit;transition:.16s;overflow:hidden}
-  .kcard:hover{transform:translateY(-2px);border-color:#3b4557}
-  .kcard.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 8px 26px -12px rgba(255,194,51,.7)}
-  .kcard.rand{background:linear-gradient(160deg,#1d1626,#0d1015);border-style:dashed}
-  .kcard.rand.sel{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
-  .kcard .pic{width:100%;aspect-ratio:1/1;border-radius:7px;overflow:hidden;margin-bottom:6px;
-    background:linear-gradient(160deg,#232a37,#0d1015);border:1px solid #2a3140;
-    display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#6b7688}
-  .kcard .pic img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
-  .kcard .pic > div{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
-  .kcard .name{margin-top:2px;font-size:12px;color:#c3ccd9;font-weight:700;
-    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-  .kcard .tag{font-size:10.5px;color:var(--dim);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-  .kcard .bind{position:absolute;top:7px;right:7px;font-size:10px;color:#0b0c10;
-    background:var(--cyan);border-radius:4px;padding:1px 5px;font-weight:700;max-width:70%;
-    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-  .kcard .used{position:absolute;inset:0;background:rgba(7,8,11,.72);display:flex;
-    align-items:center;justify-content:center;font-size:11px;color:var(--dim);letter-spacing:.1em}
-  #difficulty{display:flex;gap:8px;align-items:center}
-  #sel-actions{margin-top:2px}
-  #btn-fight{cursor:pointer;font-family:inherit;font-size:15px;font-weight:900;letter-spacing:.22em;
-    padding:13px 34px;border-radius:8px;border:0;color:#0b0c10;
-    background:linear-gradient(180deg,#ffd45e,#ff9c1a);box-shadow:0 10px 30px -12px rgba(255,156,26,.9)}
-  #btn-fight:hover{filter:brightness(1.06)}
-  #btn-back-home{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;padding:11px 20px;
-    border-radius:8px;border:1px solid var(--line);background:#12161f;color:var(--txt)}
-  #btn-back-home:hover{border-color:#3b4557}
-  #select .note{font-size:11.5px;color:#6f7b8d;max-width:min(920px,94vw);text-align:center;line-height:1.7}
+  /* ---------- 选人屏（街机 KOF 风） ---------- */
+  #select{position:fixed;inset:0;z-index:40;display:none;padding:14px;color:#f2ecdf;background:#000;
+    font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans-serif}
+  #select.on{display:block}
+  #select .arcade{position:relative;width:100%;height:100%;border-radius:6px;overflow:hidden;
+    background:linear-gradient(180deg,#e8b8a8 0%,#d89484 18%,#b96a62 42%,#8a4a48 62%,#5a3236 82%,#3a2026 100%)}
+  #select .arcade::before{content:'';position:absolute;inset:0;pointer-events:none;background:
+    radial-gradient(420px 130px at 18% 78%,rgba(255,240,235,.5),transparent 70%),
+    radial-gradient(520px 150px at 55% 84%,rgba(255,240,235,.42),transparent 70%),
+    radial-gradient(460px 140px at 88% 80%,rgba(255,240,235,.35),transparent 70%),
+    radial-gradient(700px 200px at 40% 96%,rgba(255,245,240,.3),transparent 70%)}
+  #select .arcade::after{content:'';position:absolute;top:0;left:0;right:0;height:64px;pointer-events:none;
+    background:linear-gradient(180deg,rgba(30,20,18,.9),rgba(60,36,32,.55) 60%,transparent)}
+  #sel-title{position:absolute;top:8px;left:50%;transform:translateX(-50%) skewX(-6deg);z-index:5;margin:0;
+    font-size:42px;font-weight:900;letter-spacing:.06em;font-style:italic;white-space:nowrap;
+    background:linear-gradient(180deg,#f8f4ea 0%,#cfc6b8 38%,#8a8074 50%,#e8e2d6 56%,#6a6258 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(2px 3px 0 rgba(0,0,0,.55)) drop-shadow(0 6px 10px rgba(0,0,0,.3))}
+  /* 左上菜单 */
+  #menuwrap{position:absolute;top:12px;left:14px;z-index:20}
+  #menuwrap .menubtn{cursor:pointer;font-family:inherit;font-size:12px;font-weight:900;letter-spacing:.22em;
+    padding:9px 20px;border-radius:7px;border:1px solid rgba(255,255,255,.4);background:rgba(8,8,14,.72);
+    color:#fff;backdrop-filter:blur(3px)}
+  #menuwrap .menubtn:hover{border-color:var(--cyan)}
+  .menudd{position:absolute;top:44px;left:0;display:none;flex-direction:column;gap:6px;min-width:180px;
+    background:rgba(8,8,14,.88);border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:10px;backdrop-filter:blur(4px)}
+  .menudd.open{display:flex}
+  .menudd button{cursor:pointer;font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.1em;text-align:left;
+    padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);
+    color:#f0e6da;transition:.12s}
+  .menudd button:hover{border-color:var(--gold);color:#fff;background:rgba(255,194,51,.12)}
+  /* 顶部模式 / 人数 */
+  .topbar{position:absolute;top:12px;left:150px;right:14px;z-index:15;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .topbar .tb{cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:800;letter-spacing:.1em;padding:6px 16px;
+    border-radius:16px;border:1px solid rgba(255,255,255,.3);background:rgba(10,10,14,.55);color:#f0e6da;backdrop-filter:blur(2px)}
+  .topbar .tb.on{border-color:var(--hot);color:#fff;background:rgba(180,40,30,.4)}
+  .topbar .cnt{margin-left:10px;display:flex;gap:6px;align-items:center;font-size:11px;color:#f0e6da}
+  .chip{cursor:pointer;font-family:inherit;font-size:10.5px;font-weight:800;padding:5px 12px;border-radius:14px;
+    display:inline-flex;gap:5px;align-items:center;border:1px solid rgba(255,255,255,.35);
+    background:rgba(10,10,14,.5);color:#e8ddd2;transition:.12s}
+  .chip:hover{border-color:var(--gold);color:#fff}
+  .chip.on{border-color:var(--hot);color:#fff;background:rgba(180,40,30,.4);box-shadow:0 0 8px rgba(255,59,48,.5)}
+  .chip .mini{width:16px;height:16px;border-radius:4px;font-size:9px;display:flex;align-items:center;justify-content:center;
+    font-weight:900;color:#fff;overflow:hidden}
+  .chip .mini img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+  .chip .ord{color:var(--gold)}
+  /* 左右斜切大头像面板 */
+  .port{position:absolute;top:64px;bottom:86px;z-index:4;display:none;flex-direction:column}
+  .port.p1{left:14px;width:340px;clip-path:polygon(0 0,100% 0,74% 100%,0 100%)}
+  .port.p2{right:14px;width:300px;clip-path:polygon(24% 0,100% 0,100% 100%,0 100%)}
+  #select.on .port.p1,#select.on .port.p2{display:flex}
+  #select.on.survival .port.p2{display:none}
+  .pface{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    transition:background .15s}
+  .pface .ini{font-size:150px;font-weight:900;color:rgba(255,255,255,.92);text-shadow:0 10px 40px rgba(0,0,0,.45);
+    transform:translateY(-8%);display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+  .pname{position:absolute;left:18px;bottom:6px;z-index:6;font-size:44px;font-weight:900;font-style:italic;
+    letter-spacing:.02em;white-space:nowrap;max-width:88%;overflow:hidden;text-overflow:ellipsis;
+    background:linear-gradient(180deg,#fdf8ec 0%,#d8cfc0 40%,#8a8074 52%,#efe9dc 58%,#5a5248 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(2px 3px 0 rgba(0,0,0,.6));transform:skewX(-6deg)}
+  .pinfo{position:absolute;left:16px;right:76px;bottom:64px;z-index:6;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+    background:rgba(10,10,14,.66);border:1px solid rgba(255,255,255,.22);border-radius:9px;padding:7px 12px;backdrop-filter:blur(3px)}
+  .port.p2 .pinfo{left:76px;right:16px}
+  .pinfo .mini{width:30px;height:30px;border-radius:7px;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:13px;color:#fff;background:linear-gradient(160deg,#2a3140,#12161f);flex:none}
+  .pinfo .mini img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+  .pinfo .who{font-size:13.5px;font-weight:900}
+  .pinfo .ent{font-size:11px;color:var(--cyan);font-family:Consolas,monospace}
+  .pinfo .job{font-size:9.5px;letter-spacing:.12em;color:var(--gold);border:1px solid rgba(255,194,51,.5);
+    border-radius:12px;padding:1.5px 9px}
+  /* 面板头：出场顺序 chips */
+  .phd{position:absolute;top:10px;left:16px;right:16px;z-index:6;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .port.p2 .phd{flex-direction:row-reverse}
+  .phd .t{font-size:10.5px;letter-spacing:.18em;color:#ffe9e0;text-shadow:0 1px 3px #000;font-weight:800}
+  .swp{cursor:pointer;font-family:inherit;font-size:11px;font-weight:900;letter-spacing:.08em;padding:4px 12px;
+    border-radius:14px;border:1px solid rgba(255,255,255,.4);background:rgba(10,10,14,.5);color:var(--cyan)}
+  .swp:hover{color:#fff;border-color:var(--cyan)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  /* 已选小头像行（P1 出场顺序） */
+  .selrow{position:absolute;left:50%;top:41%;transform:translateX(-50%);z-index:5;display:flex;gap:8px;align-items:flex-end}
+  .selrow .sc{width:44px;text-align:center;position:relative}
+  .selrow .sc .mv{width:44px;height:44px;border-radius:8px;border:2px solid rgba(255,255,255,.85);overflow:hidden;
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#fff;cursor:pointer;
+    box-shadow:0 4px 10px rgba(0,0,0,.35);background:rgba(10,10,14,.45)}
+  .selrow .sc .mv img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+  .selrow .sc .lb{font-size:9px;color:#ffe9e0;margin-top:3px;text-shadow:0 1px 3px #000;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .selrow .sc .od{position:absolute;top:-7px;left:-5px;font-size:10px;font-weight:900;color:var(--gold);text-shadow:0 1px 3px #000}
+  .selrow .sc.empty .mv{border-style:dashed;color:rgba(255,255,255,.35)}
+  /* 透视地板选人格 */
+  .floor{position:absolute;left:50%;top:56%;transform:translateX(-50%) perspective(820px) rotateX(52deg);
+    width:680px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  .k{position:relative;cursor:pointer;aspect-ratio:1;border:2px solid rgba(255,255,255,.75);padding:0;font-family:inherit;
+    background:linear-gradient(160deg,rgba(70,50,55,.88),rgba(38,26,30,.92));
+    display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.12s;color:#fff}
+  .k:hover{border-color:var(--gold);background:linear-gradient(160deg,rgba(110,70,70,.9),rgba(50,32,36,.94))}
+  .k .ini{font-size:34px;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5);line-height:1;
+    display:flex;align-items:center;justify-content:center;width:100%;height:46%;overflow:hidden}
+  .k .nm{font-size:9.5px;color:#f0d8cf;margin-top:4px;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .k .ent{font-size:8px;color:#caa79e;font-family:Consolas,monospace;margin-top:1px;max-width:88px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .k .ord{position:absolute;top:3px;left:5px;font-size:10px;font-weight:900;color:var(--gold);text-shadow:0 1px 3px #000}
+  .k.q .ini{color:#e8cfc6;font-size:32px}
+  .k.sel{border-color:#ffd34d;box-shadow:0 0 14px rgba(255,211,77,.55),inset 0 0 14px rgba(255,211,77,.18)}
+  /* 底部 */
+  .foot{position:absolute;left:14px;right:14px;bottom:14px;z-index:7;display:flex;gap:12px;align-items:stretch;height:58px}
+  .namebar{flex:1;display:flex;gap:10px;align-items:center;background:rgba(8,8,12,.82);
+    border:1px solid rgba(255,255,255,.28);border-radius:11px;padding:8px 16px;overflow:hidden;backdrop-filter:blur(3px)}
+  .namebar .who{font-size:14px;font-weight:900;white-space:nowrap}
+  .namebar .ent{font-size:12.5px;color:var(--cyan);font-family:Consolas,monospace;white-space:nowrap}
+  .namebar .job{font-size:10px;letter-spacing:.12em;color:var(--gold);border:1px solid rgba(255,194,51,.5);
+    border-radius:12px;padding:2px 10px;white-space:nowrap}
+  .diff{display:flex;gap:6px;align-items:center;font-size:12px;color:#f0e6da;white-space:nowrap}
+  .diff b{letter-spacing:.14em;color:#f0e6da}
+  .diff select{font-family:inherit;font-size:12px;padding:7px 10px;border-radius:8px;
+    background:rgba(10,10,14,.7);border:1px solid rgba(255,255,255,.3);color:#fff}
+  .surnote{position:absolute;right:18px;top:64px;z-index:6;font-size:10.5px;color:#ffe9e0;text-align:right;
+    line-height:1.9;text-shadow:0 1px 3px #000}
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:rgba(10,10,14,.9);
+    border:1px solid var(--cyan);color:#fff;font-size:13px;padding:10px 22px;border-radius:22px;
+    opacity:0;transition:.3s;pointer-events:none;z-index:99}
+  .toast.on{opacity:1}
+  #btn-fight{cursor:pointer;font-family:inherit;font-size:17px;font-weight:900;letter-spacing:.3em;text-indent:.3em;
+    padding:0 46px;border-radius:12px;border:1px solid rgba(255,255,255,.45);color:#fff;
+    background:linear-gradient(180deg,#c8281e,#7a1410);box-shadow:0 6px 20px rgba(200,40,30,.4);transition:.16s}
+  #btn-fight:hover{filter:brightness(1.15)}
+  #btn-fight:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;filter:none}
+  @media (max-width:900px){
+    #sel-title{font-size:30px}
+    .port.p1{width:250px}.port.p2{width:225px}
+    .floor{width:470px;gap:9px}
+    .pface .ini{font-size:110px}
+    .pname{font-size:32px}
+    .foot{height:auto;flex-wrap:wrap;padding:6px 0}
+    .selrow{top:38%}
+  }
 
   /* ---------- 故事列表 ---------- */
   .storylist{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -211,36 +285,39 @@
   #hud.fade{opacity:0}
   #hud b{color:#fff}
   #hud .vs{color:var(--gold);font-weight:700}
-  #tools{position:fixed;top:12px;right:14px;z-index:30;display:none;gap:8px}
+  #tools{position:fixed;top:14px;right:14px;z-index:30;display:none;flex-direction:column;gap:8px;align-items:flex-end}
   #tools.on{display:flex}
-  #tools button{cursor:pointer;font-family:inherit;font-size:12px;padding:6px 12px;border-radius:6px;
-    background:rgba(6,8,12,.62);border:1px solid var(--line);color:#cbd5e1;backdrop-filter:blur(4px)}
-  #tools button:hover{border-color:var(--hot);color:#fff}
+  #tools button{cursor:pointer;font-family:inherit;font-size:12px;padding:8px 16px;border-radius:8px;
+    background:rgba(6,8,12,.72);border:1px solid #3a4558;color:#cbd5e1;backdrop-filter:blur(4px);font-weight:800}
+  #tools button:hover{border-color:var(--gold);color:var(--gold)}
   #warn{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:31;display:none;
     padding:7px 14px;border-radius:6px;font-size:12px;background:rgba(255,59,48,.14);
     border:1px solid rgba(255,59,48,.5);color:#ffb4ad}
   #warn.on{display:block}
 
-  /* 对局头像条（双头像版） */
+  /* 对局头像条（原型：左右贴边分布，卡内 toonflow 头像 + MUGEN 头像并排，无 VS） */
   /* 108px：引擎血条/计时器画在画布最上方（实测底边 ≈80px），12px 会压住血条 */
-  #facebar{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;display:none;
-    align-items:center;gap:10px;pointer-events:none}
+  #facebar{position:fixed;top:108px;left:14px;right:14px;z-index:30;display:none;
+    justify-content:space-between;gap:12px;pointer-events:none}
   #facebar.on{display:flex}
-  #facebar .face{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 6px;border-radius:22px;
-    background:rgba(6,8,12,.66);border:1px solid var(--line);backdrop-filter:blur(4px)}
+  #facebar .face{display:flex;align-items:center;gap:9px;padding:7px 12px;border-radius:10px;
+    background:rgba(7,8,11,.72);border:1px solid #2a3140}
+  #facebar .face.p2{flex-direction:row-reverse;text-align:right}
   #facebar .face.win{border-color:rgba(255,194,51,.8);box-shadow:0 0 16px -6px rgba(255,194,51,.9)}
-  #facebar .glyph,#facebar .muglyph{border-radius:50%;display:flex;align-items:center;justify-content:center;
+  #facebar .glyph,#facebar .muglyph{border-radius:8px;display:flex;align-items:center;justify-content:center;
     color:#fff;overflow:hidden;flex-shrink:0}
-  #facebar .glyph{width:30px;height:30px;font-size:14px;font-weight:900;
+  #facebar .glyph{width:44px;height:44px;font-size:17px;font-weight:900;
     background:linear-gradient(160deg,#2a3140,#12161f);border:1px solid #3b4557}
   #facebar .glyph img{width:100%;height:100%;object-fit:cover}
-  #facebar .muglyph{width:22px;height:22px;font-size:10px;margin-left:-12px;
-    background:linear-gradient(160deg,#3b2f1a,#12161f);border:1px solid #6b5a2a}
-  #facebar .face.p2 .glyph{background:linear-gradient(160deg,#20344a,#0d1015)}
-  #facebar .nm{line-height:1.25}
-  #facebar .nm b{display:block;font-size:13px;color:#fff;font-weight:700}
-  #facebar .nm i{font-style:normal;font-size:10px;color:var(--dim);letter-spacing:.06em}
-  #facebar .vs{font-size:15px;font-weight:900;color:var(--gold);letter-spacing:.1em}
+  #facebar .muglyph{width:44px;height:44px;font-size:12px;
+    background:repeating-conic-gradient(#1c2230 0 25%,#10141c 0 50%) 0 0/12px 12px;border:1px solid #2a3140}
+  #facebar .face.p2 .glyph{background:linear-gradient(200deg,#2a3140,#12161f)}
+  #facebar .nm{line-height:1.3}
+  #facebar .nm b{display:block;font-size:12.5px;color:#fff;font-weight:700}
+  #facebar .nm i{font-style:normal;font-size:9.5px;color:var(--dim);letter-spacing:.04em;display:block;margin-top:2px}
+  #facebar .nm .jb{color:var(--gold);font-size:9.5px;letter-spacing:.08em;margin-left:4px}
+  #facebar .rec{font-size:9.5px;color:#5a6478;font-family:Consolas,monospace}
+  #facebar .vs{display:none}
 
   /* 发言气泡 */
   #speech{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:31;display:none;
@@ -253,15 +330,18 @@
   #speech .line.p2 b{color:var(--cyan)}
   @keyframes speechIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 
-  /* 快捷技能按钮 */
-  #skills{position:fixed;right:16px;bottom:232px;z-index:34;display:none;
-    flex-direction:column;gap:7px;align-items:flex-end}
-  #skills.on{display:flex}
-  #skills button{cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:700;letter-spacing:.04em;
-    padding:7px 13px;border-radius:18px;background:rgba(12,15,22,.55);border:1px solid rgba(180,195,215,.4);
-    color:#dfe6f0;backdrop-filter:blur(2px);user-select:none;-webkit-tap-highlight-color:transparent}
-  #skills button:active{background:rgba(255,59,48,.4);border-color:rgba(255,59,48,.85);color:#fff}
-  #skills button small{color:rgba(223,230,240,.65);font-weight:400;margin-left:5px;font-size:10px}
+  /* 快捷技能（攻击键上方，点击释放；2 列网格 + 技能组切换） */
+  #skills{position:fixed;right:14px;bottom:272px;z-index:34;display:none;
+    grid-template-columns:1fr 1fr;gap:7px;width:200px}
+  #skills.on{display:grid}
+  #skills button{cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:800;letter-spacing:.02em;
+    padding:10px;border-radius:9px;background:rgba(13,16,23,.85);border:1px solid #3a4558;
+    color:var(--txt);text-align:center;line-height:1.5;user-select:none;-webkit-tap-highlight-color:transparent;
+    transition:.12s}
+  #skills button:hover{border-color:var(--cyan)}
+  #skills button:active{transform:scale(.94);border-color:var(--gold)}
+  #skills button b{display:block;color:var(--gold);font-family:Consolas,monospace;font-weight:700;
+    font-size:10px;margin-top:2px}
 
   /* 战斗菜单（招式 / 练习配置） */
   #bmenu{position:fixed;inset:0;z-index:68;display:none;align-items:center;justify-content:center;
@@ -297,24 +377,22 @@
   #keyecho b.good{border-color:#3fb950;color:#b7f0c2;box-shadow:0 0 12px -4px rgba(63,185,80,.7)}
   #keyecho b.bad{border-color:#f85149;color:#ffb4ad;box-shadow:0 0 12px -4px rgba(248,81,73,.7)}
 
-  /* 实体头顶悬浮头像（field-survival 同款做法）
-     坐标来自引擎（TF_HEAD 坐标包，引擎渲染分辨率下的屏幕坐标），
-     按画布 CSS 尺寸换算后定位到角色头顶。 */
+  /* 实体头顶悬浮头像（原型：白边圆角方块 + 下箭头 + 上下浮动） */
   #headav{position:fixed;inset:0;z-index:33;display:none;pointer-events:none;overflow:hidden}
   #headav.on{display:block}
   #headav .ha{position:absolute;transform:translate(-50%,-100%);
-    display:flex;flex-direction:column;align-items:center;gap:2px}
-  #headav .ha .pic{width:44px;height:44px;border-radius:50%;overflow:hidden;
-    background:linear-gradient(160deg,#2a3140,#12161f);border:2px solid #6b7688;
-    box-shadow:0 3px 10px -3px rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;
-    font-size:17px;font-weight:900;color:#e7ecf3}
+    display:flex;flex-direction:column;align-items:center}
+  #headav .ha .pic{width:46px;height:46px;border-radius:10px;overflow:hidden;
+    background:linear-gradient(160deg,#2a3140,#12161f);border:2px solid #fff;
+    box-shadow:0 4px 12px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;
+    font-size:17px;font-weight:900;color:#e7ecf3;position:relative;
+    animation:headBob 2.4s ease-in-out infinite}
+  #headav .ha .pic::after{content:'';position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);
+    border:5px solid transparent;border-top-color:#fff}
   #headav .ha .pic img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
-  #headav .ha.p2 .pic{border-color:#c0563a}
-  #headav .ha .nm{font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 3px #000,0 0 6px #000;
-    white-space:nowrap;max-width:96px;overflow:hidden;text-overflow:ellipsis}
+  @keyframes headBob{0%,100%{margin-top:0}50%{margin-top:-7px}}
   @media (max-width:480px){
-    #headav .ha .pic{width:36px;height:36px;font-size:14px}
-    #headav .ha .nm{font-size:10px;max-width:80px}
+    #headav .ha .pic{width:38px;height:38px;font-size:14px}
   }
 
   /* 没拿到键盘焦点时的横条 */
@@ -343,154 +421,166 @@
     -webkit-user-select:none;-webkit-tap-highlight-color:transparent}
   #pad button:active,#pad button.pressed{background:rgba(255,59,48,.4);
     border-color:rgba(255,59,48,.85);color:#fff}
-  #pad .dpad{position:absolute;left:16px;bottom:22px;width:186px;height:186px}
-  #pad .dpad button{position:absolute;width:62px;height:62px;border-radius:12px;
-    font-size:20px;font-weight:900}
-  #pad .dpad .up{top:0;left:62px}
-  #pad .dpad .down{bottom:0;left:62px}
-  #pad .dpad .left{left:0;top:62px}
-  #pad .dpad .right{right:0;top:62px}
-  #pad .dpad .center{left:62px;top:62px;background:rgba(12,15,22,.18);
-    border-color:rgba(180,195,215,.18)}
-  #pad .atk{position:absolute;right:14px;bottom:22px;display:grid;
-    grid-template-columns:repeat(2,68px);gap:10px}
-  #pad .atk button{width:68px;height:68px;border-radius:50%;font-size:19px;font-weight:900}
-  #pad .atk button small{display:block;font-size:10px;font-weight:400;letter-spacing:.06em;
-    color:rgba(223,230,240,.72);line-height:1.2}
-  #pad .atk button:active small,#pad .atk button.pressed small{color:#fff}
-  #pad .stbtn{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);
-    width:96px;height:44px;border-radius:22px;font-size:13px;letter-spacing:.2em;font-weight:900}
+  /* 摇杆（拖动注入方向键，贴左下角） */
+  #pad .joy{pointer-events:auto;position:absolute;left:0;bottom:0;width:170px;height:170px;border-radius:50%;
+    background:radial-gradient(circle at 50% 40%,rgba(30,36,48,.55),rgba(6,8,12,.78));
+    border:1px solid #2a3140;box-shadow:inset 0 4px 18px rgba(0,0,0,.5);touch-action:none;cursor:grab}
+  #pad .joy::before{content:'';position:absolute;inset:14px;border-radius:50%;border:1px dashed #39414f}
+  #pad .joy.grabbing{cursor:grabbing}
+  #pad .joy .tick{position:absolute;color:#4c5670;font-size:12px;font-weight:900;pointer-events:none}
+  #pad .joy .tick.u{left:50%;top:4px;transform:translateX(-50%)}
+  #pad .joy .tick.d{left:50%;bottom:4px;transform:translateX(-50%)}
+  #pad .joy .tick.l{left:6px;top:50%;transform:translateY(-50%)}
+  #pad .joy .tick.r{right:6px;top:50%;transform:translateY(-50%)}
+  #pad .joy .stick{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#5a6678,#232a36 70%);
+    border:1px solid #4c5670;box-shadow:0 6px 14px rgba(0,0,0,.55),inset 0 3px 6px rgba(255,255,255,.15);
+    pointer-events:none;transition:transform .05s linear}
+  #pad .joy .stick .cap{position:absolute;inset:16px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.25),transparent)}
+  #pad .joy .dir{position:absolute;left:50%;top:-24px;transform:translateX(-50%);font-family:Consolas,monospace;
+    font-size:12px;color:var(--gold);white-space:nowrap;pointer-events:none}
+  /* 攻击键：格斗 6 键（2×3） */
+  #pad .bt{position:absolute;right:18px;bottom:22px;width:170px;height:238px}
+  #pad .bt button{position:absolute;width:76px;height:76px;border-radius:50%;font-size:20px;font-weight:900;
+    background:radial-gradient(circle at 35% 30%,rgba(90,102,120,.6),rgba(16,20,28,.72));
+    border:1px solid rgba(255,255,255,.35);box-shadow:0 6px 14px rgba(0,0,0,.5)}
+  #pad .bt button small{display:block;font-size:9px;font-weight:700;letter-spacing:.1em;margin-top:1px;opacity:.85}
+  #pad .bt button:active,#pad .bt button.pressed{filter:brightness(1.35)}
+  #pad .bt .a{left:0;bottom:158px}
+  #pad .bt .b{right:0;bottom:158px}
+  #pad .bt .c{left:0;bottom:78px}
+  #pad .bt .x{right:0;bottom:78px}
+  #pad .bt .y{left:0;bottom:0}
+  #pad .bt .z{right:0;bottom:0}
+  #pad .joyu{position:absolute;left:26px;bottom:200px;font-size:10.5px;color:var(--dim);letter-spacing:.1em}
+  #pad .stbtn{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);cursor:pointer;font-family:inherit;
+    width:64px;height:40px;border-radius:9px;font-size:11px;font-weight:900;letter-spacing:.12em;color:#fff;
+    background:rgba(200,160,40,.5);border:1px solid #7a6420}
 
   /* ---------- 系统设置 ---------- */
   #btn-settings{cursor:pointer;font-family:inherit;font-size:15px;
     font-weight:900;letter-spacing:.22em;padding:13px 34px;border-radius:8px;
     border:1px solid var(--line);color:var(--txt);background:#12161f;transition:.16s}
   #btn-settings:hover{border-color:#3b4557;color:#fff}
-  #settings{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;
-    background:rgba(4,5,8,.82);backdrop-filter:blur(5px)}
-  #settings.on{display:flex}
-  #settings .box{width:min(880px,94vw);max-height:88vh;overflow:auto;background:var(--panel);
-    border:1px solid var(--line);border-radius:12px;padding:24px 28px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
-  #settings h2{margin:0 0 4px;font-size:20px;font-weight:900;letter-spacing:.08em}
-  #settings .sub{font-size:12px;color:var(--dim);margin-bottom:16px}
-  #st-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-  #st-tabs button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.1em;
-    padding:8px 18px;border-radius:20px;background:#121722;border:1px solid var(--line);color:var(--dim);transition:.15s}
-  #st-tabs button:hover{color:var(--txt);border-color:#3b4557}
-  #st-tabs button.on{background:rgba(255,59,48,.14);border-color:var(--hot);color:#fff}
+  /* ---------- 系统设置（原型 settings.html 同款整页 wrap 880） ---------- */
+  #settings{position:fixed;inset:0;z-index:70;display:none;background:#0b0f1a;overflow:auto;padding:34px 0 20px}
+  #settings.on{display:block}
+  #settings .wrap{width:min(880px,94vw);margin:0 auto}
+  #settings .crumb{font-size:12px;margin-bottom:14px}
+  #settings .crumb a{color:var(--cyan);cursor:pointer}
+  #settings h1{font-size:26px;font-weight:900;letter-spacing:.06em}
+  #settings .sub{color:var(--dim);font-size:13px;margin:8px 0 20px}
+  #st-tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+  #st-tabs button{cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:800;letter-spacing:.08em;
+    padding:9px 22px;border-radius:22px;background:transparent;border:1px solid #2a3346;color:var(--dim)}
+  #st-tabs button.on{color:#ff5a50;border-color:var(--hot);background:rgba(255,59,48,.07)}
   .stpane{display:none}
   .stpane.on{display:block}
-  .pane-title{font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--cyan);margin:2px 0 10px}
-  .keygrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 26px}
+  .pane-title{font-size:14px;font-weight:800;letter-spacing:.04em;color:var(--cyan);margin-bottom:8px}
+  .keygrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
   @media (max-width:720px){.keygrid{grid-template-columns:1fr}}
-  .krow{display:flex;justify-content:space-between;align-items:center;gap:12px;
-    padding:6px 8px 6px 12px;border:1px solid var(--line);border-radius:7px;background:#0d1017}
-  .krow span{font-size:13px;color:#c3ccd9}
-  .krow button{cursor:pointer;font-family:Consolas,monospace;font-weight:700;font-size:13px;
-    min-width:120px;padding:6px 12px;border-radius:6px;background:#161b26;
-    border:1px solid var(--line);color:var(--txt);transition:.12s}
+  .krow{display:flex;align-items:center;background:#10141f;border:1px solid #1e2534;border-radius:8px;
+    padding:9px 8px 9px 16px}
+  .krow span{font-size:13.5px;color:#c3ccd9}
+  .krow button{margin-left:auto;cursor:pointer;font-family:Consolas,monospace;font-weight:700;font-size:13px;
+    min-width:130px;padding:8px 0;border-radius:6px;background:#1a2130;border:1px solid #2a3346;color:var(--txt);text-align:center}
   .krow button:hover{border-color:#3b4557}
-  .krow button.listen{border-color:var(--gold);color:var(--gold);
-    box-shadow:0 0 14px -4px rgba(255,194,51,.8)}
+  .krow button.listen{border-color:var(--gold);color:var(--gold);animation:bl .8s infinite}
   .krow button.dup{border-color:var(--hot);color:#ffb4ad}
-  .presetrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:6px}
+  @keyframes bl{50%{opacity:.45}}
+  .presetrow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
   @media (max-width:720px){.presetrow{grid-template-columns:1fr}}
-  .preset{cursor:pointer;text-align:left;padding:14px 16px;border-radius:9px;font-family:inherit;
-    background:#0d1017;border:1px solid var(--line);color:var(--txt);transition:.15s}
-  .preset b{display:block;font-size:15px;letter-spacing:.06em;margin-bottom:4px}
-  .preset small{font-size:12px;color:var(--dim);line-height:1.5}
+  .preset{cursor:pointer;text-align:left;padding:14px 16px;border-radius:10px;font-family:inherit;color:var(--txt);
+    background:#10141f;border:1px solid #2a3346;transition:.15s}
   .preset:hover{border-color:#3b4557}
-  .preset.on{border-color:var(--hot);background:rgba(255,59,48,.1);
-    box-shadow:0 0 0 1px var(--hot)}
-  .setting-line{display:flex;justify-content:space-between;align-items:center;gap:14px;
-    padding:10px 12px;border:1px solid var(--line);border-radius:7px;background:#0d1017;margin-bottom:8px}
-  .setting-line label{font-size:13px;color:#c3ccd9;flex-shrink:0}
-  .setting-line select{font-family:inherit;font-size:13px;padding:6px 10px;border-radius:6px;
-    background:#161b26;border:1px solid var(--line);color:var(--txt)}
-  .setting-line input[type=range]{flex:1;accent-color:#ff3b30}
-  .setting-line .val{font-size:12px;color:var(--gold);min-width:36px;text-align:right;
-    font-variant-numeric:tabular-nums}
-  .setting-line .hint{font-size:11px;color:#6f7b8d}
-  .stfoot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:20px}
-  .stfoot .hint{font-size:12px;color:#6f7b8d}
-  .stfoot .hint b{color:#ffd98a}
-  .stfoot button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;padding:8px 18px;
-    border-radius:7px;border:1px solid var(--line);background:#121722;color:var(--txt)}
-  .stfoot button:hover{border-color:#3b4557}
-  #st-reset{color:#ffb4ad}
-  #st-done{background:rgba(255,59,48,.16);border-color:rgba(255,59,48,.5)}
+  .preset.on{border-color:var(--gold);background:rgba(255,194,51,.06)}
+  .preset b{font-size:14px;font-weight:900}
+  .preset .d{font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7}
+  .preset .tag{float:right;font-size:10px;color:var(--gold);letter-spacing:.1em}
+  .setting-line{display:flex;align-items:center;background:#10141f;border:1px solid #1e2534;border-radius:8px;
+    padding:12px 16px;margin-bottom:10px;gap:10px}
+  .setting-line label{font-size:13.5px;flex:none}
+  .setting-line .hint{font-size:11px;color:var(--dim)}
+  .setting-line select{font-family:inherit;font-size:13px;padding:7px 12px;border-radius:7px;
+    background:#1a2130;border:1px solid #2a3346;color:var(--txt);margin-left:auto}
+  .setting-line input[type=range]{margin-left:auto;width:180px;accent-color:#ff3b30}
+  .setting-line .val{font-family:Consolas,monospace;font-size:12px;color:var(--cyan);width:34px;text-align:right}
+  #settings .stfoot{display:flex;gap:12px;margin-top:22px;padding-top:16px;border-top:1px solid #1e2534}
+  #settings .stfoot button{flex:1;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:800;letter-spacing:.14em;
+    padding:12px 0;border-radius:9px;border:1px solid #2a3346;background:#10141f;color:var(--txt)}
+  #settings .stfoot button:hover{border-color:var(--cyan)}
+  #settings .stfoot .primary{border-color:#5a2a28;background:rgba(255,59,48,.1);color:#ffb4ad}
   /* 设置里的「服务器连接 / 登录」 */
-  .connrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .connbox{border:1px solid #1e2534;border-radius:10px;padding:16px}
+  .connrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .connrow:last-child{margin-bottom:0}
   .connrow input[type=text],.connrow input[type=password],.connrow input[type=url]{
     font-family:inherit;font-size:13px;padding:8px 10px;border-radius:7px;
-    background:#161b26;border:1px solid var(--line);color:var(--txt);flex:1;min-width:150px}
+    background:#1a2130;border:1px solid #2a3346;color:var(--txt);flex:1;min-width:150px}
   .connrow input:focus{outline:none;border-color:var(--cyan)}
   .connrow button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;padding:8px 16px;
-    border-radius:7px;border:1px solid var(--line);background:#121722;color:var(--txt)}
-  .connrow button:hover{border-color:#3b4557}
-  .connrow button.primary{background:rgba(255,59,48,.16);border-color:rgba(255,59,48,.5);color:#fff}
-  .connstate{font-size:12px;padding:7px 11px;border-radius:6px;display:inline-block}
-  .connstate.ok{background:rgba(63,185,80,.14);border:1px solid rgba(63,185,80,.4);color:#7ee2a8}
-  .connstate.err{background:rgba(248,81,73,.14);border:1px solid rgba(248,81,73,.4);color:#ffb4ad}
-  .connstate.idle{background:#161b26;border:1px solid var(--line);color:var(--dim)}
-  .tab2{display:flex;gap:6px;margin-top:10px}
-  .tab2 button{cursor:pointer;font-family:inherit;font-size:12px;padding:6px 14px;border-radius:16px;
-    background:#121722;border:1px solid var(--line);color:var(--dim)}
-  .tab2 button.on{background:rgba(58,209,255,.14);border-color:var(--cyan);color:#fff}
-  .formmsg{font-size:12px;margin-top:8px;min-height:1.3em}
+    border-radius:7px;border:1px solid #2a3346;background:#1a2130;color:var(--txt)}
+  .connrow button:hover{border-color:var(--cyan)}
+  .connrow button.primary{background:rgba(255,59,48,.14);border-color:#5a2a28;color:#ffb4ad}
+  .connstate{font-size:12px;padding:3px 10px;border-radius:12px;border:1px solid #2a3346;color:var(--dim);display:inline-block}
+  .connstate.ok{color:#2ecc71;border-color:#1f5c38}
+  .connstate.err{color:#ff5a50;border-color:#5a2a28}
+  .connstate.idle{color:var(--dim)}
+  .tab2{display:flex;gap:8px;margin-bottom:10px}
+  .tab2 button{cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;padding:6px 18px;border-radius:16px;
+    background:#10141f;border:1px solid #2a3346;color:var(--dim)}
+  .tab2 button.on{color:#fff;border-color:var(--cyan)}
+  .formmsg{font-size:12.5px;color:var(--cyan);min-height:18px;margin-top:10px}
   .formmsg.err{color:#ffb4ad}
   .formmsg.ok{color:#7ee2a8}
 
-  /* ---------- 故事联动 ---------- */
-  #btn-story{position:relative;cursor:pointer;font-family:inherit;font-size:15px;font-weight:900;
-    letter-spacing:.22em;padding:13px 34px;border-radius:8px;
-    border:1px solid rgba(58,209,255,.45);color:var(--cyan);background:rgba(58,209,255,.07);transition:.16s}
-  #btn-story:hover{border-color:var(--cyan);color:#fff}
-  #story{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;
-    background:rgba(4,5,8,.82);backdrop-filter:blur(5px)}
+  /* ---------- 故事联动（原型 story-list.html / roster-bind.html 同款整页 stage） ---------- */
+  #story{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;padding:32px;
+    background:radial-gradient(1100px 640px at 30% -12%,#101a2a 0%,var(--bg) 62%)}
   #story.on{display:flex}
-  #story .box{width:min(880px,94vw);max-height:88vh;overflow:auto;background:var(--panel);
-    border:1px solid var(--line);border-radius:12px;padding:24px 28px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
-  #story h2{margin:0 0 4px;font-size:20px;font-weight:900;letter-spacing:.08em}
-  #story .sub{font-size:12px;color:var(--dim);margin-bottom:14px}
-  #story .sub.ok{color:#7ee2a8}
-  #story .sub.err{color:#ffb4ad}
-  .sesslist{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  @media (max-width:720px){.sesslist{grid-template-columns:1fr}}
-  .sess{cursor:pointer;text-align:left;padding:12px 14px;border-radius:9px;font-family:inherit;
-    background:#0d1017;border:1px solid var(--line);color:var(--txt);transition:.15s}
-  .sess:hover{border-color:#3b4557;transform:translateY(-2px)}
-  .sess .t{font-size:14px;font-weight:700}
-  .sess .ch{font-size:12px;color:var(--cyan);margin-top:2px}
-  .sess .intro{font-size:12px;color:var(--dim);margin-top:6px;display:-webkit-box;
-    -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .sess .last{font-size:11px;color:#6f7b8d;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .charrow{display:flex;justify-content:space-between;align-items:center;gap:10px;
-    padding:9px 12px;border:1px solid var(--line);border-radius:7px;background:#0d1017;margin-bottom:8px}
-  .charrow .cname{font-size:13px;color:#e7ecf3;flex-shrink:0;min-width:110px}
-  .charrow .badge{font-style:normal;font-size:10px;padding:1px 5px;border-radius:4px;margin-left:6px;vertical-align:1px}
-  .charrow .badge.player{color:#ffd98a;border:1px solid rgba(255,194,51,.4)}
-  .charrow .badge.npc{color:#9fb6d8;border:1px solid rgba(58,209,255,.3)}
-  .charrow .badge.prof{color:#c9a7ff;border:1px solid rgba(201,167,255,.35)}
-  .charrow select{font-family:inherit;font-size:13px;padding:5px 8px;border-radius:6px;
-    background:#161b26;border:1px solid var(--line);color:var(--txt)}
-  .charrow .rec{font-size:12px;color:var(--gold);min-width:64px;text-align:right;
-    font-variant-numeric:tabular-nums}
-  #story .stfoot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:20px}
-  #story .stfoot .hint{font-size:12px;color:#6f7b8d}
-  #story .stfoot button{cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;padding:8px 18px;
-    border-radius:7px;border:1px solid var(--line);background:#121722;color:var(--txt);transition:.15s}
-  #story .stfoot button:hover{border-color:#3b4557}
-  #sr-rand{color:#ffd98a}
-  #sr-save{border-color:rgba(58,209,255,.5)!important;color:var(--cyan)!important}
-  #sr-fight{background:rgba(255,59,48,.16)!important;border-color:rgba(255,59,48,.5)!important}
-  /* 角色多时列表会很长：让列表自己滚，底部的【保存】按钮固定可见 */
-  #story .box{max-height:88vh;display:flex;flex-direction:column}
-  #story #story-roster{flex:1;min-height:0;display:none;flex-direction:column}
-  #story #story-roster.flexon{display:flex}
-  #story #charrows{overflow-y:auto;flex:1;min-height:0;padding-right:4px}
-  #story #story-roster .stfoot{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);
-    flex-shrink:0;background:var(--panel)}
+  #story .stage{width:min(680px,100%);max-height:calc(100vh - 64px);display:flex;flex-direction:column}
+  #story.rostering .stage{width:min(780px,100%)}
+  #story .head{display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-shrink:0}
+  #story .head a{color:var(--cyan);font-size:13px;cursor:pointer}
+  #story .head h1{font-size:18px;font-weight:900;letter-spacing:.28em}
+  #story .hint{font-size:12px;color:var(--dim);margin-bottom:16px;letter-spacing:.06em;flex-shrink:0}
+  #story .hint.ok{color:#7ee2a8}
+  #story .hint.err{color:#ffb4ad}
+  #story .sesslist{overflow-y:auto;min-height:0}
+  .sess{width:100%;text-align:left;cursor:pointer;font-family:inherit;color:var(--txt);display:flex;gap:14px;align-items:center;
+    background:rgba(17,20,27,.88);border:1px solid var(--line);border-radius:12px;padding:15px 18px;margin-bottom:10px;transition:.16s}
+  .sess:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 8px 22px rgba(255,194,51,.1)}
+  .sess.on{border-color:var(--gold)}
+  .sess .ic{width:44px;height:44px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;font-size:20px;
+    background:linear-gradient(135deg,#232c3f,#12161f);border:1px solid var(--line)}
+  .sess .t{font-size:15px;font-weight:800;letter-spacing:.04em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .sess .d{font-size:11.5px;color:var(--dim);margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .sess .meta{margin-left:auto;text-align:right;font-size:10.5px;color:#5a6478;line-height:1.8;flex:none}
+  .sess .cur{color:var(--gold);font-size:10px;letter-spacing:.1em}
+  /* 实体绑定行（原型 roster-bind：1fr 30px 1fr 三栏） */
+  #charrows{overflow-y:auto;min-height:0;padding-right:4px}
+  .brow{display:grid;grid-template-columns:1fr 30px 1fr;gap:0 10px;align-items:center;
+    background:rgba(17,20,27,.88);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:9px}
+  .brow .tf,.brow .mg{display:flex;gap:12px;align-items:center;min-width:0}
+  .brow .ava,.brow .mava{width:46px;height:46px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:18px;color:#fff;overflow:hidden}
+  .brow .ava{background:linear-gradient(135deg,#31435f,#1b2436)}
+  .brow .ava img,.brow .mava img{width:100%;height:100%;object-fit:cover}
+  .brow .mava{color:#dfe6f0;border:1px solid var(--line);
+    background:repeating-conic-gradient(#1c2230 0 25%,#10141c 0 50%) 0 0/12px 12px}
+  .brow .nm{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brow .job{display:inline-block;font-size:9.5px;letter-spacing:.12em;color:var(--gold);
+    border:1px solid #4d3d12;border-radius:12px;padding:1.5px 8px;margin-top:3px}
+  .brow .mid{color:#39414f;text-align:center;font-size:15px}
+  .brow select{font-family:inherit;font-size:13px;padding:7px 9px;border-radius:7px;background:#0d1017;
+    border:1px solid var(--line);color:var(--txt);cursor:pointer;flex:1;min-width:0}
+  .brow select:hover{border-color:var(--cyan)}
+  #story .stfoot{display:flex;margin-top:18px;flex-shrink:0}
+  #story .stfoot button{flex:1;cursor:pointer;font-family:inherit;font-size:14px;font-weight:900;letter-spacing:.24em;text-indent:.24em;
+    padding:14px 0;border-radius:11px;border:1px solid #4d3d12;background:linear-gradient(180deg,#1d1708,#120e05);
+    color:var(--gold);transition:.16s}
+  #story .stfoot button:hover{box-shadow:0 6px 18px rgba(255,194,51,.15)}
 
   /* 失焦/切后台遮罩 */
   #cover{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
@@ -515,60 +605,100 @@
 
 <!-- 主界面 -->
 <div id="home">
-  <div class="logo">TOON <span>FIGHTING</span></div>
-  <div class="sub">AI 格斗联动 · 主界面</div>
-  <div class="ctx">
-    <button class="ctxline" id="home-story">
-      <span class="dot" id="home-conn-dot"></span>
-      <span class="k">当前故事</span>
-      <span class="v free" id="home-story-name">未绑定（点击选择会话）</span>
-      <span class="act">切换 ›</span>
-    </button>
-    <button class="ctxline" id="home-pack">
-      <span class="k">资产集</span>
-      <span class="v free" id="home-pack-name">加载中…</span>
-      <span class="act">选择 ›</span>
-    </button>
-    <button class="ctxline" id="home-bind">
-      <span class="k">角色绑定</span>
-      <span class="v free" id="home-bind-name">给故事角色分配 MUGEN 实体</span>
-      <span class="act">配置 ›</span>
-    </button>
-  </div>
-  <div class="modes">
-    <button class="modebtn practice" data-mode="practice">练 习<small>选人 · 假人可改行为</small></button>
-    <button class="modebtn versus" data-mode="versus">对 战<small>选人 · 正式 CPU 对局</small></button>
-    <button class="modebtn survival" data-mode="survival">生 存<small>选我方 · 对手随机</small></button>
-    <button class="modebtn" id="home-settings">设 置<small>键位 · 性能 · 账号</small></button>
+  <div class="stage">
+    <div class="brand">
+      <h1>TOON·<i>FIGHTING</i></h1>
+      <div class="conn"><span class="dot" id="home-conn-dot"></span><span id="home-conn-text">联动检测中…</span></div>
+    </div>
+    <div class="card">
+      <div class="row-t"><b>当前故事</b><span class="lnk" id="home-story-link">从会话列表切换 ›</span></div>
+      <div class="storyval">
+        <div class="nm free" id="home-story-name">未绑定（点击选择会话）</div>
+        <button class="sw" id="home-story">切换故事</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row-t"><b>资产集绑定</b></div>
+      <div class="pack" id="home-pack" role="button">
+        <span class="pn free" id="home-pack-name">加载中…</span>
+        <span class="pv" id="home-pack-meta"></span>
+        <span class="ch act" id="home-pack-pick" role="button" title="选择本地的资产集文件夹">选择资产集文件夹</span>
+      </div>
+      <div class="packstat" id="home-pack-stat">点击「选择资产集文件夹」登记本地资产集，登记后自动绑定到当前故事会话。</div>
+    </div>
+    <div class="card">
+      <div class="row-t"><b>角色的实体绑定</b></div>
+      <div class="pack" id="home-bind" role="button">
+        <span class="pn free" id="home-bind-name">为故事角色绑定 MUGEN 实体资产</span>
+        <span class="ch">点击进入 ›</span>
+      </div>
+    </div>
+    <div class="btns">
+      <button class="modebtn practice" data-mode="practice">练 习<small>TRAINING · 假人站桩</small></button>
+      <button class="modebtn versus" data-mode="versus">对 战<small>VERSUS · 正式对决</small></button>
+      <button class="modebtn survival" data-mode="survival">生 存<small>SURVIVAL · 连胜续关</small></button>
+      <button class="modebtn" id="home-settings">设 置<small>SETTINGS · 键位 性能 账号</small></button>
+    </div>
   </div>
   <div class="rowbtns">
     <button id="btn-settings" style="display:none">系 统 设 置</button>
-    <button id="btn-story" style="display:none">故 事 联 动</button>
   </div>
-  <div class="note" id="home-note">提示：把浏览器窗口保持在最前台，切走 / 最小化会被浏览器降频。</div>
 </div>
 
-<!-- 选人屏 -->
+<!-- 选人屏（街机 KOF 风） -->
 <div id="select">
-  <h1 id="sel-title">选择你的<em>战士</em></h1>
-  <div id="teamsz"><b>人数</b>
-    <button class="chip on" data-n="1">1 人</button>
-    <button class="chip" data-n="3">3 人（编队）</button>
+<div class="arcade">
+  <h1 id="sel-title">TOON·FIGHTING</h1>
+  <div id="menuwrap">
+    <button class="menubtn" id="btn-selmenu">≡ 菜 单</button>
+    <div class="menudd" id="selmenudd">
+      <button id="menu-home">🏠 回主界面</button>
+      <button id="menu-story">📖 切换故事</button>
+      <button id="menu-bind">🔗 角色实体绑定</button>
+      <button id="menu-direct">⚔ 直接开打</button>
+      <button id="menu-settings">⚙ 系统设置</button>
+    </div>
   </div>
-  <div id="slots"></div>
-  <div id="selbig"></div>
-  <div id="kgrid"></div>
-  <div id="difficulty"><b>强度</b>
-    <button class="chip" data-ai="1">简单</button>
-    <button class="chip on" data-ai="3">普通</button>
-    <button class="chip" data-ai="6">困难</button>
+  <div class="topbar">
+    <button class="tb" data-m="practice">练 习</button>
+    <button class="tb" data-m="versus">对 战</button>
+    <button class="tb" data-m="survival">生 存</button>
+    <span class="cnt" id="teamsz">人数
+      <button class="chip" data-n="1">1 人</button>
+      <button class="chip" data-n="3">3 人</button>
+    </span>
   </div>
-  <div id="sel-actions">
+  <div class="port p1">
+    <div class="phd"><span class="t">1 · 我方 TOONFLOW 角色</span><button class="swp" id="btn-swp">⇄ 出场顺序</button>
+      <div class="chips" id="p1chips"></div></div>
+    <div class="pface" id="p1face"><div class="ini"></div></div>
+    <div class="pname" id="p1name">&nbsp;</div>
+    <div class="pinfo" id="p1info"></div>
+  </div>
+  <div class="port p2">
+    <div class="phd"><span class="t" id="p2cap">3 · 对手 TOONFLOW 角色</span><div class="chips" id="p2chips"></div></div>
+    <div class="pface" id="p2face"><div class="ini"></div></div>
+    <div class="pname" id="p2name">&nbsp;</div>
+    <div class="pinfo" id="p2info"></div>
+  </div>
+  <div class="surnote" id="surnote" style="display:none">生存模式：只能选我方队员<br>对手随机生成 / 按资产集设定<br>胜利 +1 续关</div>
+  <div class="selrow" id="selrow"></div>
+  <div class="floor" id="kgrid"></div>
+  <div class="foot">
+    <div class="namebar" id="bar1"></div>
+    <div class="namebar" id="bar2"></div>
+    <div class="diff" id="difficulty"><b>难度</b>
+      <select id="ai-sel">
+        <option value="1">简单</option>
+        <option value="3" selected>普通</option>
+        <option value="6">困难</option>
+        <option value="8">地狱</option>
+      </select>
+    </div>
     <button id="btn-fight">开 始</button>
-    <button id="btn-back-home">← 主界面</button>
   </div>
-  <div class="note">点卡片选人、再点一下取消重选；「?」随机。点上方槽位切换当前编辑位（出场顺序）。<br>
-    提示：把浏览器窗口保持在最前台，切走 / 最小化会像卡死——那是浏览器省电，不是游戏卡。</div>
+</div>
+<div class="toast" id="sel-toast"></div>
 </div>
 
 <div id="hud"><b>P1</b> ←↑↓→ 移动 · <b>Z</b> 轻拳 · <b>X</b> 中拳 · <b>C</b> 重拳 · <b>A/S/D</b> 组合 · <b>Enter</b> 确认</div>
@@ -614,28 +744,28 @@
 </div>
 
 <div id="pad" aria-hidden="true">
-  <div class="dpad">
-    <button class="up"    data-act="up"    aria-label="上">↑</button>
-    <button class="down"  data-act="down"  aria-label="下">↓</button>
-    <button class="left"  data-act="left"  aria-label="左">←</button>
-    <button class="right" data-act="right" aria-label="右">→</button>
-    <div class="center"></div>
+  <span class="joyu">虚拟摇杆 · 拖动注入方向键</span>
+  <div class="joy" id="joy">
+    <span class="dir" id="joydir"></span>
+    <span class="tick u">▲</span><span class="tick d">▼</span><span class="tick l">◀</span><span class="tick r">▶</span>
+    <div class="stick" id="stick"><div class="cap"></div></div>
   </div>
-  <div class="atk">
-    <button data-act="a">A<small>轻拳</small></button>
-    <button data-act="b">B<small>中拳</small></button>
-    <button data-act="c">C<small>重拳</small></button>
-    <button data-act="x">X<small>攻击</small></button>
-    <button data-act="y">Y<small>攻击</small></button>
-    <button data-act="z">Z<small>攻击</small></button>
+  <div class="bt">
+    <button class="a" data-act="a">A<small>轻拳</small></button>
+    <button class="b" data-act="b">B<small>中拳</small></button>
+    <button class="c" data-act="c">C<small>重拳</small></button>
+    <button class="x" data-act="x">X<small>攻击</small></button>
+    <button class="y" data-act="y">Y<small>攻击</small></button>
+    <button class="z" data-act="z">Z<small>攻击</small></button>
   </div>
   <button class="stbtn" data-act="start">START</button>
 </div>
 
 <div id="settings">
-  <div class="box">
-    <h2>系统设置</h2>
-    <div class="sub">所有设置自动保存在浏览器里，下次进来不用再调</div>
+  <div class="wrap">
+    <div class="crumb"><a id="st-back">← 返回主界面</a> · 系统设置</div>
+    <h1>系统设置</h1>
+    <div class="sub">所有设置自动保存到浏览器（toonfight:settings-v1），下次进来不用再调 · 经 save/user-config.ini 注入引擎</div>
     <div id="st-tabs">
       <button data-pane="keys" class="on">键位配置</button>
       <button data-pane="perf">性能配置</button>
@@ -649,99 +779,103 @@
       <div class="keygrid" id="keygrid-p1"></div>
       <div class="pane-title" style="margin-top:16px">玩家 2（P2 · 本地双人时使用）</div>
       <div class="keygrid" id="keygrid-p2"></div>
-      <div class="hint" style="font-size:12px;color:#6f7b8d;margin-top:12px">
-        点一下按键框，再按你想要的键即可改绑。<span style="color:#ffb4ad">红色</span>表示这个键被两个动作同时占用，请改开。</div>
+      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.8;margin-top:12px">
+        点一下按键框，再按你想要的键即可改绑。<span style="color:#ffb4ad">红色</span>表示这个键被两个动作同时占用，请改开。
+        键名枚举见引擎 KeyToStringLUT（UP/DOWN/LEFT/RIGHT/RETURN/RSHIFT 等）。</div>
     </div>
 
     <div class="stpane" id="pane-perf">
       <div class="pane-title">性能 ↔ 质量（默认最佳性能）</div>
       <div class="presetrow" id="presetrow"></div>
-      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.7;margin-top:10px">
+      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.8;margin-top:12px">
         渲染分辨率越低，同一台机器帧率越高。默认按「最佳性能」启动：640×480 + 像素锐利渲染，
         老机器 / 内嵌浏览器也能跑满帧。画质档适合独显 + 独立浏览器全屏。</div>
     </div>
 
     <div class="stpane" id="pane-personal">
       <div class="pane-title">画面与声音</div>
-      <div class="setting-line"><label>渲染分辨率</label>
+      <div class="setting-line"><label>渲染分辨率</label><span class="hint">[Video] GameWidth / GameHeight</span>
         <select id="st-res"></select></div>
-      <div class="setting-line"><label>画面滤镜</label>
+      <div class="setting-line"><label>画面滤镜</label><span class="hint">立即生效</span>
         <select id="st-filter">
           <option value="pixelated">锐利像素（放大不糊，性能更好）</option>
           <option value="smooth">平滑缩放（观感柔和，稍吃性能）</option>
         </select></div>
-      <div class="setting-line"><label>虚拟手柄</label>
+      <div class="setting-line"><label>虚拟手柄</label><span class="hint">默认显示 · auto=仅触屏显示</span>
         <select id="st-pad">
           <option value="auto">跟随设备（触屏显示，桌面隐藏）</option>
           <option value="show">始终显示</option>
           <option value="hide">始终隐藏</option>
         </select></div>
-      <div class="setting-line"><label>主音量</label>
+      <div class="setting-line"><label>主音量</label><span class="hint">MasterVolume</span>
         <input type="range" id="st-vol-master" min="0" max="100" step="1"><span class="val" id="st-vol-master-v"></span></div>
-      <div class="setting-line"><label>音效音量</label>
+      <div class="setting-line"><label>音效音量</label><span class="hint">WavVolume</span>
         <input type="range" id="st-vol-wav" min="0" max="100" step="1"><span class="val" id="st-vol-wav-v"></span></div>
-      <div class="setting-line"><label>音乐音量</label>
+      <div class="setting-line"><label>音乐音量</label><span class="hint">BGMVolume</span>
         <input type="range" id="st-vol-bgm" min="0" max="100" step="1"><span class="val" id="st-vol-bgm-v"></span></div>
+      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.8;margin-top:12px">
+        键位 / 分辨率 / 音量在<b style="color:var(--gold)">下一次开打</b>时生效（重开一局即可）；滤镜立即生效。</div>
     </div>
 
     <div class="stpane" id="pane-battle">
       <div class="pane-title">战斗开场与发言</div>
-      <div class="setting-line"><label>开场发言</label>
+      <div class="setting-line"><label>开场发言</label><span class="hint">agent 流式生成，出错/超时自动跳过</span>
         <select id="st-speech">
           <option value="text">文字气泡</option>
           <option value="voice">文字 + 语音朗读</option>
           <option value="off">关闭</option>
         </select></div>
-      <div class="setting-line"><label>3 秒倒计时</label>
+      <div class="setting-line"><label>3 秒倒计时</label><span class="hint">开场 3-2-1</span>
         <select id="st-countdown">
           <option value="on">开（开场 3-2-1）</option>
           <option value="off">关（直接开打）</option>
         </select></div>
-      <div class="setting-line"><label>头顶悬浮头像</label>
+      <div class="setting-line"><label>头顶悬浮头像</label><span class="hint">TF_HEAD 坐标包驱动</span>
         <select id="st-headavatar">
           <option value="on">显示（实体头顶挂头像）</option>
           <option value="off">隐藏</option>
         </select></div>
-      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.7;margin-top:10px">
+      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.8;margin-top:12px">
         发言 agent 在本页内实现、调用后端大模型接口生成符合角色人设与故事世界观的台词；
         接口出错 / 超时会自动跳过，不影响战斗。发言按角色绑定与职业信息构造提示词。</div>
     </div>
 
     <div class="stpane" id="pane-account">
       <div class="pane-title">后端服务连接</div>
-      <div class="connrow">
-        <input type="text" id="st-server" placeholder="后端服务地址，例如 http://127.0.0.1:60002">
-        <button id="st-server-save">保存</button>
-        <button id="st-server-test">测试连接</button>
+      <div class="connbox">
+        <div class="connrow">
+          <input type="text" id="st-server" placeholder="后端服务地址，例如 http://127.0.0.1:60002">
+          <button id="st-server-save">保存</button>
+          <button id="st-server-test">测试连接</button>
+        </div>
+        <div><span class="connstate idle" id="st-server-state">未测试</span></div>
       </div>
-      <div style="margin-top:8px"><span class="connstate idle" id="st-server-state">未测试</span></div>
 
       <div class="pane-title" style="margin-top:18px">账号</div>
       <div class="tab2">
         <button id="st-tab-login" class="on">登录</button>
         <button id="st-tab-register">注册</button>
       </div>
-      <div class="connrow" style="margin-top:10px">
-        <input type="text" id="st-user" placeholder="账号（2–32 个字符）" autocomplete="username">
-        <input type="password" id="st-pass" placeholder="密码（6–64 个字符）" autocomplete="current-password">
+      <div class="connbox">
+        <div class="connrow">
+          <input type="text" id="st-user" placeholder="账号（2–32 个字符）" autocomplete="username">
+          <input type="password" id="st-pass" placeholder="密码（6–64 个字符）" autocomplete="current-password">
+        </div>
+        <div class="connrow">
+          <button class="primary" id="st-login">登 录</button>
+          <button class="primary" id="st-register">注 册</button>
+          <button id="st-logout">退出登录</button>
+        </div>
+        <div class="formmsg" id="st-auth-msg"></div>
       </div>
-      <div class="connrow" style="margin-top:8px">
-        <button class="primary" id="st-login">登 录</button>
-        <button class="primary" id="st-register">注 册</button>
-        <button id="st-logout">退出登录</button>
-      </div>
-      <div class="formmsg" id="st-auth-msg"></div>
-      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.7;margin-top:10px">
+      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.8;margin-top:12px">
         账号用于拉取你的故事会话与角色。密码只在本机提交给本页的本地代理，
         由代理转交后端——页面与浏览器存储都不会留下后端 token。</div>
     </div>
 
     <div class="stfoot">
-      <div class="hint">键位 / 分辨率 / 音量在<b>下一次开打</b>时生效（重开一局即可）；滤镜立即生效。</div>
-      <div style="display:flex;gap:8px">
-        <button id="st-reset">恢复默认</button>
-        <button id="st-done">完 成</button>
-      </div>
+      <button id="st-reset">恢复默认</button>
+      <button class="primary" id="st-done">完成，返回主界面</button>
     </div>
   </div>
 </div>
@@ -758,32 +892,27 @@
   </div>
 </div>
 
+<!-- 资产集文件夹选择（系统原生目录选择器；只取元数据 JSON，不拷引擎资产） -->
+<input type="file" id="pack-dir-input" webkitdirectory multiple hidden>
+
 <div id="story">
-  <div class="box">
-    <h2 id="story-title-el">故 事 列 表</h2>
-    <div class="sub" id="story-status">检测联动服务…</div>
-    <div id="story-list">
-      <div class="pane-title">你的故事会话 <span style="color:#6f7b8d;font-weight:400">（点一个绑定故事并自动分配角色）</span></div>
-      <div class="storylist" id="sesslist"></div>
+  <div class="stage">
+    <div class="head">
+      <a id="story-close">← 返回主界面</a>
+      <a id="sr-back" style="display:none">← 会话列表</a>
+      <h1 id="story-title-el">选择故事</h1>
     </div>
+    <div class="hint" id="story-status">检测联动服务…</div>
+    <div class="sesslist" id="sesslist"></div>
     <div id="story-roster" style="display:none">
-      <div class="pane-title" id="story-title"></div>
+      <div class="hint" id="story-sub"></div>
       <div id="charrows"></div>
       <div class="stfoot">
-        <button id="sr-back">← 会话列表</button>
-        <span class="hint" id="sr-hint">「我方」第一个角色出 P1，「对手」第一个出 P2</span>
-        <span>
-          <button id="sr-rand">随机分配</button>
-          <button id="sr-save">保 存</button>
-          <button id="sr-fight">用此分配开打</button>
-        </span>
+        <button id="sr-save">保 存</button>
       </div>
     </div>
-    <div class="stfoot" id="story-foot">
-      <span class="hint">选择会话后会自动给角色随机分配默认资产，并持久化保存。</span>
-      <button id="story-close">关 闭</button>
-    </div>
   </div>
+  <span id="sr-hint" style="display:none"></span>
 </div>
 
 <script src="./vfs.js"></script>
@@ -866,7 +995,7 @@
   // ---------------- 资产集（本地 pack：map_design/<dir>/pack.json） ----------------
   // 注意：/api/assetpacks 与 /api/packs/:dir 不依赖 --conn，纯本地模式也有。
   const PACK_KEY = 'toonfight:pack-v1';
-  const PACKS = { list: [], cur: null, mapping: null, roster: null };
+  const PACKS = { list: [], cur: null, mapping: null, roster: null, localChars: [], pendingBind: null, bound: null };
 
   function packCharPool() {
     // mapping.charPool ∩ 本地可跑集合
@@ -875,17 +1004,18 @@
       : LOCAL_OK.slice();
     return pool.length ? pool : LOCAL_OK.slice();
   }
-  async function loadPacks() {
+  async function loadPacks(force) {
     let r = null;
     try { r = await fetch('/api/assetpacks', { signal: AbortSignal.timeout(8000) }).then((x) => x.json()); } catch { /* 纯本地模式 */ }
     PACKS.list = (r && r.ok && Array.isArray(r.packs)) ? r.packs : [];
     if (r && Array.isArray(r.localChars)) {
       // 服务端给出的可跑角色（已过滤资源残缺的包）
       for (const id of r.localChars) if (!LOCAL_OK.includes(id)) LOCAL_OK.push(id);
+      PACKS.localChars = r.localChars.slice();
     }
     let id = null;
     try { id = localStorage.getItem(PACK_KEY); } catch { /* 私密模式 */ }
-    if (PACKS.cur) return;
+    if (PACKS.cur && !force) return;
     // ?pack= 直选 / 存档 / --story 指定的资产集 / 唯一包自动选
     const want = q.get('pack') || id || (r && r.story ? r.story : null) || (PACKS.list.length === 1 ? PACKS.list[0].dir : null);
     if (want) {
@@ -906,17 +1036,180 @@
       PACKS.roster = meta && meta.roster ? meta.roster : null;
     } catch { PACKS.mapping = null; PACKS.roster = null; }
     renderPackLine();
+    refreshPackStat();
     return true;
   }
   function renderPackLine() {
     const el = document.getElementById('home-pack-name');
-    if (!PACKS.list.length) { el.textContent = '无可用资产集（map_design 里没有 pack.json）'; el.classList.add('free'); return; }
+    const meta = document.getElementById('home-pack-meta');
+    if (!PACKS.list.length) { el.textContent = '未登记任何资产集'; el.classList.add('free'); return; }
     el.textContent = PACKS.cur ? (PACKS.cur.name + '（' + PACKS.cur.dir + '）')
       : '未选择（共 ' + PACKS.list.length + ' 个可用）';
     el.classList.toggle('free', !PACKS.cur);
+    meta.textContent = PACKS.cur ? (PACKS.cur.dir || '') : '';
   }
+
+  // 切换资产集后刷新选人屏的角色池（选人屏没开时不用管）
+  function buildCharGrid() {
+    try {
+      if (typeof renderCharGrid === 'function') renderCharGrid();
+    } catch (e) { /* 选人屏未初始化 */ }
+  }
+
+  // 资产集卡片下方的状态行（ok / warn / err 三态）
+  function setPackStat(msg, kind) {
+    const el = document.getElementById('home-pack-stat');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'packstat' + (kind ? ' ' + kind : '');
+  }
+
+  // 登记后同步「已绑定到哪个会话」的状态行（不清掉别的提示）
+  function refreshPackStat() {
+    if (!PACKS.cur) {
+      setPackStat(PACKS.list.length
+        ? '点击「选择资产集文件夹」登记本地资产集，登记后自动绑定到当前故事会话。'
+        : '还没有可用的资产集。点击「选择资产集文件夹」选一个含 pack.json 的目录。');
+      return;
+    }
+    const miss = missingPackChars();
+    const lines = [];
+    const isUser = PACKS.cur.source === 'user';
+    if (PACKS.bound && PACKS.bound.packId === PACKS.cur.dir) {
+      lines.push('已绑定到会话「' + PACKS.bound.storyName + '」· packId=' + PACKS.bound.packId);
+    } else if (PACKS.bound) {
+      lines.push('会话「' + PACKS.bound.storyName + '」绑的是 packId=' + PACKS.bound.packId + '，当前用的是「' + PACKS.cur.name + '」。');
+    } else if (PACKS.pendingBind) {
+      lines.push('已登记「' + PACKS.cur.name + '」，选一个故事会话后自动完成绑定。');
+    } else if (isUser) {
+      lines.push('已登记「' + PACKS.cur.name + '」（自选文件夹），尚未绑定到会话。');
+    } else {
+      lines.push('当前使用内置资产集「' + PACKS.cur.name + '」，尚未绑定到会话。');
+    }
+    if (miss.length) lines.push('⚠ 本地缺少 ' + miss.length + ' 个角色：' + miss.join('、'));
+    setPackStat(lines.join('  ｜  '), miss.length ? 'warn' : (PACKS.bound ? 'ok' : ''));
+  }
+
+  // 资产集声明了、但本地引擎没装的角色（版权红线：引擎资产不入库，需要用户自行放置）
+  function missingPackChars() {
+    if (!PACKS.mapping || !Array.isArray(PACKS.mapping.charPool)) return [];
+    const have = PACKS.localChars.length ? PACKS.localChars : LOCAL_OK;
+    return PACKS.mapping.charPool.filter((id) => !have.includes(id));
+  }
+
+  // 读取用户选中的文件夹：只取根层级的 4 个元数据 JSON
+  async function readPackFiles(fileList) {
+    const files = [...(fileList || [])];
+    if (!files.length) throw new Error('没有读到文件');
+    const root = (files[0].webkitRelativePath || '').split('/')[0] || '';
+    const atRoot = {};
+    for (const f of files) {
+      const rel = f.webkitRelativePath || f.name;
+      const parts = rel.split('/');
+      if (parts.length !== 2) continue;         // 只要根层级的文件
+      atRoot[parts[1].toLowerCase()] = f;
+    }
+    const readOne = async (name) => {
+      const f = atRoot[name];
+      if (!f) return null;
+      const txt = await f.text();
+      try { return JSON.parse(txt); }
+      catch { throw new Error(name + ' 不是合法 JSON'); }
+    };
+    const pack = await readOne('pack.json');
+    if (!pack) throw new Error('这个文件夹不是资产集（缺 pack.json）');
+    return {
+      dirName: root,
+      pack,
+      story: await readOne('story.json'),
+      roster: await readOne('roster.json'),
+      mapping: await readOne('mapping.json'),
+    };
+  }
+
+  // 把选中的文件夹登记到服务端，并绑定到当前故事会话
+  async function registerPickedPack(fileList) {
+    setPackStat('正在读取文件夹…');
+    let data;
+    try {
+      data = await readPackFiles(fileList);
+    } catch (e) {
+      setPackStat('✗ ' + ((e && e.message) || '读取失败'), 'err');
+      return false;
+    }
+    setPackStat('正在登记「' + (data.pack.name || data.dirName) + '」…');
+    let r = null;
+    try {
+      r = await fetch('/api/packs/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data), signal: AbortSignal.timeout(15000),
+      }).then((x) => x.json());
+    } catch (e) {
+      setPackStat('✗ 登记请求失败：' + ((e && e.message) || '网络错误'), 'err');
+      return false;
+    }
+    if (!r || !r.ok) {
+      setPackStat('✗ 登记失败：' + ((r && r.error) || '未知错误'), 'err');
+      return false;
+    }
+    // 重扫列表 → 切到这个资产集
+    await loadPacks(true);
+    const dir = (r.pack && r.pack.dir) || (data.pack.id || data.dirName);
+    await usePack(dir);
+    buildCharGrid();
+    const bound = await bindPackToSession(dir);
+    if (!bound) refreshPackStat();
+    return true;
+  }
+
+  // 把资产集写进当前会话的 tf_fight_bind；没有会话则挂起，选完会话后补写
+  async function bindPackToSession(packId) {
+    const pid = packId || (PACKS.cur ? PACKS.cur.dir : null);
+    if (!pid) return false;
+    if (!CONN.sessionId) {
+      PACKS.pendingBind = pid;
+      setPackStat('已登记，但还没有选择故事会话——点「当前故事 · 切换故事」选一个会话，选完会自动完成绑定。', 'warn');
+      return false;
+    }
+    const value = {
+      storyName: CONN.storyName,
+      sessionId: CONN.sessionId,
+      worldId: CONN.worldId,
+      packId: pid,
+    };
+    const r = await connApi('/api/conn/session-data/' + encodeURIComponent(CONN.sessionId) + '/tf_fight_bind', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value }),
+    });
+    if (r && r.ok) {
+      PACKS.bound = value;
+      PACKS.pendingBind = null;
+      refreshPackStat();
+      return true;
+    }
+    setPackStat('✗ 绑定到会话失败：' + ((r && r.error) || '未知错误'), 'err');
+    return false;
+  }
+
+  document.getElementById('home-pack-pick').addEventListener('click', async (e) => {
+    e.stopPropagation();     // 不触发整行的「打开选择器」
+    const inp = document.getElementById('pack-dir-input');
+    if (!('webkitdirectory' in inp) && !inp.hasAttribute('webkitdirectory')) {
+      setPackStat('✗ 当前浏览器不支持选择文件夹（webkitdirectory），请改用下面的已登记列表。', 'err');
+      return;
+    }
+    inp.value = '';
+    inp.click();
+  });
+  document.getElementById('pack-dir-input').addEventListener('change', async (e) => {
+    await registerPickedPack(e.target.files);
+    e.target.value = '';
+  });
   document.getElementById('home-pack').addEventListener('click', async () => {
-    if (!PACKS.list.length) return;
+    if (!PACKS.list.length) {
+      setPackStat('还没有可用的资产集。点击「选择资产集文件夹」选一个含 pack.json 的目录。', 'warn');
+      return;
+    }
     openPackPicker();
   });
 
@@ -930,13 +1223,16 @@
       b.className = 'storycard' + (PACKS.cur && PACKS.cur.dir === p.dir ? ' on' : '');
       const stories = Array.isArray(p.stories) && p.stories.length ? p.stories.join('、') : '（未声明故事）';
       b.innerHTML = '<div class="mark">' + esc(String(p.name || p.dir).slice(0, 1)) + '</div>' +
-        '<div style="min-width:0"><div class="t">' + esc(p.name || p.dir) + '</div>' +
+        '<div style="min-width:0"><div class="t">' + esc(p.name || p.dir) +
+        (p.source === 'user' ? ' <span style="font-size:10px;color:var(--cyan)">已登记</span>' : '') + '</div>' +
         '<div class="ch">' + esc(p.id || p.dir) + ' · ' + esc(stories) + '</div>' +
         '<div class="intro">' + esc(p.notes || '资产集（映射与文案）') + '</div></div>';
       b.addEventListener('click', async () => {
         await usePack(p.dir);
         buildCharGrid();
         dlg.classList.remove('on');
+        // 切换资产集后同步绑定状态（与当前会话的 packId 对齐）
+        await bindPackToSession(p.dir);
       });
       list.appendChild(b);
     }
@@ -961,12 +1257,9 @@
   window.__tfConn = CONN; // 供自动化探针读取联动状态（不参与业务逻辑）
   const storyStatusEl = document.getElementById('story-status');
   const sessListEl = document.getElementById('sesslist');
-  const storyListEl = document.getElementById('story-list');
   const storyRosterEl = document.getElementById('story-roster');
-  const storyTitleEl = document.getElementById('story-title');
+  const storySubEl = document.getElementById('story-sub');
   const charRowsEl = document.getElementById('charrows');
-  const storyFootEl = document.getElementById('story-foot');
-  document.getElementById('btn-story').style.display = 'none'; // 探测通过再显示
 
   async function connApi(path, opt) {
     try {
@@ -982,31 +1275,33 @@
     CONN.backendVersion = (r && r.backendVersion) ? r.backendVersion : '';
     const dot = document.getElementById('home-conn-dot');
     dot.className = 'dot ' + (CONN.on ? 'on' : 'off');
+    document.getElementById('home-conn-text').textContent = CONN.on
+      ? ('故事联动已连接' + (CONN.user ? ' · ' + CONN.user.name : ''))
+      : '联动离线 · 可离线游玩';
     if (CONN.on) {
-      document.getElementById('btn-story').style.display = '';
       storyStatusEl.textContent = '联动服务已连接 · 后端 v' + (r.backendVersion || '?') + ' · ' + r.sessions + ' 个会话'
         + (CONN.user ? ' · 已登录：' + CONN.user.name : ' · 未登录');
-      storyStatusEl.className = 'sub ok';
+      storyStatusEl.className = 'hint ok';
     } else {
-      document.getElementById('btn-story').style.display = 'none';
       storyStatusEl.textContent = '联动离线' + (r && r.error ? '：' + r.error : '') + '（用 node serve.cjs --conn 启动后刷新）';
-      storyStatusEl.className = 'sub err';
+      storyStatusEl.className = 'hint err';
     }
     return CONN.on;
   }
 
   function renderHomeStory() {
     const el = document.getElementById('home-story-name');
+    const bind = document.getElementById('home-bind-name');
     if (CONN.sessionId && CONN.storyName) {
       el.textContent = CONN.storyName + (CONN.roster ? '（' + CONN.roster.storyChars.length + ' 个角色已绑定）' : '');
-      el.className = 'v';
-      document.getElementById('home-bind-name').textContent = '已绑定 ' + CONN.roster.storyChars.length + ' 个角色 · 点击调整';
-      document.getElementById('home-bind-name').className = 'v';
+      el.classList.remove('free');
+      bind.textContent = '已绑定 ' + CONN.roster.storyChars.length + ' 个角色 · 点击调整';
+      bind.classList.remove('free');
     } else {
       el.textContent = CONN.on ? '未绑定（点击选择会话）' : '联动离线 · 可离线游玩全部模式';
-      el.className = 'v free';
-      document.getElementById('home-bind-name').textContent = '绑定故事后可给角色分配 MUGEN 实体';
-      document.getElementById('home-bind-name').className = 'v free';
+      el.classList.add('free');
+      bind.textContent = '绑定故事后可给角色分配 MUGEN 实体';
+      bind.classList.add('free');
     }
   }
 
@@ -1027,12 +1322,12 @@
     const r = await connApi('/api/conn/sessions');
     if (!r || !r.ok || !Array.isArray(r.sessions)) {
       storyStatusEl.textContent = '会话列表拉取失败：' + ((r && r.error) || '未知错误');
-      storyStatusEl.className = 'sub err';
+      storyStatusEl.className = 'hint err';
       return;
     }
     CONN.sessions = r.sessions;
     storyStatusEl.textContent = '联动服务已连接 · ' + r.sessions.length + ' 个会话' + (r.cached ? '（缓存）' : '');
-    storyStatusEl.className = 'sub ok';
+    storyStatusEl.className = 'hint ok';
     renderSessions(r.sessions);
     const preset = q.get('session');
     if (preset && r.sessions.some((s) => s.sessionId === preset)) pickSession(preset);
@@ -1042,32 +1337,40 @@
     sessListEl.innerHTML = '';
     for (const s of list) {
       const b = document.createElement('button');
-      b.className = 'storycard' + (CONN.sessionId === s.sessionId ? ' on' : '');
-      const last = s.latestMessage ? (s.latestMessage.role + '：' + String(s.latestMessage.content || '').slice(0, 40)) : '';
+      const cur = CONN.sessionId === s.sessionId;
+      b.className = 'sess' + (cur ? ' on' : '');
       const title = s.title || s.worldName || s.sessionId;
-      b.innerHTML = '<div class="mark">' + esc(String(title).slice(0, 1)) + '</div>' +
-        '<div style="min-width:0"><div class="t">' + esc(title) + '</div>' +
-        '<div class="ch">' + esc(s.chapterTitle || '') + ' · ' + esc(fmtTime(s.updateTime)) + '</div>' +
-        '<div class="intro">' + esc(s.worldIntro || '') + '</div>' +
-        (last ? '<div class="last">' + esc(last) + '</div>' : '') + '</div>';
+      const desc = s.worldIntro || s.chapterTitle || (s.latestMessage ? String(s.latestMessage.content || '').slice(0, 40) : '');
+      const nRole = Array.isArray(s.roles) ? s.roles.length : (s.roleCount || '');
+      b.innerHTML = '<div class="ic">📖</div>' +
+        '<div style="min-width:0"><div class="t">' + esc(title) +
+          (cur ? ' <span class="cur">● 当前</span>' : '') + '</div>' +
+        '<div class="d">' + esc(desc) + '</div></div>' +
+        '<div class="meta">' + (nRole ? '角色 ' + esc(String(nRole)) + '<br>' : '') + esc(fmtTime(s.updateTime)) + '</div>';
       b.addEventListener('click', () => pickSession(s.sessionId));
       sessListEl.appendChild(b);
     }
   }
 
   function showListView() {
-    storyListEl.style.display = '';
+    storyEl.classList.remove('rostering');
+    storyStatusEl.style.display = '';
+    sessListEl.style.display = '';
     storyRosterEl.style.display = 'none';
     storyRosterEl.classList.remove('flexon');
-    storyFootEl.style.display = '';
-    document.getElementById('story-title-el').textContent = '故 事 列 表';
+    document.getElementById('story-close').style.display = '';
+    document.getElementById('sr-back').style.display = 'none';
+    document.getElementById('story-title-el').textContent = '选择故事';
   }
   function showRosterView() {
-    storyListEl.style.display = 'none';
+    storyEl.classList.add('rostering');
+    storyStatusEl.style.display = 'none';
+    sessListEl.style.display = 'none';
     storyRosterEl.style.display = '';
     storyRosterEl.classList.add('flexon');
-    storyFootEl.style.display = 'none';
-    document.getElementById('story-title-el').textContent = '角色的实体绑定';
+    document.getElementById('story-close').style.display = 'none';
+    document.getElementById('sr-back').style.display = '';
+    document.getElementById('story-title-el').textContent = '角色实体绑定';
   }
 
   // 故事角色来源：优先后端的世界角色表（settings.roles，含人设与头像）；
@@ -1139,12 +1442,21 @@
     CONN.storyName = (s && (s.title || s.worldName)) || '';
     CONN.worldId = (s && s.worldId) || 0;
     storyStatusEl.textContent = '读取会话「' + CONN.storyName + '」…';
-    storyStatusEl.className = 'sub';
+    storyStatusEl.className = 'hint';
 
-    const [rolesR, rosterR] = await Promise.all([
+    const [rolesR, rosterR, bindR] = await Promise.all([
       connApi('/api/conn/sessions/' + encodeURIComponent(sid) + '/roles'),
       connApi('/api/conn/session-data/' + encodeURIComponent(sid) + '/tf_fight_roster'),
+      connApi('/api/conn/session-data/' + encodeURIComponent(sid) + '/tf_fight_bind'),
     ]);
+
+    // 会话侧已绑的资产集 → 切到那个资产集（tf_fight_bind.packId）
+    const sessionBind = bindR && bindR.ok ? bindR.value : null;
+    if (sessionBind && sessionBind.packId) {
+      const p = PACKS.list.find((x) => x.dir === sessionBind.packId || x.id === sessionBind.packId);
+      if (p && (!PACKS.cur || PACKS.cur.dir !== p.dir)) await usePack(p.dir);
+      PACKS.bound = { storyName: sessionBind.storyName || CONN.storyName, packId: sessionBind.packId };
+    }
 
     // 角色来源：后端世界角色表 > 会话消息提取
     let chars = [];
@@ -1165,16 +1477,16 @@
 
     if (!chars.length) {
       storyStatusEl.textContent = '这个会话还没有可分配的故事角色。';
-      storyStatusEl.className = 'sub err';
+      storyStatusEl.className = 'hint err';
       return;
     }
 
     const saved = rosterR && rosterR.ok ? rosterR.value : null;
     CONN.roster = composeRoster(chars, saved);
-    storyTitleEl.textContent = CONN.storyName + ' · 角色实体绑定';
+    storySubEl.textContent = '故事：' + CONN.storyName + ' · 共 ' + CONN.roster.storyChars.length + ' 名角色（/api/conn/sessions/:sid/roles）';
     storyStatusEl.textContent = (saved ? '已载入上次保存的绑定（可修改）' : '已自动随机分配默认资产角色')
       + ' · 共 ' + chars.length + ' 个角色';
-    storyStatusEl.className = 'sub ok';
+    storyStatusEl.className = 'hint ok';
     renderRosterEditor();
     showRosterView();
     renderHomeStory();
@@ -1185,13 +1497,22 @@
       if (hit) await usePack(hit.dir);
     }
 
+    // 挂起的资产集绑定（先选文件夹、后选会话）：选完会话立刻补写 tf_fight_bind
+    if (PACKS.pendingBind) {
+      const pid = PACKS.pendingBind;
+      PACKS.pendingBind = null;
+      await bindPackToSession(pid);
+    } else {
+      refreshPackStat();
+    }
+
     // 设计文档：点击会话后「给角色随机分配默认资产，分配的数据持久化」——
     // 没有存档时立刻存一次；有存档则等用户改完点【保存】。
     if (!saved) {
       const ok = await saveRoster(true);
       if (ok) {
         storyStatusEl.textContent = '已随机分配并保存 · 共 ' + chars.length + ' 个角色';
-        storyStatusEl.className = 'sub ok';
+        storyStatusEl.className = 'hint ok';
       }
     }
   }
@@ -1201,31 +1522,28 @@
     charRowsEl.innerHTML = '';
     if (!CONN.roster) return;
     for (const c of CONN.roster.storyChars) {
+      // 原型 roster-bind：1fr 30px 1fr 三栏 = 左 toonflow 头像+名+职业 / 中「:」/ 右 下拉+棋盘格实体头像
       const row = document.createElement('div');
-      row.className = 'bindrow';
-
-      // 左：故事角色（toonflow 名 + 头像 + 职业）
-      const left = document.createElement('div');
-      left.className = 'side';
+      row.className = 'brow';
       const roleMeta = CONN.storyRoles.find((r) => r.name === c.name);
-      left.appendChild(avatarNode(rolePortraitUrl(roleMeta || c), c.name.slice(0, 1), 'ava'));
+
+      const tf = document.createElement('div');
+      tf.className = 'tf';
+      tf.appendChild(avatarNode(rolePortraitUrl(roleMeta || c), c.name.slice(0, 1), 'ava'));
       const meta = document.createElement('div');
-      meta.className = 'meta';
-      const badge = c.roleType === 'player' ? '<i class="badge player">主角</i>' : '<i class="badge npc">NPC</i>';
-      const prof = c.profession ? '<i class="badge prof">' + esc(c.profession) + '</i>' : '';
-      meta.innerHTML = '<b>' + esc(c.name) + badge + prof + '</b><i>' + esc(c.description || '—') + '</i>';
-      left.appendChild(meta);
-      row.appendChild(left);
+      meta.style.minWidth = '0';
+      meta.innerHTML = '<div class="nm">' + esc(c.name) + '</div>' +
+        (c.profession ? '<span class="job">' + esc(c.profession) + '</span>' : '');
+      tf.appendChild(meta);
+      row.appendChild(tf);
 
-      const arr = document.createElement('div');
-      arr.className = 'arr';
-      arr.textContent = '→';
-      row.appendChild(arr);
+      const mid = document.createElement('div');
+      mid.className = 'mid';
+      mid.textContent = ':';
+      row.appendChild(mid);
 
-      // 右：MUGEN 实体（头像 + 下拉选择）
-      const right = document.createElement('div');
-      right.className = 'side';
-      right.appendChild(avatarNode(mugPortraitUrl(c.charId), (MUGEN[c.charId] || {}).glyph || c.charId.slice(0, 1), 'ava'));
+      const mg = document.createElement('div');
+      mg.className = 'mg';
       const charSel = document.createElement('select');
       for (const id of packCharPool()) {
         const m = MUGEN[id] || { cn: id };
@@ -1239,36 +1557,23 @@
         c.charId = charSel.value;
         renderRosterEditor();   // 换绑后头像跟着变
       });
-      right.appendChild(charSel);
-      row.appendChild(right);
-
-      // 站位 + 战绩
-      const sideSel = document.createElement('select');
-      for (const [v, t] of [['p1', '我方 P1'], ['p2', '对手 P2'], ['bench', '未上场']]) {
-        const o = document.createElement('option'); o.value = v; o.textContent = t;
-        if (c.side === v) o.selected = true;
-        sideSel.appendChild(o);
-      }
-      sideSel.addEventListener('change', () => {
-        c.side = sideSel.value;
-        if (sideSel.value === 'p1') { // p1 唯一：别人让位
-          for (const o of CONN.roster.storyChars) if (o !== c && o.side === 'p1') o.side = 'bench';
-          renderRosterEditor();
-        }
-      });
-      row.appendChild(sideSel);
-
-      const rec = document.createElement('span');
-      rec.className = 'rec';
-      rec.textContent = c.win + '胜 ' + c.lose + '负';
-      row.appendChild(rec);
+      mg.appendChild(charSel);
+      mg.appendChild(avatarNode(mugPortraitUrl(c.charId), (MUGEN[c.charId] || {}).glyph || (c.charId || '?').slice(0, 1), 'mava'));
+      row.appendChild(mg);
 
       charRowsEl.appendChild(row);
     }
   }
 
+  // 保存前按列表顺序自动排位（纯绑定视图：不暴露站位下拉）
+  function autoSideRoster() {
+    if (!CONN.roster) return;
+    CONN.roster.storyChars.forEach((c, i) => { c.side = i === 0 ? 'p1' : i === 1 ? 'p2' : 'bench'; });
+  }
+
   async function saveRoster(silent) {
     if (!CONN.sessionId || !CONN.roster) return false;
+    autoSideRoster();
     const btn = document.getElementById('sr-save');
     if (!silent) btn.textContent = '保存中…';
     const [r1, r2] = await Promise.all([
@@ -1285,47 +1590,19 @@
     const ok = r1 && r1.ok && r2 && r2.ok;
     if (!silent) {
       storyStatusEl.textContent = ok ? '已保存到会话（下次进入自动载入）' : '保存失败：' + ((r1 && r1.error) || (r2 && r2.error) || '?');
-      storyStatusEl.className = 'sub ' + (ok ? 'ok' : 'err');
+      storyStatusEl.className = 'hint ' + (ok ? 'ok' : 'err');
     }
     renderHomeStory();
     return !!ok;
   }
 
-  // 「用此分配开打」：进对战模式的选人屏（预填绑定）
-  function fightWithRoster() {
-    const cs = CONN.roster.storyChars;
-    const p1 = cs.find((c) => c.side === 'p1');
-    let p2 = cs.find((c) => c.side === 'p2');
-    if (!p2) p2 = cs.find((c) => c.side !== 'p1');
-    if (!p1 || !p2) {
-      storyStatusEl.textContent = '至少要各有一个「我方」和一个「对手」。';
-      storyStatusEl.className = 'sub err';
-      return;
-    }
-    curP1 = p1.charId; curP2 = p2.charId;
-    storyEl.classList.remove('on');
-    openSelect('versus');
-    slots.p1[0] = curP1; slots.p2[0] = curP2; teamSize = 1;
-    renderSlots(); renderCharGrid();
-  }
+  // 纯绑定视图：开打走主界面四模式按钮，选人屏按 tf_fight_roster 的 side 预填
 
-  document.getElementById('btn-story').addEventListener('click', openStory);
   document.getElementById('home-story').addEventListener('click', openStory);
+  document.getElementById('home-story-link').addEventListener('click', openStory);
   document.getElementById('home-bind').addEventListener('click', openStory);
   document.getElementById('sr-back').addEventListener('click', showListView);
-  document.getElementById('sr-rand').addEventListener('click', () => {
-    if (!CONN.roster) return;
-    const used = [];
-    for (const c of CONN.roster.storyChars) {
-      c.charId = randomCharId(used.length < packCharPool().length ? used : null);
-      used.push(c.charId);
-    }
-    renderRosterEditor();
-    storyStatusEl.textContent = '已重新随机分配（记得保存）';
-    storyStatusEl.className = 'sub ok';
-  });
   document.getElementById('sr-save').addEventListener('click', () => saveRoster());
-  document.getElementById('sr-fight').addEventListener('click', fightWithRoster);
   storyEl.addEventListener('click', (e) => { if (e.target === storyEl) storyEl.classList.remove('on'); });
   document.getElementById('story-close').addEventListener('click', () => storyEl.classList.remove('on'));
 
@@ -1743,6 +2020,10 @@
     cancelKeyCapture();
     settingsEl.classList.remove('on');
   });
+  document.getElementById('st-back').addEventListener('click', () => {
+    cancelKeyCapture();
+    settingsEl.classList.remove('on');
+  });
   document.getElementById('st-reset').addEventListener('click', () => {
     Object.assign(settings, normalizeSettings(null));
     saveSettings();
@@ -1772,7 +2053,7 @@
   }
   function applyPad() {
     padEl.classList.toggle('on', engineStarted && padVisible());
-    document.getElementById('skills').classList.toggle('on', engineStarted && !!(movesFor(p1SlotChars()[0]) || []).length);
+    document.getElementById('skills').classList.toggle('on', engineStarted && !!(movesFor(p1SlotChars()[0] || curP1) || []).length);
   }
   function padDispatch(btn, type) {
     const tok = settings.keys.p1[btn.dataset.act];
@@ -1800,6 +2081,67 @@
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
+  // 摇杆：拖动 → 八方向键注入（按用户键位设置反查 act→code，与手柄同一通道）
+  const joyEl = document.getElementById('joy');
+  const stickEl = document.getElementById('stick');
+  const joyDirEl = document.getElementById('joydir');
+  const JOY_R = 46, JOY_DEAD = 13;
+  const JOY_ACTS = ['up', 'down', 'left', 'right'];
+  const JOY_LBL = { up: '↑', down: '↓', left: '←', right: '→' };
+  const joyDown = {};
+  function joyKey(act, down) {
+    if (!!joyDown[act] === !!down) return;
+    joyDown[act] = !!down;
+    if (!engineStarted) return;
+    const tok = settings.keys.p1[act];
+    const code = tok && INI2CODE[tok];
+    if (!code) return;
+    document.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup',
+      { code, bubbles: true, cancelable: true }));
+  }
+  function joyMove(e) {
+    const r = joyEl.getBoundingClientRect();
+    let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const d = Math.hypot(dx, dy);
+    if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
+    stickEl.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px)';
+    const keys = [];
+    if (d >= JOY_DEAD) {
+      const a = Math.atan2(-dy, dx) * 180 / Math.PI; // 上 = +90
+      // 八方向（对角双键）：主键 90° 宽带 + 横向 135° 宽带叠加
+      if (a > 22.5 && a < 157.5) keys.push('up');
+      if (a > -157.5 && a < -22.5) keys.push('down');
+      if (a > -67.5 && a < 67.5) keys.push('right');
+      if (a > 112.5 || a < -112.5) keys.push('left');
+    }
+    joyDirEl.textContent = keys.map((k) => JOY_LBL[k]).join('+');
+    for (const act of JOY_ACTS) joyKey(act, keys.includes(act));
+  }
+  function joyReset() {
+    joyEl.classList.remove('grabbing');
+    stickEl.style.transform = '';
+    joyDirEl.textContent = '';
+    for (const act of JOY_ACTS) joyKey(act, false);
+  }
+  joyEl.addEventListener('pointerdown', (e) => {
+    if (!engineStarted) return;
+    e.preventDefault();
+    try { joyEl.setPointerCapture(e.pointerId); } catch (err) {}
+    joyEl.classList.add('grabbing');
+    joyMove(e);
+  });
+  joyEl.addEventListener('pointermove', (e) => {
+    if (joyEl.hasPointerCapture(e.pointerId)) joyMove(e);
+  });
+  joyEl.addEventListener('pointerup', joyReset);
+  joyEl.addEventListener('pointercancel', joyReset);
+  joyEl.addEventListener('lostpointercapture', joyReset);
+  joyEl.addEventListener('contextmenu', (e) => e.preventDefault());
+  // 切后台/失焦时松开所有方向键，避免按键卡死
+  window.addEventListener('blur', () => {
+    if (JOY_ACTS.some((a) => joyDown[a])) joyReset();
+  });
+
   // ---------------- 模式与选人（KOF 式） ----------------
   const MODES = { practice: '练习模式', versus: '正式对战', survival: '生存模式' };
   let MODE = q.get('mode') && MODES[q.get('mode')] ? q.get('mode') : 'versus';
@@ -1817,7 +2159,11 @@
     if (mode) MODE = mode;
     homeEl.classList.remove('on');
     selEl.classList.add('on');
-    document.getElementById('sel-title').innerHTML = '选择你的<em>战士</em> · ' + MODES[MODE];
+    document.getElementById('sel-title').textContent = 'TOON·FIGHTING';
+    selEl.classList.toggle('survival', MODE === 'survival');
+    document.getElementById('p2cap').textContent = MODE === 'survival' ? '3 · 对手（系统随机）' : '3 · 对手 TOONFLOW 角色';
+    document.getElementById('surnote').style.display = MODE === 'survival' ? 'block' : 'none';
+    document.querySelectorAll('.topbar .tb[data-m]').forEach((x) => x.classList.toggle('on', x.dataset.m === MODE));
     document.getElementById('difficulty').style.display = MODE === 'versus' ? '' : 'none';
     // 预填：有故事绑定就按绑定预填第一格
     if (CONN.roster) {
@@ -1832,13 +2178,40 @@
     renderSlots();
     renderCharGrid();
   }
-  document.getElementById('btn-back-home').addEventListener('click', () => {
+  // 选人屏左上菜单（原型 menudd 六项的落地版）
+  document.getElementById('btn-selmenu').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('selmenudd').classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#menuwrap')) document.getElementById('selmenudd').classList.remove('open');
+  });
+  document.getElementById('menu-home').addEventListener('click', () => {
     selEl.classList.remove('on');
     homeEl.classList.add('on');
   });
+  document.getElementById('menu-story').addEventListener('click', openStory);
+  document.getElementById('menu-bind').addEventListener('click', openStory);
+  document.getElementById('menu-direct').addEventListener('click', () => beginMatch(MODE));
+  document.getElementById('menu-settings').addEventListener('click', openSettings);
   for (const b of document.querySelectorAll('#home .modebtn[data-mode]')) {
     b.addEventListener('click', () => openSelect(b.dataset.mode));
   }
+  // 选人屏顶部模式切换（练习/对战/生存）
+  for (const b of document.querySelectorAll('.topbar .tb[data-m]')) {
+    b.addEventListener('click', () => openSelect(b.dataset.m));
+  }
+  // 出场顺序：交换我方前两个已占位
+  document.getElementById('btn-swp').addEventListener('click', () => {
+    const arr = slots.p1;
+    const filled = [];
+    for (let i = 0; i < teamSize; i++) if (arr[i]) filled.push(i);
+    if (filled.length >= 2) {
+      const t = arr[filled[0]]; arr[filled[0]] = arr[filled[1]]; arr[filled[1]] = t;
+      renderSlots(); renderCharGrid();
+      selToast('出场顺序已修改 ⇄');
+    }
+  });
 
   for (const chip of document.querySelectorAll('#teamsz .chip')) {
     if (Number(chip.dataset.n) === teamSize) {
@@ -1857,17 +2230,10 @@
       renderSlots(); renderCharGrid();
     });
   }
-  for (const chip of document.querySelectorAll('#difficulty .chip')) {
-    if (Number(chip.dataset.ai) === curAI) {
-      document.querySelectorAll('#difficulty .chip').forEach((x) => x.classList.remove('on'));
-      chip.classList.add('on');
-    }
-    chip.addEventListener('click', () => {
-      curAI = Number(chip.dataset.ai);
-      document.querySelectorAll('#difficulty .chip').forEach((x) => x.classList.remove('on'));
-      chip.classList.add('on');
-    });
-  }
+  // 难度下拉（对战模式）
+  const aiSel = document.getElementById('ai-sel');
+  aiSel.value = String([1, 3, 6, 8].includes(curAI) ? curAI : 3);
+  aiSel.addEventListener('change', () => { curAI = Number(aiSel.value); });
 
   function slotInfo(side, idx) {
     const id = slots[side][idx];
@@ -1878,88 +2244,114 @@
     const tc = CONN.roster && CONN.roster.storyChars.find((c) => c.side === side);
     return { id, isRand, real, m, tc };
   }
+  // 角色专属渐变底（原型 pool[].g 的落地版：按名字 hash 出稳定双色）
+  function gradFor(str) {
+    let h = 0;
+    for (let i = 0; i < String(str).length; i++) h = (h * 31 + String(str).charCodeAt(i)) >>> 0;
+    const h1 = h % 360, h2 = (h1 + 40 + (h >> 8) % 40) % 360;
+    return 'linear-gradient(135deg,hsl(' + h1 + ',26%,24%),hsl(' + h2 + ',32%,12%))';
+  }
+  // 选人屏 toast（原型同款）
+  let selToastT = 0;
+  function selToast(s) {
+    const t = document.getElementById('sel-toast');
+    t.textContent = s;
+    t.classList.add('on');
+    clearTimeout(selToastT);
+    selToastT = setTimeout(() => t.classList.remove('on'), 1700);
+  }
   function renderSlots() {
-    const root = document.getElementById('slots');
-    root.innerHTML = '';
-    const sides = MODE === 'survival' ? ['p1'] : ['p1', 'p2'];
-    for (const side of sides) {
+    // 出场顺序 chips（左右面板头）——点击切换当前编辑位
+    const chipsFor = (side) => {
+      const root = document.getElementById(side === 'p1' ? 'p1chips' : 'p2chips');
+      root.innerHTML = '';
+      if (MODE === 'survival' && side === 'p2') return;
       for (let i = 0; i < teamSize; i++) {
         const info = slotInfo(side, i);
-        const b = document.createElement('button');
-        b.className = 'slot ' + side + 'side' + (activeSlot === side + '-' + i ? ' active' : '');
-        b.appendChild(avatarNode(info.isRand ? null : mugPortraitUrl(info.real),
-          info.isRand ? '?' : (info.m ? info.m.glyph : '—'), 'sg'));
-        const label = info.isRand ? '随机' : (info.m ? info.m.cn : '空');
-        const sub = info.tc ? esc(info.tc.name) + (info.tc.profession ? ' · ' + esc(info.tc.profession) : '') : (info.m ? esc(info.m.tag) : '点击选人');
-        const sn = document.createElement('div');
-        sn.className = 'sn';
-        sn.innerHTML = '<b>' + label + '</b><i>' + sub + '</i>';
-        b.appendChild(sn);
-        const tag = document.createElement('span');
-        tag.className = 'side-tag';
-        tag.textContent = (side === 'p1' ? 'P1' : 'P2') + '-' + (i + 1);
-        b.appendChild(tag);
-        // 出场顺序：点 ⇄ 与同侧下一个已占位置交换
-        if (teamSize > 1) {
-          const mv = document.createElement('span');
-          mv.className = 'rm';
-          mv.textContent = '⇄';
-          mv.title = '交换出场顺序';
-          mv.addEventListener('click', (e) => { e.stopPropagation(); swapSlotOrder(side, i); });
-          b.appendChild(mv);
+        const chip = document.createElement('button');
+        chip.className = 'chip' + (activeSlot === side + '-' + i ? ' on' : '');
+        let inner = '';
+        if (side === 'p1') inner += '<span class="ord">' + (i + 1) + '</span>';
+        inner += 'P' + (i + 1);
+        if (info.real) {
+          const label = info.tc ? info.tc.name : (info.m ? info.m.cn : info.real);
+          inner += '<span class="mini" style="background:' + gradFor(info.real) + '">' + esc(label.slice(0, 1)) + '</span>';
         }
-        b.addEventListener('click', () => { activeSlot = side + '-' + i; renderSlots(); renderCharGrid(); renderSelBig(); });
-        root.appendChild(b);
+        chip.innerHTML = inner;
+        chip.addEventListener('click', () => { activeSlot = side + '-' + i; renderSlots(); renderCharGrid(); });
+        root.appendChild(chip);
       }
-      if (MODE !== 'survival' && side === 'p1') {
-        const vs = document.createElement('div');
-        vs.style.cssText = 'align-self:center;font-weight:900;color:var(--gold);letter-spacing:.1em';
-        vs.textContent = 'VS';
-        root.appendChild(vs);
-      }
-    }
+    };
+    chipsFor('p1');
+    chipsFor('p2');
     renderSelBig();
   }
-  // 交换同一侧两个位置的出场顺序
-  function swapSlotOrder(side, i) {
-    const arr = slots[side];
-    for (let j = 0; j < arr.length; j++) {
-      if (j === i) continue;
-      if (arr[j]) { const t = arr[i]; arr[i] = arr[j]; arr[j] = t; break; }
-    }
-    renderSlots(); renderCharGrid();
-  }
 
-  // 选人时的双人大预览（设计文档：选人屏显示双方信息）
+  // 街机大面板：选中=专属渐变底+巨大首字；空态=透明面板+引导文案（原型同款）
   function renderSelBig() {
-    const root = document.getElementById('selbig');
-    if (!root) return;
-    root.innerHTML = '';
-    const mk = (side) => {
+    const survival = MODE === 'survival';
+    const fill = (side, faceId, nameId, infoId, barId, fb) => {
       const info = slotInfo(side, 0);
-      const box = document.createElement('div');
-      box.className = 'side';
-      box.appendChild(avatarNode(info.isRand ? null : mugPortraitUrl(info.real),
-        info.isRand ? '?' : (info.m ? info.m.glyph : '—'), 'ava'));
-      const tx = document.createElement('div');
-      tx.className = 'tx';
-      const tc = info.tc;
-      const name = tc ? tc.name : (info.m ? info.m.cn : '—');
-      const sub = tc
-        ? (info.real ? info.real + '（' + (info.m ? info.m.cn : info.real) + '）' : '未选实体')
-          + (tc.profession ? ' · ' + tc.profession : '')
-        : (info.m ? (info.m.tag || '') + (info.m.style ? ' · ' + info.m.style : '') : '点下面的卡片选人');
-      tx.innerHTML = '<b>' + esc(name) + '</b><i>' + esc(sub) + '</i>';
-      box.appendChild(tx);
-      return box;
+      const face = document.getElementById(faceId);
+      const ini = face.querySelector('.ini');
+      const label = info.real
+        ? (info.tc ? info.tc.name : (info.m ? info.m.cn : info.real))
+        : '';
+      if (info.real) {
+        face.style.background = gradFor(info.real);
+        ini.textContent = label.slice(0, 1);
+      } else {
+        face.style.background = '';
+        ini.textContent = info.isRand ? '？' : '';
+      }
+      const who = info.isRand ? '随机对手' : info.real ? label : fb.name;
+      const ent = info.real ? info.real : (info.isRand ? '开打时随机抽取' : fb.ent);
+      const job = info.tc && info.tc.profession ? info.tc.profession : (info.m && info.m.tag ? info.m.tag : '');
+      const infoHtml = (info.real
+        ? '<span class="mini" style="background:' + gradFor(info.real) + '">' + esc(label.slice(0, 1)) + '</span>'
+        : '')
+        + '<span class="who">' + esc(who) + '</span>'
+        + '<span class="ent">' + esc(ent) + '</span>'
+        + (job ? '<span class="job">' + esc(job) + '</span>' : '');
+      document.getElementById(nameId).textContent = info.real || info.isRand ? who : '\u00A0';
+      document.getElementById(infoId).innerHTML = infoHtml;
+      document.getElementById(barId).innerHTML = infoHtml;
     };
-    root.appendChild(mk('p1'));
-    if (MODE !== 'survival') {
-      const vs = document.createElement('div');
-      vs.className = 'vs';
-      vs.textContent = 'VS';
-      root.appendChild(vs);
-      root.appendChild(mk('p2'));
+    fill('p1', 'p1face', 'p1name', 'p1info', 'bar1',
+      { name: '2 · 空位 · 点中央选人格', ent: '' });
+    if (!survival) {
+      fill('p2', 'p2face', 'p2name', 'p2info', 'bar2', { name: '待选', ent: '对手未选' });
+    } else {
+      document.getElementById('bar2').innerHTML =
+        '<span class="who" style="color:#8b96a8">对手随机生成 · 胜利 +1 续关</span>';
+    }
+    // 开始键 disabled：我方至少选一个；对战模式还需对手
+    const p1Has = slots.p1.slice(0, teamSize).some(Boolean);
+    const p2Has = slots.p2.slice(0, teamSize).some(Boolean);
+    document.getElementById('btn-fight').disabled = !(p1Has && (survival || MODE !== 'versus' || p2Has));
+    // 已选小头像行（P1 出场顺序）
+    const row = document.getElementById('selrow');
+    row.innerHTML = '';
+    for (let i = 0; i < teamSize; i++) {
+      const info = slotInfo('p1', i);
+      const sc = document.createElement('div');
+      sc.className = 'sc' + (info.real ? '' : ' empty');
+      const od = document.createElement('span');
+      od.className = 'od';
+      od.textContent = String(i + 1);
+      sc.appendChild(od);
+      const mv = document.createElement('div');
+      mv.className = 'mv';
+      const label = info.real ? (info.tc ? info.tc.name : (info.m ? info.m.cn : info.real)) : '';
+      mv.textContent = info.real ? label.slice(0, 1) : '?';
+      if (info.real) mv.style.background = gradFor(info.real); else mv.style.background = '';
+      mv.addEventListener('click', () => { activeSlot = 'p1-' + i; renderSlots(); renderCharGrid(); });
+      sc.appendChild(mv);
+      const lb = document.createElement('div');
+      lb.className = 'lb';
+      lb.textContent = info.real ? label : 'P' + (i + 1);
+      sc.appendChild(lb);
+      row.appendChild(sc);
     }
   }
 
@@ -1976,60 +2368,62 @@
       });
     }
     for (const id of pool) {
-      const m = MUGEN[id] || { glyph: id.slice(0, 1), cn: id, tag: '', style: '' };
+      const m = MUGEN[id] || { glyph: id.slice(0, 1), cn: id, tag: '' };
       const tc = CONN.roster && CONN.roster.storyChars.find((c) => c.charId === id);
       const b = document.createElement('button');
-      b.className = 'kcard' + (slots[actSide][actIdx] === id ? ' sel' : '');
-      const pic = document.createElement('div');
-      pic.className = 'pic';
-      pic.appendChild(avatarNode(mugPortraitUrl(id), m.glyph, ''));
-      b.appendChild(pic);
-      const name = document.createElement('div');
-      name.className = 'name';
-      name.textContent = id;
-      b.appendChild(name);
-      const tag = document.createElement('div');
-      tag.className = 'tag';
-      tag.textContent = m.cn + (m.tag ? ' · ' + m.tag : '');
-      b.appendChild(tag);
-      if (tc) {
-        const bind = document.createElement('div');
-        bind.className = 'bind';
-        bind.textContent = tc.name;
-        b.appendChild(bind);
-      }
-      if (usedIds[id]) {
-        const used = document.createElement('div');
-        used.className = 'used';
-        used.textContent = '已被选用';
-        b.appendChild(used);
-      }
+      b.className = 'k' + (slots[actSide][actIdx] === id ? ' sel' : '');
+      // 我方已选该实体 → 左上角出场序号
+      const ord = slots.p1.indexOf(id) + 1;
+      if (ord) { const o = document.createElement('span'); o.className = 'ord'; o.textContent = String(ord); b.appendChild(o); }
+      const ini = document.createElement('div');
+      ini.className = 'ini';
+      ini.textContent = tc ? tc.name.slice(0, 1) : m.glyph;
+      b.appendChild(ini);
+      const nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = (tc ? tc.name : m.cn) + (tc && tc.profession ? '·' + tc.profession : '');
+      b.appendChild(nm);
+      const ent = document.createElement('div');
+      ent.className = 'ent';
+      ent.textContent = id;
+      b.appendChild(ent);
       b.addEventListener('click', () => {
-        // 再点同一个取消选中
-        if (slots[actSide][actIdx] === id) { slots[actSide][actIdx] = null; }
-        else { slots[actSide][actIdx] = id; }
+        const L = slots[actSide];
+        if (L[actIdx] === id) {          // 再点同一个 → 取消，可重新选择
+          L[actIdx] = null;
+          selToast('已取消，可重新选择');
+        } else if (slots.p1.includes(id) || slots.p2.includes(id)) {
+          selToast('该角色已在本队其他出场位，先取消再选');
+          return;
+        } else {
+          L[actIdx] = id;
+          // 我方：选完自动跳到下一个空出场位（原型行为）
+          if (actSide === 'p1' && actIdx < teamSize - 1 && !L[actIdx + 1]) {
+            activeSlot = 'p1-' + (actIdx + 1);
+          }
+        }
         renderSlots(); renderCharGrid();
       });
       grid.appendChild(b);
     }
-    // 「?」随机卡
+    // 「？」随机格
     const r = document.createElement('button');
-    r.className = 'kcard rand' + (slots[actSide][actIdx] === '?' ? ' sel' : '');
-    const rpic = document.createElement('div');
-    rpic.className = 'pic';
-    rpic.textContent = '?';
-    r.appendChild(rpic);
-    const rname = document.createElement('div');
-    rname.className = 'name';
-    rname.textContent = '随机';
-    r.appendChild(rname);
-    const rtag = document.createElement('div');
-    rtag.className = 'tag';
-    rtag.textContent = '开打时随机抽一个';
-    r.appendChild(rtag);
+    r.className = 'k q' + (slots[actSide][actIdx] === '?' ? ' sel' : '');
+    const rini = document.createElement('div');
+    rini.className = 'ini';
+    rini.textContent = '？';
+    r.appendChild(rini);
+    const rnm = document.createElement('div');
+    rnm.className = 'nm';
+    rnm.textContent = '随机';
+    r.appendChild(rnm);
     r.addEventListener('click', () => {
       if (slots[actSide][actIdx] === '?') slots[actSide][actIdx] = null;
-      else slots[actSide][actIdx] = '?';
+      else {
+        const picked = randomCharId();
+        slots[actSide][actIdx] = picked;
+        selToast('？→ 随机：' + ((MUGEN[picked] || {}).cn || picked) + '（再点可取消重选）');
+      }
       renderSlots(); renderCharGrid();
     });
     grid.appendChild(r);
@@ -2060,13 +2454,13 @@
   // 默认通用 KOF 序列（按键是「动作名」，发键时按用户键位设置反查）；
   // 资产集 mapping.moves[id] 可覆盖。
   const DEFAULT_MOVES = () => [
-    { name: '轻拳', seq: ['a'] },
-    { name: '中拳', seq: ['b'] },
-    { name: '重拳', seq: ['c'] },
-    { name: '前冲', seq: ['right', 'right'] },
-    { name: '疾退', seq: ['left', 'left'] },
-    { name: '波动（下前+重拳）', seq: ['down', 'right', 'c'] },
-    { name: '升龙（下前+轻拳）', seq: ['down', 'right', 'a'] },
+    { name: '⚡ 波动（下前+重拳）', seq: ['down', 'right', 'c'] },
+    { name: '🔥 升龙（下前+轻拳）', seq: ['down', 'right', 'a'] },
+    { name: '👊 轻拳', seq: ['a'] },
+    { name: '🥊 中拳', seq: ['b'] },
+    { name: '💥 重拳', seq: ['c'] },
+    { name: '🏃 前冲', seq: ['right', 'right'] },
+    { name: '↩ 疾退', seq: ['left', 'left'] },
   ];
   function movesFor(id) {
     if (!id) return [];
@@ -2087,12 +2481,25 @@
   function renderSkills() {
     const root = document.getElementById('skills');
     root.innerHTML = '';
-    const moves = movesFor(p1SlotChars()[0] || curP1).slice(0, 5);
-    for (const mv of moves) {
+    const moves = movesFor(p1SlotChars()[0] || curP1);
+    const pages = Math.max(1, Math.ceil(moves.length / 5));
+    const page = Math.min(Number(root.dataset.page || 0), pages - 1);
+    for (const mv of moves.slice(page * 5, page * 5 + 5)) {
       const b = document.createElement('button');
-      b.innerHTML = esc(mv.name) + '<small>' + mv.seq.map((a) => tokenLabel(settings.keys.p1[a] || '')).join('→') + '</small>';
+      b.innerHTML = esc(mv.name) + '<b>' +
+        esc(mv.seq.map((a) => tokenLabel(settings.keys.p1[a] || '')).join('→')) + '</b>';
       b.addEventListener('click', () => { if (engineStarted) fireSeq(mv.seq); });
       root.appendChild(b);
+    }
+    // 多于 5 个技能 → 「切换」按钮翻页（技能组 1/2…）
+    if (pages > 1) {
+      const t = document.createElement('button');
+      t.innerHTML = '🔁 切换<b>技能组 ' + (page + 1) + '/' + pages + '</b>';
+      t.addEventListener('click', () => {
+        root.dataset.page = String((page + 1) % pages);
+        renderSkills();
+      });
+      root.appendChild(t);
     }
     applyPad(); // 同步 skills 显隐
   }
@@ -2255,26 +2662,26 @@
     const avatar = c && c.avatarRef && /^data:image/.test(c.avatarRef)
       ? '<img src="' + c.avatarRef + '" alt="">'
       : esc(c ? c.name.slice(0, 1) : m.glyph);
-    const sub = (c ? esc(m.cn) + ' · ' : '') + esc(c && c.profession ? c.profession : m.tag || '') +
-      (c ? ' · ' + c.win + '胜' + c.lose + '负' : '');
     return {
       glyph: avatar,
       muglyph: esc(m.glyph),
       name: c ? c.name : (m.cn || charId),
-      sub,
+      job: c && c.profession ? c.profession : (m.tag || ''),
+      ent: (side === 'p1' ? 'P1' : 'P2') + ' · ' + (charId || '?') + (m.cn ? '（' + m.cn + '）' : ''),
+      rec: c ? c.win + '胜 ' + c.lose + '负' : '',
     };
   }
   function renderFacebar() {
     if (!engineStarted && !CONN.roster) { facebarEl.classList.remove('on'); return; }
     const a = faceInfo('p1'), b = faceInfo('p2');
-    facebarEl.innerHTML =
-      '<div class="face p1" data-side="p1"><div class="glyph">' + a.glyph + '</div>' +
-      '<div class="muglyph">' + a.muglyph + '</div>' +
-      '<div class="nm"><b>' + esc(a.name) + '</b><i>' + a.sub + '</i></div></div>' +
-      '<div class="vs">VS</div>' +
-      '<div class="face p2" data-side="p2"><div class="glyph">' + b.glyph + '</div>' +
-      '<div class="muglyph">' + b.muglyph + '</div>' +
-      '<div class="nm"><b>' + esc(b.name) + '</b><i>' + b.sub + '</i></div></div>';
+    const mk = (f, cls) =>
+      '<div class="face ' + cls + '" data-side="' + cls + '"><div class="glyph">' + f.glyph + '</div>' +
+      '<div class="muglyph">' + f.muglyph + '</div>' +
+      '<div class="nm"><b>' + esc(f.name) + (f.job ? '<span class="jb">' + esc(f.job) + '</span>' : '') + '</b>' +
+      '<i>' + esc(f.ent) + '</i></div>' +
+      (f.rec ? '<div class="rec">' + esc(f.rec) + '</div>' : '') +
+      '</div>';
+    facebarEl.innerHTML = mk(a, 'p1') + mk(b, 'p2');
     facebarEl.classList.add('on');
   }
   function showResult(msg, winnerSide) {
@@ -2417,10 +2824,10 @@
       // Hinako 站立 sprH=126、实际只画出 ~70 游戏像素），改用固定抬升。
       // 实测本池角色身高 70~100 游戏像素（320×240 下）。
       // 注：.ha 有 translate(-50%,-100%)，style.top 是**渲染盒的底边**；
-      // 盒内自上而下是 圆片44px + 间隙2px + 名字~16px，所以圆片底部
-      // = top − 18px。抬升 84 → 圆片底 ≈ 轴点上 90 游戏像素：
-      // 高个（Lin/Rugal ≈100）圆片搭在发顶，矮个（Hinako ≈70）上浮 ~20 像素。
-      const liftPx = 84 * sc.sy;
+      // 盒内只有一个 46px 白边方块（无名字条），方块底 = top。
+      // 抬升 102 → 方块底 ≈ 轴点上 102 游戏像素：
+      // 高个（Lin/Rugal ≈100）方块搭在发顶，矮个（Hinako ≈70）上浮 ~30 像素。
+      const liftPx = 102 * sc.sy;
       node.style.left = x.toFixed(1) + 'px';
       node.style.top = (y - liftPx).toFixed(1) + 'px';
     }
@@ -2454,10 +2861,6 @@
         img.addEventListener('load', () => { pic.textContent = ''; pic.appendChild(img); });
       }
       wrap.appendChild(pic);
-      const nm = document.createElement('div');
-      nm.className = 'nm';
-      nm.textContent = name;
-      wrap.appendChild(nm);
       headavEl.appendChild(wrap);
       headNodes[side] = wrap;
     }
@@ -2627,6 +3030,7 @@
       renderHomeStory();
       await probeConn();
       renderHomeStory();
+      refreshPackStat();
       // ?mode= 直达对应模式
       if (q.get('mode') && MODES[q.get('mode')]) openSelect(MODE);
       // ?conn=1：联动模式自动打开故事面板（serve.cjs -- 配合启动）

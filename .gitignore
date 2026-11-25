@@ -98,6 +98,8 @@ run.local.ps1
 *.tbg
 null
 /workshops/
+# 资产集登记簿（用户自选文件夹的本地登记状态，不入库）
+/assets/assetpacks/
 /plugins/toonflow-field-survival/ui/
 /plugins/toonflow-field-survival/entry.js
 /.aispace/workbuddy-ai/

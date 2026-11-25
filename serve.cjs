@@ -16,7 +16,12 @@
 //   GET  /api/conn/story                         # --story 绑定种子或 .env 缺省
 //
 // 红线：对局进行中前端不发任何 /api 请求；后端不可达时全部 {ok:false}，页面回退本地模式。
-const { listPacks, packMeta, localCharIds } = require('./server/lib/packs.cjs');
+//
+// 本地接口（不依赖 --conn）：
+//   GET  /api/assetpacks                         # 资产集列表（map_design 扫描 + assets/assetpacks 登记簿）
+//   GET  /api/packs/:dir                         # 资产集元数据 pack/story/roster/mapping
+//   POST /api/packs/register                     # 登记用户自选的资产集文件夹（body {dirName,pack,story,roster,mapping}）
+const { listPacks, packMeta, localCharIds, registerPack } = require('./server/lib/packs.cjs');
 const { portraitFor } = require('./server/lib/portrait.cjs');
 const { buildSpeechRequest, cleanLine } = require('./server/lib/speech-agent.cjs');
 const http = require('http');
@@ -245,6 +250,30 @@ async function handleApi(req, res, urlPath) {
       localChars: localCharIds(),
       story: storyName || null,
     });
+  }
+
+  // 登记用户自选的资产集文件夹（只落元数据 JSON，不拷引擎资产、不上传后端）
+  // 注意：这个分支要排在下面 /api/packs/:dir 之前，否则 'register' 会被当成 dir。
+  if (urlPath === '/api/packs/register' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let payload = null;
+      try { payload = JSON.parse(body || 'null'); } catch { return json(res, 200, { ok: false, error: 'body 需为 JSON' }); }
+      try {
+        const entry = registerPack({
+          dirName: payload && payload.dirName,
+          pack: payload && payload.pack,
+          story: payload && payload.story,
+          roster: payload && payload.roster,
+          mapping: payload && payload.mapping,
+        });
+        return json(res, 200, { ok: true, pack: entry });
+      } catch (e) {
+        return json(res, 200, { ok: false, error: (e && e.message) || String(e) });
+      }
+    });
+    return;
   }
 
   // 资产集元数据（story / roster / mapping）
