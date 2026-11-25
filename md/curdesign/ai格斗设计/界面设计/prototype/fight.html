@@ -8,110 +8,141 @@
 :root{--bg:#07080b;--panel:#11141b;--line:#262c38;--txt:#e7ecf3;--dim:#8b96a8;--hot:#ff3b30;--gold:#ffc233;--cyan:#3ad1ff}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#000;color:var(--txt);font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;height:100vh;overflow:hidden}
-#stage{position:absolute;inset:0;background:
-  linear-gradient(180deg,#2a2320 0%,#3a2c22 46%,#4a3a28 62%,#241a12 100%)}
-#stage::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 34px,transparent 34px 68px)}
-#stage::after{content:'';position:absolute;left:8%;right:8%;bottom:0;height:34%;
-  background:repeating-linear-gradient(0deg,#1d150e 0 26px,#150e09 26px 28px);opacity:.9}
-.fwrap{position:absolute;bottom:15%;}
-.fwrap.p1{left:30%}
-.fwrap.p2{right:28%}
-.fighter{width:120px;height:170px;image-rendering:pixelated}
-.fighter.p1{background:linear-gradient(180deg,#5a4a2f 0 18%,#26262c 18% 78%,#1a1a20 78%);border:2px solid #0c0c10;
-  box-shadow:inset -12px 0 0 rgba(0,0,0,.25)}
-.fighter.p1::before{content:'';position:absolute;top:6px;left:26px;width:44px;height:30px;background:#c9a17a;border:2px solid #0c0c10;border-radius:6px 6px 3px 3px}
-.fighter.p1::after{content:'';position:absolute;top:2px;left:22px;width:52px;height:16px;background:#232327;border-radius:8px 8px 0 0}
-.fighter.p2{transform:scaleX(-1);background:linear-gradient(180deg,#7a2020 0 18%,#3a3a42 18% 78%,#24242a 78%);border:2px solid #0c0c10}
-.fighter.p2::before{content:'';position:absolute;top:6px;left:26px;width:44px;height:30px;background:#d8b48c;border:2px solid #0c0c10;border-radius:6px 6px 3px 3px}
-.fighter.p2::after{content:'';position:absolute;top:2px;left:22px;width:52px;height:16px;background:#2a2a30;border-radius:8px 8px 0 0}
-/* 头顶悬浮头像（TF_HEAD 坐标包驱动的示意） */
-.headav{position:absolute;left:50%;top:-58px;transform:translateX(-50%);width:46px;height:46px;border-radius:10px;
-  display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#fff;
-  border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.5);animation:bob 2.4s ease-in-out infinite;z-index:12}
-.headav::after{content:'';position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);
-  border:5px solid transparent;border-top-color:#fff}
+/* ===== 舞台：木墙 + 顶栅栏 + 挂画 + 木地板（复刻参考图场景） ===== */
+#stage{position:absolute;inset:0;overflow:hidden;background:linear-gradient(180deg,#3a2c1e 0%,#5a442e 50%,#2e2216 100%)}
+#stage .wall{position:absolute;inset:0;background:
+  repeating-linear-gradient(90deg,#5e462f 0 88px,#523c28 88px 94px,#443222 94px 100px)}
+#stage .wall::after{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 42%,transparent 28%,rgba(10,6,3,.6) 100%)}
+#stage .fence{position:absolute;top:60px;left:19%;right:19%;height:200px;opacity:.5;
+  background:repeating-linear-gradient(90deg,#9a7850 0 24px,#241812 24px 46px);
+  -webkit-mask:linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent)}
+#stage .pic{position:absolute;left:50%;top:35%;transform:translate(-50%,-50%);width:min(520px,30vw);height:330px;
+  background:#7a5e3e;border:14px solid #6a5138;box-shadow:0 10px 30px rgba(0,0,0,.55),inset 0 0 0 4px #3a2c1c}
+#stage .pic .scene{position:absolute;inset:0;overflow:hidden;
+  background:linear-gradient(180deg,#8fb2b8 0%,#6e9a84 40%,#5a7d52 70%,#4a6644 100%);filter:blur(2px) saturate(.85)}
+#stage .pic .scene::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.18) 50%,transparent 60%)}
+#stage .floor{position:absolute;left:0;right:0;bottom:0;height:32%;
+  background:linear-gradient(180deg,#7a5e3e,#5e462c 60%,#3a2c1a);border-top:6px solid #2a1e12}
+#stage .floor::before{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent 0 36px,rgba(30,20,10,.45) 36px 40px)}
+#stage .floor::after{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(88deg,transparent 0 220px,rgba(40,26,12,.5) 220px 224px)}
+/* ===== 角色：真实 MUGEN 站立精灵 + 地板倒影 ===== */
+.fwrap{position:absolute;bottom:11%}
+.fwrap.p1{left:31%}
+.fwrap.p2{right:26%}
+.fighter{position:relative}
+.fighter img{display:block;height:200px;width:auto;image-rendering:pixelated;filter:drop-shadow(0 5px 5px rgba(0,0,0,.4))}
+.fighter.p2 img{transform:scaleX(-1)}
+.refl{position:absolute;left:0;top:99%}
+.refl img{display:block;height:150px;width:auto;image-rendering:pixelated;opacity:.22;
+  transform:scaleY(-1);-webkit-mask:linear-gradient(180deg,#000 0%,transparent 72%)}
+.fwrap.p2 .refl img{transform:scale(-1,-1)}
+/* 头顶悬浮头像：白圈对话气泡（TF_HEAD 坐标包驱动的示意） */
+.headav{position:absolute;left:50%;top:-74px;transform:translateX(-50%);width:58px;height:58px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;color:#fff;
+  border:3px solid #fff;box-shadow:0 6px 14px rgba(0,0,0,.5);animation:bob 2.4s ease-in-out infinite;z-index:12}
+.headav img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+.headav::after{content:'';position:absolute;left:50%;bottom:-11px;transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:#fff;filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
 @keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-7px)}}
-/* 引擎血条（示意，facebar 位于其下 108px 起） */
-.hud{position:absolute;top:12px;left:14px;right:14px;display:flex;gap:18px;align-items:flex-start;pointer-events:none}
-.hp{flex:1;height:20px;border:2px solid #0a0a0c;background:#3a3f46;position:relative;overflow:hidden}
-.hp i{position:absolute;inset:0;background:linear-gradient(180deg,#7be27b,#2f9e44)}
+/* 引擎血条（示意）：绿色分段条 + 中间大红色斜体计时 */
+.hud{position:absolute;top:18px;left:20%;right:20%;display:flex;gap:6px;align-items:center;pointer-events:none;z-index:10}
+.hp{flex:1;height:22px;border:2px solid #0a0a0c;background:#3a3f46;position:relative;overflow:hidden}
+.hp::before{content:'';position:absolute;left:0;right:0;top:0;height:6px;background:rgba(255,255,255,.22);z-index:2}
+.hp::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(10,10,14,.35) 0 3px,transparent 3px 46px);z-index:3}
+.hp i{position:absolute;inset:0;background:linear-gradient(180deg,#8ce88c,#2f9e44)}
 .hp.r i{right:0;left:auto}
-.hp .pw{position:absolute;top:0;bottom:0;width:52px;background:#d6d626}
+.hp .pw{position:absolute;top:0;bottom:0;width:52px;background:#d6d626;z-index:4}
 .hp.p1 .pw{right:0}.hp.p2 .pw{left:0}
-.clock{flex:none;width:74px;height:44px;background:#101418;border:2px solid #0a0a0c;color:#fff;font-family:Consolas,monospace;
-  font-size:26px;font-weight:900;display:flex;align-items:center;justify-content:center;letter-spacing:.06em}
-/* facebar：引擎血条下方（top:108px），双头像并排 */
-.facebar{position:absolute;top:108px;left:14px;right:14px;display:flex;justify-content:space-between;gap:12px;pointer-events:none}
-.fb{display:flex;gap:9px;align-items:center;background:rgba(7,8,11,.72);border:1px solid #2a3140;border-radius:10px;padding:7px 12px}
-.fb.rev{flex-direction:row-reverse;text-align:right}
-.fb img,.fb .ph{width:44px;height:44px;border-radius:8px;flex:none}
-.fb .ph{background:linear-gradient(135deg,#31435f,#1b2436);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px}
-.fb .px{width:44px;height:44px;border-radius:8px;flex:none;background:
-  repeating-conic-gradient(#1c2230 0 25%,#10141c 0 50%) 0 0/12px 12px;border:1px solid #2a3140}
-.fb .who{font-size:12.5px;font-weight:900}
-.fb .who small{display:block;font-size:9.5px;color:var(--dim);font-weight:400;font-family:Consolas,monospace;margin-top:2px}
-.fb .who .jb{color:var(--gold);font-size:9.5px;letter-spacing:.1em}
-.fb .rec{font-size:9.5px;color:#5a6478;font-family:Consolas,monospace}
-/* 换人重订 */
-#rebind{position:absolute;top:14px;right:14px;font-size:11.5px;color:var(--dim);background:rgba(7,8,11,.72);
-  border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;z-index:30}
-#rebind:hover{color:var(--txt);border-color:var(--cyan)}
-/* 菜单按钮 */
-#btn-menu{position:absolute;top:52px;right:14px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:900;letter-spacing:.24em;
-  padding:10px 22px;border-radius:9px;border:1px solid #3a4558;background:rgba(13,16,23,.85);color:var(--txt);z-index:30}
-#btn-menu:hover{border-color:var(--gold);color:var(--gold)}
-/* 快捷技能（攻击键上方，点击释放） */
-#skills{position:absolute;right:14px;bottom:264px;display:grid;grid-template-columns:1fr 1fr;gap:7px;z-index:25;width:200px}
-#skills button{cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:800;letter-spacing:.02em;padding:10px 10px;border-radius:9px;
-  border:1px solid #3a4558;background:rgba(13,16,23,.85);color:var(--txt);text-align:center;line-height:1.5}
-#skills button b{display:block;color:var(--gold);font-family:Consolas,monospace;font-weight:700;font-size:10px;margin-top:2px}
+.clockred{flex:none;width:96px;text-align:center;font-family:Consolas,monospace;font-style:italic;font-weight:900;
+  font-size:68px;line-height:1;color:#e33228;text-shadow:0 3px 0 #5c0f0c,0 0 26px rgba(255,60,40,.3);z-index:5}
+.rbox{flex:none;width:34px;height:34px;background:#14161c;border:2px solid #0a0a0c;border-radius:8px;
+  color:#cfd6e0;font-weight:900;font-size:15px;font-family:Consolas,monospace;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,0,0,.4)}
+/* facebar：左右上角 = 大头像 + 实体名 + 深色信息卡（双实体小头像 chips） */
+.facebar{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:22}
+.fbside{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding-left:26px}
+.fbside.rev{align-items:flex-end;padding-left:0;padding-right:152px}
+.fava{width:72px;height:84px;border:3px solid #f2f2f2;border-radius:6px;overflow:hidden;position:relative;
+  background:linear-gradient(135deg,#31435f,#1b2436);display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:26px;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.5)}
+.fava img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.fname{font-size:15px;font-weight:900;font-style:italic;color:#fff;text-shadow:0 2px 4px #000;letter-spacing:.02em;max-width:200px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fbcard{display:flex;gap:10px;align-items:center;background:rgba(10,11,16,.82);border:1px solid #2a3140;border-radius:12px;
+  padding:10px 14px;pointer-events:auto;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.fbside.rev .fbcard{flex-direction:row-reverse;text-align:right}
+.chip{width:38px;height:38px;border-radius:8px;overflow:hidden;flex:none;position:relative;display:flex;align-items:center;justify-content:center;
+  background:repeating-conic-gradient(#1c2230 0 25%,#10141c 0 50%) 0 0/10px 10px;border:1px solid #3a4558;
+  font-weight:900;font-size:15px;color:#fff}
+.chip img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+.fbinfo .who{font-size:14px;font-weight:900}
+.fbinfo .jb{color:var(--gold);font-size:10px;letter-spacing:.08em;margin-left:4px}
+.fbinfo small{display:block;font-size:10px;color:var(--dim);font-family:Consolas,monospace;margin-top:3px}
+.fbinfo .rec{font-size:9.5px;color:#5a6478;font-family:Consolas,monospace;margin-top:2px}
+/* 右上角：菜单 / 换人重打 竖排 */
+.corner{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;z-index:30}
+#btn-menu,#rebind{cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:900;letter-spacing:.2em;width:126px;
+  padding:10px 0;border-radius:9px;border:1px solid #3a4558;background:rgba(13,16,23,.85);color:var(--txt)}
+#btn-menu:hover,#rebind:hover{border-color:var(--gold);color:var(--gold)}
+/* 快捷技能（攻击键上方，2 列，点击释放） */
+#skills{position:absolute;right:14px;bottom:368px;display:grid;grid-template-columns:1fr 1fr;gap:10px;z-index:25;width:336px}
+#skills button{cursor:pointer;font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.02em;padding:9px 9px;border-radius:12px;
+  border:1px solid #3a4558;background:rgba(13,16,23,.85);color:var(--txt);text-align:center;line-height:1.5;
+  box-shadow:0 4px 12px rgba(0,0,0,.35)}
+#skills button b{display:block;color:var(--gold);font-family:Consolas,monospace;font-weight:700;font-size:10.5px;margin-top:2px}
 #skills button:hover{border-color:var(--cyan);transform:translateY(-2px)}
 #skills button:active{transform:scale(.94);border-color:var(--gold)}
-/* 攻击键：格斗 6 键 */
-#pad .bt{position:absolute;right:18px;bottom:22px;width:170px;height:238px}
+/* 攻击键：格斗 6 键（2×3 大圆钮） */
+#pad .bt{position:absolute;right:14px;bottom:14px;width:212px;height:330px}
 #pad .bt button{cursor:pointer;font-family:inherit;position:absolute;color:#fff;border:0;
-  width:76px;height:76px;border-radius:50%;font-size:20px;font-weight:900;
-  background:radial-gradient(circle at 35% 30%,rgba(90,102,120,.6),rgba(16,20,28,.72));
-  border:1px solid rgba(255,255,255,.35);box-shadow:0 6px 14px rgba(0,0,0,.5)}
-#pad .bt button small{display:block;font-size:9px;font-weight:700;letter-spacing:.1em;margin-top:1px;opacity:.85}
+  width:92px;height:92px;border-radius:50%;font-size:26px;font-weight:900;
+  background:radial-gradient(circle at 35% 30%,rgba(70,78,92,.72),rgba(10,13,19,.85));
+  border:1px solid rgba(255,255,255,.3);box-shadow:0 8px 18px rgba(0,0,0,.55)}
+#pad .bt button small{display:block;font-size:10.5px;font-weight:700;letter-spacing:.1em;margin-top:2px;opacity:.85}
 #pad .bt button:active{transform:scale(.92);filter:brightness(1.3)}
-#pad .bt .a{left:0;bottom:158px}
-#pad .bt .b{right:0;bottom:158px}
-#pad .bt .c{left:0;bottom:78px}
-#pad .bt .x{right:0;bottom:78px}
+#pad .bt .a{left:0;bottom:238px}
+#pad .bt .b{right:0;bottom:238px}
+#pad .bt .c{left:0;bottom:119px}
+#pad .bt .x{right:0;bottom:119px}
 #pad .bt .y{left:0;bottom:0}
 #pad .bt .z{right:0;bottom:0}
-/* START：底部中间 */
-#pad .k{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);cursor:pointer;font-family:inherit;
-  width:64px;height:40px;border-radius:9px;font-size:11px;font-weight:900;letter-spacing:.12em;color:#fff;
-  background:rgba(200,160,40,.5);border:1px solid #7a6420}
-#pad .joyu{position:absolute;left:30px;bottom:230px;font-size:10.5px;color:var(--dim);letter-spacing:.1em}
+/* START：金色大钮，压在底部红色发言横幅上 */
+#pad .k{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);cursor:pointer;font-family:inherit;z-index:26;
+  width:150px;height:54px;border-radius:12px;font-size:16px;font-weight:900;letter-spacing:.2em;color:#3a2400;
+  background:linear-gradient(180deg,#ffdf7e,#e6a91e);border:1px solid #8a6210;box-shadow:0 6px 16px rgba(0,0,0,.45)}
+#pad .k:active{transform:translateX(-50%) scale(.94)}
+#pad .joyu{position:absolute;left:30px;bottom:250px;font-size:10.5px;color:var(--dim);letter-spacing:.1em}
 /* 虚拟手柄 */
 #pad{position:absolute;inset:0;pointer-events:none;z-index:20}
-/* 摇杆 */
-.joy{pointer-events:auto;position:absolute;left:0;bottom:0;width:170px;height:170px;border-radius:50%;
-  background:radial-gradient(circle at 50% 40%,rgba(30,36,48,.55),rgba(6,8,12,.78));
-  border:1px solid #2a3140;box-shadow:inset 0 4px 18px rgba(0,0,0,.5);touch-action:none;cursor:grab}
-.joy::before{content:'';position:absolute;inset:14px;border-radius:50%;border:1px dashed #39414f}
-.joy .tick{position:absolute;color:#4c5670;font-size:12px;font-weight:900;pointer-events:none}
-.joy .tick.u{left:50%;top:4px;transform:translateX(-50%)}
-.joy .tick.d{left:50%;bottom:4px;transform:translateX(-50%)}
-.joy .tick.l{left:6px;top:50%;transform:translateY(-50%)}
-.joy .tick.r{right:6px;top:50%;transform:translateY(-50%)}
-.joy .stick{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%,#5a6678,#232a36 70%);
-  border:1px solid #4c5670;box-shadow:0 6px 14px rgba(0,0,0,.55),inset 0 3px 6px rgba(255,255,255,.15);
+/* 摇杆：深色大圆 + 四向三角 */
+.joy{pointer-events:auto;position:absolute;left:0;bottom:0;width:190px;height:190px;border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,rgba(16,18,26,.72),rgba(4,5,8,.9));
+  border:1px solid #1a2028;box-shadow:inset 0 4px 18px rgba(0,0,0,.6);touch-action:none;cursor:grab}
+.joy .tick{position:absolute;color:#333d4e;font-size:16px;font-weight:900;pointer-events:none}
+.joy .tick.u{left:50%;top:6px;transform:translateX(-50%)}
+.joy .tick.d{left:50%;bottom:6px;transform:translateX(-50%)}
+.joy .tick.l{left:8px;top:50%;transform:translateY(-50%)}
+.joy .tick.r{right:8px;top:50%;transform:translateY(-50%)}
+.joy .stick{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#454f5e,#12161d 70%);
+  border:1px solid #39414f;box-shadow:0 6px 14px rgba(0,0,0,.6),inset 0 3px 6px rgba(255,255,255,.12);
   pointer-events:none;transition:transform .05s linear}
-.joy .stick .cap{position:absolute;inset:16px;border-radius:50%;background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.25),transparent)}
+.joy .stick .cap{position:absolute;inset:18px;border-radius:50%;background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.22),transparent)}
 .joy .dir{position:absolute;left:50%;top:-22px;transform:translateX(-50%);font-family:Consolas,monospace;font-size:11px;
   color:var(--gold);white-space:nowrap;pointer-events:none}
-#pad .joyu{position:absolute;left:30px;bottom:230px;font-size:10.5px;color:var(--dim);letter-spacing:.1em}
 .padhide #pad{display:none}
-/* 发言条 */
-#speech{position:absolute;left:50%;bottom:236px;transform:translateX(-50%);max-width:620px;display:none;
-  background:rgba(7,8,11,.82);border:1px solid #2a3140;border-left:3px solid var(--cyan);border-radius:9px;padding:10px 16px;
-  font-size:13.5px;line-height:1.7;z-index:26}
-#speech .who{color:var(--cyan);font-weight:900;margin-right:10px}
+/* 发言条：开场=顶部金框横幅；对局中=底部红横幅 */
+#speech{position:absolute;top:6px;left:50%;transform:translateX(-50%);max-width:720px;display:none;z-index:26;
+  background:rgba(14,11,7,.8);border:1px solid #d8b040;border-radius:10px;padding:8px 18px;
+  font-size:14px;line-height:1.6;color:#ffe9c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#speech .who{color:var(--gold);font-weight:900;margin-right:10px}
+#speech-btm{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(880px,58vw);display:none;z-index:24;
+  background:rgba(150,20,14,.88);border:1px solid rgba(255,120,100,.6);border-radius:8px;padding:8px 40px;
+  font-size:13px;line-height:1.6;color:#ffe4da;text-align:center}
 /* 倒计时 */
 #countdown{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:40;
   font-size:150px;font-weight:900;color:var(--gold);text-shadow:0 0 40px rgba(255,194,51,.5);font-family:Consolas,monospace}
@@ -135,44 +166,77 @@ body{background:#000;color:var(--txt);font-family:'Noto Sans SC','Microsoft YaHe
 .stfoot button{flex:1;cursor:pointer;font-family:inherit;font-size:13px;font-weight:800;letter-spacing:.2em;padding:11px 0;border-radius:9px;
   border:1px solid var(--line);background:#0d1017;color:var(--txt)}
 .stfoot button:hover{border-color:var(--cyan)}
-.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#0d1017;border:1px solid var(--cyan);
+.toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#0d1017;border:1px solid var(--cyan);
   font-size:13px;padding:10px 22px;border-radius:22px;opacity:0;transition:.3s;pointer-events:none;z-index:99}
 .toast.on{opacity:1}
 </style>
 </head>
 <body>
-<div id="stage"></div>
-<div class="fwrap p1"><div class="fighter p1"></div><div class="headav" style="background:linear-gradient(135deg,#31435f,#1b2436)">林</div></div>
-<div class="fwrap p2"><div class="fighter p2"></div><div class="headav" style="background:linear-gradient(135deg,#5f3141,#361b24)">苏</div></div>
+<div id="stage">
+  <div class="wall"></div>
+  <div class="fence"></div>
+  <div class="pic"><div class="scene"></div></div>
+  <div class="floor"></div>
+</div>
+<div class="fwrap p1">
+  <div class="fighter p1"><img src="assets/select/m_lin-stand.png" alt=""></div>
+  <div class="refl"><img src="assets/select/m_lin-stand.png" alt=""></div>
+  <div class="headav" style="background:linear-gradient(135deg,#31435f,#1b2436)">林<img src="assets/select/t_linyu.webp" alt="" onerror="this.remove()"></div>
+</div>
+<div class="fwrap p2">
+  <div class="fighter p2"><img src="assets/select/m_hinako-stand.png" alt=""></div>
+  <div class="refl"><img src="assets/select/m_hinako-stand.png" alt=""></div>
+  <div class="headav" style="background:linear-gradient(135deg,#5f3141,#361b24)">苏<img src="assets/select/t_suwanqing.webp" alt="" onerror="this.remove()"></div>
+</div>
 
 <div class="hud">
+  <div class="rbox">0</div>
   <div class="hp p1"><i style="width:78%"></i><span class="pw"></span></div>
-  <div class="clock">90</div>
+  <div class="clockred">2</div>
   <div class="hp r p2"><i style="width:64%"></i><span class="pw"></span></div>
+  <div class="rbox">0</div>
 </div>
 
 <div class="facebar">
-  <div class="fb">
-    <div class="ph">林</div><div class="px" title="MUGEN 头像 9000,0"></div>
-    <div class="who">林羽 <span class="jb">武道家</span><small>P1 · LinYu (98Ryo)</small></div>
-    <div class="rec">12胜 3负</div>
+  <div class="fbside">
+    <div class="fava">林<img src="assets/select/t_linyu.webp" alt="" onerror="this.remove()"></div>
+    <div class="fname">LinYu</div>
+    <div class="fbcard">
+      <span class="chip">林<img src="assets/select/m_lin-face.png" alt="" onerror="this.remove()"></span>
+      <span class="chip">卢<img src="assets/select/m_rugal-face.png" alt="" onerror="this.remove()"></span>
+      <div class="fbinfo">
+        <div class="who">林羽 <span class="jb">武道家</span></div>
+        <small>P1 · LinYu (98Ryo)</small>
+        <div class="rec">12胜 3负</div>
+      </div>
+    </div>
   </div>
-  <div class="fb rev">
-    <div class="ph" style="background:linear-gradient(135deg,#5f3141,#361b24)">苏</div><div class="px" title="MUGEN 头像 9000,0"></div>
-    <div class="who">苏晚晴 <span class="jb">异能者</span><small>P2 · 98Athena</small></div>
-    <div class="rec">8胜 5负</div>
+  <div class="fbside rev">
+    <div class="fava" style="background:linear-gradient(135deg,#5f3141,#361b24)">苏<img src="assets/select/t_suwanqing.webp" alt="" onerror="this.remove()"></div>
+    <div class="fname">Hinako</div>
+    <div class="fbcard">
+      <span class="chip">雏<img src="assets/select/m_hinako-face.png" alt="" onerror="this.remove()"></span>
+      <span class="chip">K<img src="assets/select/m_k-face.png" alt="" onerror="this.remove()"></span>
+      <div class="fbinfo">
+        <div class="who">苏晚晴 <span class="jb">异能者</span></div>
+        <small>P2 · 98Athena</small>
+        <div class="rec">8胜 5负</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<button id="rebind" onclick="toast('回主界面 · 角色实体绑定')">换人重订</button>
-<button id="btn-menu" onclick="openMenu()">菜单</button>
+<div class="corner">
+  <button id="btn-menu" onclick="openMenu()">菜 单</button>
+  <button id="rebind" onclick="toast('回主界面 · 角色实体绑定')">换人重打</button>
+</div>
 
 <div id="skills">
-  <button onclick="cast('波动拳')">⚡ 波动拳<b>↓↘→ A</b></button>
-  <button onclick="cast('升龙拳')">🔥 升龙拳<b>→↓↘ A</b></button>
-  <button onclick="cast('龙卷旋风脚')">🌀 龙卷旋风脚<b>↓↙← B</b></button>
-  <button onclick="cast('猛袭连打')">💥 猛袭连打<b>↓↘→ C</b></button>
-  <button onclick="cast('极道连击')">☠ 极道连击<b>↓↘→↓↘→ A</b></button>
+  <button onclick="cast('波动拳')">⚡ 波动（下前+重拳）<b>↓↘→ C</b></button>
+  <button onclick="cast('升龙拳')">🔥 升龙（下前+轻拳）<b>→↓↘ A</b></button>
+  <button onclick="cast('轻拳')">👊 轻拳<b>Z</b></button>
+  <button onclick="cast('中拳')">🥊 中拳<b>X</b></button>
+  <button onclick="cast('重拳')">💥 重拳<b>C</b></button>
   <button onclick="cycleSkills(this)">🔁 切换<b>技能组 1/2</b></button>
 </div>
 
@@ -186,7 +250,7 @@ body{background:#000;color:var(--txt);font-family:'Noto Sans SC','Microsoft YaHe
   <button class="k" onclick="pad('Start')">START</button>
   <div class="bt">
     <button class="a" onclick="pad('A')">A<small>轻拳</small></button>
-    <button class="b" onclick="pad('B')">B<small>中拳</small></button>
+    <button class="b" onclick="pad('B')">B<small>重拳</small></button>
     <button class="c" onclick="pad('C')">C<small>重拳</small></button>
     <button class="x" onclick="pad('X')">X<small>攻击</small></button>
     <button class="y" onclick="pad('Y')">Y<small>攻击</small></button>
@@ -195,6 +259,7 @@ body{background:#000;color:var(--txt);font-family:'Noto Sans SC','Microsoft YaHe
 </div>
 
 <div id="speech"><span class="who">林羽</span><span id="sp-txt"></span></div>
+<div id="speech-btm"></div>
 <div id="countdown">3</div>
 
 <div id="bmenu">
@@ -220,7 +285,7 @@ document.getElementById('bm-mode').textContent=mode;
 document.getElementById('dummy-rows').style.display=mode==='练习'?'block':'none';
 if(mode!=='练习')document.querySelector('.mrow').insertAdjacentHTML('afterend','<div class="mrow" onclick="toast(\'正式对战/生存：菜单仅查看招式\')"><span>⚔ 当前模式 · '+(mode==='生存'?'生存 · Stage 3':'正式对战')+'</span><span class="st">菜单仅可查看招式</span></div>');
 
-const mv0=[['波动拳','↓ ↘ → + A'],['升龙拳','→ ↓ ↘ + A'],['龙卷旋风脚','↓ ↙ ← + B'],['猛袭连打','↓ ↘ → + C'],['极道连击','↓ ↘ → ↓ ↘ → + A'],['虎煌拳','↓ ↘ → + A（远程）']];
+const mv0=[['波动拳','↓ ↘ → + C'],['升龙拳','→ ↓ ↘ + A'],['轻拳','Z'],['中拳','X'],['重拳','C'],['龙卷旋风脚','↓ ↙ ← + B']];
 const mv1=[['前冲','→ →'],['疾退','← ←'],['受身','倒地瞬间 A+B'],['挑拨','Start（嘲讽）'],['防御','← 按住']];
 document.getElementById('mv0').innerHTML=mv0.map(m=>`<div class="moverow"><span>${m[0]}</span><span class="keys">${m[1]}</span></div>`).join('');
 document.getElementById('mv1').innerHTML=mv1.map(m=>`<div class="moverow"><span>${m[0]}</span><span class="keys">${m[1]}</span></div>`).join('');
@@ -235,11 +300,11 @@ function cast(n){toast('释放技能：'+n+'（INI2CODE 反查按键序列注入
 function flash(){const f=document.createElement('div');
  f.style.cssText='position:fixed;inset:0;background:rgba(255,214,110,.16);z-index:60;pointer-events:none';
  document.body.appendChild(f);setTimeout(()=>f.remove(),140)}
-function cycleSkills(btn){const g2=[['🌊 霸王翔吼拳','↓↘→↓↘→ C'],['🌪 真空波动拳','↓↙←↓↙← A'],['☄ 天雷破','←↙↓↘→ C'],['✨ 凤凰脚','↓↙←↙→ B'],['💫 暗黑破碎','→←↙↓↘→ A'],['🔁 切换','技能组 1/1']];
- const g1=[['⚡ 波动拳','↓↘→ A'],['🔥 升龙拳','→↓↘ A'],['🌀 龙卷旋风脚','↓↙← B'],['💥 猛袭连打','↓↘→ C'],['☠ 极道连击','↓↘→↓↘→ A'],['🔁 切换','技能组 1/2']];
+function cycleSkills(btn){const g2=[['🌊 霸王翔吼拳','↓↘→↓↘→ C'],['🌪 真空波动拳','↓↙←↓↙← A'],['✋ 轻拳','Z'],['🥊 中拳','X'],['☄ 天雷破','←↙↓↘→ C'],['🔁 切换','技能组 2/2']];
+ const g1=[['⚡ 波动（下前+重拳）','↓↘→ C'],['🔥 升龙（下前+轻拳）','→↓↘ A'],['👊 轻拳','Z'],['🥊 中拳','X'],['💥 重拳','C'],['🔁 切换','技能组 1/2']];
  const g=btn.dataset.g==='2'?g1:g2;btn.dataset.g=btn.dataset.g==='2'?'1':'2';
  [...document.querySelectorAll('#skills button')].forEach((b,i)=>{b.innerHTML=g[i][0]+'<b>'+g[i][1]+'</b>';
-  b.onclick=i===5?cycleSkills:()=>cast(g[i][0].slice(2))})}
+  b.onclick=i===5?cycleSkills:()=>cast(g[i][0].replace(/^[^\s]+\s*/,''))})}
 function pad(k){toast('注入按键 '+k)}
 
 /* 虚拟摇杆：拖动 → 八方向键注入 */
@@ -257,28 +322,32 @@ function joyMove(e){
  if(d>R){dx*=R/d;dy*=R/d}
  stick.style.transform=`translate(${dx}px,${dy}px)`;
  if(d<DEAD){injectKeys([]);return}
- const a=Math.atan2(-dy,dx)*180/Math.PI; // 上=+90
+ const nx=dx/d, ny=dy/d;   /* 按位移分量判向（正右 0° 不漏判） */
  const keys=[];
- if(a>22.5&&a<157.5)keys.push('↑');
- if(a>-157.5&&a<-22.5)keys.push('↓');
- if(a<-67.5||a>67.5)keys.push(dx>0?'→':'←');
+ if(ny<-0.38)keys.push('↑');
+ if(ny>0.38)keys.push('↓');
+ if(nx>0.38)keys.push('→');
+ if(nx<-0.38)keys.push('←');
  injectKeys(keys);}
 joy.addEventListener('pointerdown',e=>{joy.setPointerCapture(e.pointerId);joy.style.cursor='grabbing';joyMove(e)});
 joy.addEventListener('pointermove',e=>{if(joy.hasPointerCapture(e.pointerId))joyMove(e)});
 joy.addEventListener('pointerup',()=>{joy.style.cursor='grab';stick.style.transform='';injectKeys([])});
 joy.addEventListener('pointercancel',()=>{joy.style.cursor='grab';stick.style.transform='';injectKeys([])});
-function hit(){const f=document.querySelector('.fighter.p2');f.style.transition='transform .1s';f.style.transform='scaleX(-1) translateX(14px)';
- setTimeout(()=>f.style.transform='scaleX(-1)',110)}
+function hit(){const f=document.querySelector('.fighter.p2 img');f.style.transition='transform .1s';
+ f.style.transform='scaleX(-1) translateX(14px)';setTimeout(()=>f.style.transform='scaleX(-1)',110)}
 
-/* 开场流程：发言 agent（打字机）→ 3 秒倒计时 → 正式开打 */
+/* 开场流程：发言 agent（打字机·顶部金框）→ 3 秒倒计时 → 正式开打（发言走底部红横幅） */
 const lines=[['林羽','末世第三天。你身上，有神明的味道。'],['苏晚晴','哼，解析吧。看你怎么拆解我这一句「雷霆」。']];
 const sp=document.getElementById('speech'),txt=document.getElementById('sp-txt');
+const bsp=document.getElementById('speech-btm');
 let li=0;
 function speak(){if(li>=lines.length){sp.style.display='none';countdown();return}
  const[who,s]=lines[li++];sp.querySelector('.who').textContent=who;sp.style.display='block';txt.textContent='';
  let i=0;const tk=setInterval(()=>{txt.textContent=s.slice(0,++i);if(i>=s.length){clearInterval(tk);setTimeout(speak,900)}},55)}
+function battleLine(){bsp.textContent='林羽：「雷霆之势——喝啊！」（对局中发言 agent 随机触发 · 底部红横幅样式）';
+ bsp.style.display='block';setTimeout(()=>bsp.style.display='none',5000)}
 function countdown(){const c=document.getElementById('countdown');c.style.display='flex';let n=3;
- c.textContent=n;const t=setInterval(()=>{if(--n>0)c.textContent=n;else{clearInterval(t);c.style.display='none';toast('开打！过程随机触发发言 · 结束触发胜利发言 agent')}},900)}
+ c.textContent=n;const t=setInterval(()=>{if(--n>0)c.textContent=n;else{clearInterval(t);c.style.display='none';battleLine();toast('开打！过程随机触发发言 · 结束触发胜利发言 agent')}},900)}
 speak();
 </script>
 </body>

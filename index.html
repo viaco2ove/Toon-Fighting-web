@@ -1157,6 +1157,14 @@
   // ---------------- 资产集（本地 pack：map_design/<dir>/pack.json） ----------------
   // 注意：/api/assetpacks 与 /api/packs/:dir 不依赖 --conn，纯本地模式也有。
   const PACK_KEY = 'toonfight:pack-v1';
+  // 上次选中的故事会话：刷新后要自动恢复，不要让用户重新选
+  const STORY_KEY = 'toonfight:session-v1';
+  function saveLastSession(sid, storyName) {
+    try { localStorage.setItem(STORY_KEY, JSON.stringify({ sessionId: sid, storyName: storyName || '' })); } catch { /* 私密模式 */ }
+  }
+  function loadLastSession() {
+    try { return JSON.parse(localStorage.getItem(STORY_KEY) || 'null'); } catch { return null; }
+  }
   const PACKS = { list: [], cur: null, mapping: null, roster: null, localChars: [], charMeta: {}, pendingBind: null, bound: null };
 
   // 角色资产元信息（服务端从各角色包的 char.json 汇总）：
@@ -1507,8 +1515,29 @@
     storyStatusEl.textContent = '联动服务已连接 · ' + r.sessions.length + ' 个会话' + (r.cached ? '（缓存）' : '');
     storyStatusEl.className = 'hint ok';
     renderSessions(r.sessions);
+    // 会话优先级：URL ?session= > 上次选中的会话（刷新后自动恢复）
     const preset = q.get('session');
-    if (preset && r.sessions.some((s) => s.sessionId === preset)) pickSession(preset);
+    if (preset && r.sessions.some((s) => s.sessionId === preset)) { pickSession(preset); return; }
+    const last = loadLastSession();
+    if (last && last.sessionId && r.sessions.some((s) => s.sessionId === last.sessionId)) {
+      pickSession(last.sessionId);
+    }
+  }
+
+  // 刷新后恢复上次选中的故事会话（不清空）。
+  // 只做「拉列表 + 选回同一个 session」，不弹故事面板 —— 主界面直接显示绑定好的角色。
+  async function restoreLastSession() {
+    if (!CONN.on) return;
+    const last = loadLastSession();
+    if (!last || !last.sessionId) return;
+    if (CONN.sessionId === last.sessionId) return;
+    if (!CONN.sessions) {
+      const r = await connApi('/api/conn/sessions');
+      if (!r || !r.ok || !Array.isArray(r.sessions)) return;
+      CONN.sessions = r.sessions;
+    }
+    if (!CONN.sessions.some((s) => s.sessionId === last.sessionId)) return;   // 会话已不存在
+    await pickSession(last.sessionId);
   }
 
   function renderSessions(list) {
@@ -1686,6 +1715,8 @@
     CONN.sessionId = sid;
     CONN.storyName = (s && (s.title || s.worldName)) || '';
     CONN.worldId = (s && s.worldId) || 0;
+    // 记住这次选择：刷新后自动恢复
+    saveLastSession(sid, CONN.storyName);
     storyStatusEl.textContent = '读取会话「' + CONN.storyName + '」…';
     storyStatusEl.className = 'hint';
 
@@ -3680,6 +3711,8 @@
       await probeConn();
       renderHomeStory();
       refreshPackStat();
+      // 恢复上次选中的故事会话（刷新不清空）：拉会话列表 → 自动 pickSession
+      await restoreLastSession();
       // ?mode= 直达对应模式
       if (q.get('mode') && MODES[q.get('mode')]) openSelect(MODE);
       // ?conn=1：联动模式自动打开故事面板（serve.cjs -- 配合启动）
