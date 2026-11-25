@@ -23,6 +23,7 @@
 //   POST /api/packs/register                     # 登记用户自选的资产集文件夹（body {dirName,pack,story,roster,mapping}）
 const { listPacks, packMeta, localCharIds, registerPack, packCharDirs, packCharMetas, writeCharMeta } = require('./server/lib/packs.cjs');
 const { portraitFor } = require('./server/lib/portrait.cjs');
+const { animFrames } = require('./server/lib/anim.cjs');
 const { buildSpeechRequest, cleanLine } = require('./server/lib/speech-agent.cjs');
 const http = require('http');
 const fs = require('fs');
@@ -335,6 +336,48 @@ async function handleApi(req, res, urlPath) {
     if (!png) return json(res, 200, { ok: false, error: '这个角色没有可用头像' });
     res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.png.length, 'Cache-Control': 'no-store' });
     return res.end(png.png);
+  }
+
+  // MUGEN 角色「动态效果」：AIR 动作的帧序列（选人屏大头像区播放，动作列表第一个 = 0 站立）
+  // 返回 { w, h, frames: [{ png(base64), ms }] }，前端逐帧换图即为动画。
+  const ANIM_CACHE = new Map();   // charId|action → 结果（进程内缓存，角色包不热更）
+  m = /^\/api\/anim\/([^/]+)\/(\d+)$/.exec(urlPath);
+  if (m) {
+    const charId = decodeURIComponent(m[1]);
+    const actionNo = Number(m[2]);
+    if (!/^[A-Za-z0-9_'\-]+$/.test(charId)) return json(res, 400, { ok: false, error: '角色名不合法' });
+    const key = charId + '|' + actionNo;
+    let anim = ANIM_CACHE.get(key);
+    if (anim === undefined) {
+      try { anim = animFrames(CHARS_DIR, charId, actionNo); } catch { anim = null; }
+      ANIM_CACHE.set(key, anim);
+    }
+    if (!anim) return json(res, 200, { ok: false, error: '这个角色没有可用的动作帧' });
+    return json(res, 200, { ok: true, charId, action: actionNo, ...anim });
+  }
+
+  // MUGEN 角色站立姿势单帧 PNG（选人列表卡片用：比 9000,0 头像更像「人」）
+  m = /^\/api\/pose\/([^/]+)$/.exec(urlPath);
+  if (m) {
+    const charId = decodeURIComponent(m[1]);
+    if (!/^[A-Za-z0-9_'\-]+$/.test(charId)) return json(res, 400, { ok: false, error: '角色名不合法' });
+    const key = charId + '|0';
+    let anim = ANIM_CACHE.get(key);
+    if (anim === undefined) {
+      try { anim = animFrames(CHARS_DIR, charId, 0); } catch { anim = null; }
+      ANIM_CACHE.set(key, anim);
+    }
+    let pngBuf = null;
+    if (anim && anim.frames.length) {
+      pngBuf = Buffer.from(anim.frames[0].png, 'base64');
+    }
+    if (!pngBuf) {
+      // 没有 air/动作帧 → 回退 9000,0 头像
+      try { const p = portraitFor(CHARS_DIR, charId); pngBuf = p && p.png; } catch { pngBuf = null; }
+    }
+    if (!pngBuf) return json(res, 200, { ok: false, error: '没有可用姿势' });
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': pngBuf.length, 'Cache-Control': 'no-store' });
+    return res.end(pngBuf);
   }
 
   // toonflow 角色头像代理：avatarPath（OSS 相对路径）→ 图片字节。
