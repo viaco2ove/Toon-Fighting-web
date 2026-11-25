@@ -1195,7 +1195,12 @@
   // ---------------- 本地 MUGEN 角色表（引擎已装且可跑） ----------------
   // tag/style 是「没有 char.json 时的兜底」；char.json 里的 profession/description 优先。
   const MUGEN = {
-    LinYu:    { glyph: '羽', cn: '林羽',  tag: '武道家', style: '白模底座 + AI 抽关键帧' },
+    LinYu:    { glyph: '羽', cn: '林羽',  tag: '武道家', style: '白模底座（无 AI 帧）' },
+    // 同一角色的三种关键帧变体（char.json 的 variantOf 都指向 LinYu）：
+    //   KF = 抽（每个动作只换代表帧）/ KFM = 融（AI 图与原精灵叠加）/ KFA = 全（整个动作都用 AI 帧）
+    LinYuKF:  { glyph: '羽', cn: '林羽',  tag: '武道家', style: '抽关键帧 · 只换代表帧' },
+    LinYuKFM: { glyph: '羽', cn: '林羽',  tag: '武道家', style: '融合关键帧 · AI 帧与原精灵叠加' },
+    LinYuKFA: { glyph: '羽', cn: '林羽',  tag: '武道家', style: '全替关键帧 · 整个动作都用 AI 帧' },
     Lin:      { glyph: '林', cn: '麟',    tag: '速度型', style: '紫电连段 · 轻快突进' },
     Hinako:   { glyph: '雏', cn: '雏子',  tag: '力量型', style: '相扑压制 · 近身重投' },
     "K'":     { glyph: "K'", cn: 'K 达什', tag: '均衡型', style: '炽焰拳击 · 中距火力' },
@@ -1294,7 +1299,7 @@
   function keyframeModeOf(id) {
     const m = charMeta(id);
     const v = m && String(m.keyframeMode || '').toLowerCase();
-    return v === 'some' || v === 'all' ? v : 'none';
+    return v === 'some' || v === 'merge' || v === 'all' ? v : 'none';
   }
 
   function packCharPool() {
@@ -1956,9 +1961,11 @@
       meta.innerHTML = '<div class="nm">' + esc(c.name) +
         (c.roleType === 'player' ? '<i class="roletag">主角</i>' : '') + '</div>' +
         (c.profession ? '<span class="job">' + esc(c.profession) + '</span>' : '') +
-        // 关键帧模式：some=抽关键帧 / all=全替关键帧 / none=不用
+        // 关键帧模式：some=抽关键帧 / merge=融合关键帧 / all=全替关键帧 / none=不用
         (c.keyframeMode && c.keyframeMode !== 'none'
-          ? '<span class="kf">' + (c.keyframeMode === 'some' ? '抽关键帧' : '全替关键帧') + '</span>' : '');
+          ? '<span class="kf">' + ({
+              some: '抽关键帧', merge: '融合关键帧', all: '全替关键帧',
+            }[c.keyframeMode] || '全替关键帧') + '</span>' : '');
       tf.appendChild(meta);
       row.appendChild(tf);
 

@@ -203,7 +203,8 @@ function localCharIds() {
 // ---------------- 角色资产元信息（char.json） ----------------
 // 每个角色包目录里可以放一个 char.json，声明：
 //   { charId, displayName, roleType, profession, keyframeMode, description, ... }
-// keyframeMode: 'some' = 抽关键帧（只换代表帧）/ 'all' = 全替关键帧 / 'none' = 不用
+// keyframeMode: 'some' = 抽关键帧（只换代表帧）/ 'merge' = 融合关键帧（AI 图与原精灵叠加）
+//                / 'all' = 全替关键帧 / 'none' = 不用
 //
 // 查找顺序（先到先得）：
 //   1) 引擎目录 ikemen-fs/file/chars/<id>/char.json   ← 实际跑起来的角色
@@ -243,7 +244,9 @@ function writeCharMeta({ charId, packDir, meta }) {
   if (!id || !/^[A-Za-z0-9_'\-]+$/.test(id)) throw new Error('角色名不合法');
   const m = meta && typeof meta === 'object' ? meta : {};
   const kf = String(m.keyframeMode || '').toLowerCase();
-  if (kf && !['some', 'all', 'none'].includes(kf)) throw new Error('keyframeMode 只能是 some/all/none');
+  if (kf && !['some', 'merge', 'all', 'none'].includes(kf)) {
+    throw new Error('keyframeMode 只能是 some/merge/all/none');
+  }
   const dir = packDir ? String(packDir) : '';
   const targets = [];
   const engDir = path.join(LOCAL_CHARS_DIR, id);
@@ -263,7 +266,7 @@ function writeCharMeta({ charId, packDir, meta }) {
     ...m,
     charId: id,
     keyframeLabel: m.keyframeLabel ||
-      ({ some: '抽关键帧', all: '全替关键帧', none: '不使用关键帧' })[kf] || old.keyframeLabel || '',
+      ({ some: '抽关键帧', merge: '融合关键帧', all: '全替关键帧', none: '不使用关键帧' })[kf] || old.keyframeLabel || '',
     updatedAt: new Date().toISOString(),
   };
   fs.mkdirSync(target, { recursive: true });

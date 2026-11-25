@@ -104,6 +104,7 @@ footer { padding:4px 14px; background:var(--panel); border-top:1px solid var(--l
   <select id="aiMode" title="关键帧模式">
     <option value="all">全（整个动作都用 AI 帧）</option>
     <option value="some">抽（只替换该动作的代表帧）</option>
+    <option value="merge">融（AI 帧与原精灵叠加显示）</option>
     <option value="none">不用（保持原精灵）</option>
   </select>
   <span id="aiPreviewHint" style="color:var(--dim);font-size:11px"></span>
@@ -111,6 +112,7 @@ footer { padding:4px 14px; background:var(--panel); border-top:1px solid var(--l
   <label style="color:var(--dim);font-size:12px">资产标记</label>
   <select id="assetMode" title="写入 char.json 的 keyframeMode（运行时据此决定是否替换关键帧）">
     <option value="some">抽关键帧</option>
+    <option value="merge">融合关键帧</option>
     <option value="all">全替关键帧</option>
     <option value="none">不使用关键帧</option>
   </select>
@@ -582,7 +584,8 @@ const state = {
   keyInfo: null,                               // buildKeyInfo() 产物
   keyAssets: null,                             // keyframes/ 的 AI 关键帧资产（manifest + 图 URL）
   aiPreview: false,                            // AI 关键帧替换预览开关
-  aiMode: 'all',                                 // 'all'=整段替换 / 'some'=只换代表帧 / 'none'=不替换
+  aiMode: 'all',                                 // 'all'=整段替换 / 'some'=只换代表帧 / 'merge'=与原精灵融合 / 'none'=不替换
+  aiMergeAlpha: 0.55,                           // 'merge' 模式：AI 帧叠加在原精灵上的不透明度
   assetMeta: null,                             // char.json 的内容（资产标记）
   serverPack: '',                              // 服务器模式下的资产集目录名（写回 char.json 用）
   pals: [],                                    // [{name, pal}]
@@ -707,7 +710,12 @@ function nativeContentBox(img, key) {
 function aiGeometryFor(actionId, frameIdx) {
   const act = state.actions.get(actionId);
   if (!act || !act.frames.length) return { targetH: aiCharHeight(), axRatio: 0.5, footGap: 0 };
-  const refIdx = state.aiMode === 'some' ? frameIdx : aiRepresentativeFrame(actionId);
+  // 'some' 模式用该帧自己作参照；'all' 模式用该动作的代表帧作参照
+  //            （同一动作内 AI 图尺寸必须稳定，否则人物会忽大忽小）。
+  // 'merge' 模式也用该帧自己作参照 —— 融合是逐帧对齐的，每帧的 AI 图
+  // 要贴在该帧自己的位置上（否则人物会整体错位一格）。
+  const refIdx = (state.aiMode === 'some' || state.aiMode === 'merge')
+    ? frameIdx : aiRepresentativeFrame(actionId);
   const fr = act.frames[Math.min(refIdx, act.frames.length - 1)];
   const pal = currentPal();
   const img = getSpriteRgba(fr.grp, fr.num, pal);
@@ -827,6 +835,34 @@ function aiFrameFor(actionId, frameIdx) {
   return aiFitted(entry.sprite, aiGeometryFor(actionId, frameIdx));
 }
 
+// 「融」模式：AI 帧与原精灵**叠加**显示，而不是替换。
+// 判定「这一帧该不该融」：
+//   1. 特效/Helper 帧（group ≥ 7000）——本来就没有人像，融了只是把特效涂花
+//      → 不融，保持原样。
+//   2. 该 action 整段都是特效帧（纯特效 action，如 9400/9500/8090）→ 不融。
+//   3. 其余（身体精灵帧）→ 融。
+// 依据：MUGEN 惯例里 group ≥ 7000 是 helper/特效段（爆炸、飞行道具），
+// cns 里用 helper / id=7500 直接引用，不能被 AI 帧覆盖。
+const EFFECT_GROUP_MIN = 7000;
+function isEffectFrame(fr) {
+  return fr.grp >= EFFECT_GROUP_MIN;
+}
+// 整段都是特效的 action → 该 action 一帧都不融
+function isPureEffectAction(actionId) {
+  const act = state.actions.get(actionId);
+  if (!act || !act.frames.length) return false;
+  return act.frames.every((f) => isEffectFrame(f));
+}
+// 「融」模式下这一帧要不要叠 AI 图
+function shouldMergeFrame(actionId, frameIdx) {
+  if (state.aiMode !== 'merge') return false;
+  const act = state.actions.get(actionId);
+  if (!act || !act.frames[frameIdx]) return false;
+  if (isPureEffectAction(actionId)) return false;   // 纯特效 action 不融
+  if (isEffectFrame(act.frames[frameIdx])) return false;  // 特效帧不融
+  return true;
+}
+
 /* ---------- 渲染：动画帧 或 单帧浏览 ---------- */
 function drawFrame(act, fi) {
   const zoom = +$('zoomSel').value;
@@ -836,10 +872,14 @@ function drawFrame(act, fi) {
   const f = actData.frames[fi];
   const showClsn = $('showClsn').checked;
   const aiImg = aiFrameFor(act, fi);         // AI 关键帧替换图（可能为 null；抽模式只有代表帧有）
+  // 「融」模式：AI 图不替换原精灵，而是**叠加**在原精灵之上。
+  // 特效帧（group ≥ 7000）不融 —— 本来就没有人像，融了只是把特效涂花。
+  const mergeThis = shouldMergeFrame(act, fi);
   // bbox 要覆盖「所有帧实际会画的东西」：
   //   全模式  → 每帧都是 AI 图（221px 高）
   //   抽模式  → 代表帧是 AI 图、其余帧是原精灵 → 两种尺寸都要算进去，
   //             否则切到代表帧时画布尺寸突变，画面会跳
+  //   融模式  → 原精灵 + AI 图**两者都要**画 → 都要算进去
   const parts = [];
   let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
   // 该 action 的 AI 图（可能为 null）
@@ -861,6 +901,12 @@ function drawFrame(act, fi) {
       minX = Math.min(minX, x0); minY = Math.min(minY, y0);
       maxX = Math.max(maxX, x0 + uw); maxY = Math.max(maxY, y0 + uh);
     }
+    // 融模式：原精灵照画，另外再把 AI 图的位置算进去
+    if (state.aiMode === 'merge' && aiAll && img && shouldMergeFrame(act, i)) {
+      const x0 = fr.x - aiAll.ax, y0 = fr.y - aiAll.ay;
+      minX = Math.min(minX, x0); minY = Math.min(minY, y0);
+      maxX = Math.max(maxX, x0 + aiAll.w); maxY = Math.max(maxY, y0 + aiAll.h);
+    }
   }
   if (minX > maxX) { minX = -40; minY = -120; maxX = 40; maxY = 0; }
   const pad = 10;
@@ -878,7 +924,20 @@ function drawFrame(act, fi) {
   ctx.moveTo(0, (oy) * zoom); ctx.lineTo(canvas.width, (oy) * zoom);
   ctx.stroke();
   const img = parts[fi].img, fr = parts[fi].fr;
-  if (aiImg) {
+  if (mergeThis && aiImg) {
+    // 「融」：先画原精灵，再把 AI 图以 alpha 叠上去。
+    // 特效帧（group ≥ 7000）与纯特效 action 不走这条路 —— 保持原样。
+    if (img) drawSprite(ctx, img, fr, ox, oy, zoom);
+    const dx = (ox + fr.x - aiImg.ax) * zoom;
+    const dy = (oy + fr.y - aiImg.ay) * zoom;
+    ctx.save();
+    ctx.globalAlpha = state.aiMergeAlpha;
+    ctx.translate(dx, dy);
+    if (fr.flipH) { ctx.translate(aiImg.w * zoom, 0); ctx.scale(-1, 1); }
+    if (fr.flipV) { ctx.translate(0, aiImg.h * zoom); ctx.scale(1, -1); }
+    ctx.drawImage(aiImg.canvas, 0, 0, aiImg.w * zoom, aiImg.h * zoom);
+    ctx.restore();
+  } else if (aiImg) {
     // AI 整帧替代身体：锚点底部中心，与真实组装一致
     const dx = (ox + fr.x - aiImg.ax) * zoom;
     const dy = (oy + fr.y - aiImg.ay) * zoom;
@@ -906,6 +965,12 @@ function drawFrame(act, fi) {
     if (state.aiMode === 'some') {
       const rep = aiRepresentativeFrame(act);
       aiTag = ' · AI关键帧(' + cat + ') ' + (fi === rep ? '★代表帧' : '第' + (fi + 1) + '帧');
+    } else if (state.aiMode === 'merge') {
+      // 特效帧 / 纯特效 action 标注「不融合」
+      const eff = isPureEffectAction(act);
+      aiTag = ' · AI关键帧(' + cat + ')+原精灵'
+        + (eff ? ' · 纯特效不融合'
+                : (isEffectFrame(fr) ? ' · 特效帧不融合' : ' · 已融合'));
     } else {
       aiTag = ' · AI关键帧(' + cat + ')';
     }
@@ -1097,8 +1162,7 @@ function loadFiles(fileMap, defPath) {
         await preloadAiFrames();
         state.aiPreview = true;
         aiFitCache.clear();
-        $('aiPreviewHint').textContent = '（已启用 ' + state.keyAssets.frames.length + ' 类 · ' +
-          (state.aiMode === 'some' ? '抽：只换代表帧' : '全：整段替换') + '）';
+        $('aiPreviewHint').textContent = '（已启用 ' + state.keyAssets.frames.length + ' 类 · ' + aiModeLabel() + '）';
         redrawCurrent();
       }
       // 默认播放第一个动作（优先 0 站立）
@@ -1223,7 +1287,7 @@ async function loadKeyAssets(lower, get) {
 /* ============================================================
  * 资产标记（char.json）
  *   { charId, displayName, roleType, profession, keyframeMode, description }
- * keyframeMode: some=抽关键帧 / all=全替关键帧 / none=不使用
+ * keyframeMode: some=抽关键帧 / merge=融合关键帧 / all=全替关键帧 / none=不使用
  * 运行时（游戏选人屏 / 角色实体绑定 / 战斗头像条）读的就是这份文件 ——
  * 所以在查看器里改完要写回去，才算真正「标记」了这个角色资产。
  * ============================================================ */
@@ -1237,7 +1301,7 @@ async function loadAssetMeta() {
     const meta = (r.charMeta && r.charMeta[id]) || null;
     if (meta) {
       state.assetMeta = meta;
-      $('assetMode').value = ['some', 'all', 'none'].includes(meta.keyframeMode) ? meta.keyframeMode : 'none';
+      $('assetMode').value = ['some', 'merge', 'all', 'none'].includes(meta.keyframeMode) ? meta.keyframeMode : 'none';
       $('assetProfession').value = meta.profession || '';
       el.textContent = '（已标记：' + (meta.keyframeLabel || meta.keyframeMode || '-') +
         (meta.profession ? ' · ' + meta.profession : '') + '）';
@@ -1545,8 +1609,11 @@ $('palSel').onchange = () => { spriteCache.clear(); if (state.selSprite) drawSin
 $('showClsn').onchange = () => { if (!state.selSprite && state.curActNo !== null) drawFrame(state.curActNo, state.curFrame); };
 $('aiMode').onchange = (e) => {
   const v = e.target.value;
-  state.aiMode = v === 'some' ? 'some' : (v === 'none' ? 'none' : 'all');
+  state.aiMode = (v === 'some' || v === 'merge' || v === 'none') ? v : 'all';
   saveAiMode(state.aiMode);
+  if (state.aiPreview) {
+    $('aiPreviewHint').textContent = '（已启用 ' + (state.keyAssets ? state.keyAssets.frames.length : 0) + ' 类 · ' + aiModeLabel() + '）';
+  }
   redrawCurrent();
 };
 $('aiPreview').onchange = async (e) => {
@@ -1562,7 +1629,7 @@ $('aiPreview').onchange = async (e) => {
   }
   saveAiPreview(state.aiPreview);
   $('aiPreviewHint').textContent = state.aiPreview
-    ? '（已启用 ' + (state.keyAssets ? state.keyAssets.frames.length : 0) + ' 类）'
+    ? '（已启用 ' + (state.keyAssets ? state.keyAssets.frames.length : 0) + ' 类 · ' + aiModeLabel() + '）'
     : '（已关闭）';
   redrawCurrent();
 };
@@ -1698,14 +1765,23 @@ function loadAiPreview() {
   try { return localStorage.getItem(VIEWER_AIPREVIEW_KEY) === '1'; } catch (e) { return false; }
 }
 function saveAiMode(mode) {
-  const v = mode === 'some' ? 'some' : (mode === 'none' ? 'none' : 'all');
+  const v = (mode === 'some' || mode === 'merge' || mode === 'none') ? mode : 'all';
   try { localStorage.setItem(VIEWER_AIMODE_KEY, v); } catch (e) { /* 私密模式 */ }
 }
 function loadAiMode() {
   try {
     const v = localStorage.getItem(VIEWER_AIMODE_KEY);
-    return v === 'some' ? 'some' : (v === 'none' ? 'none' : 'all');
+    return (v === 'some' || v === 'merge' || v === 'none') ? v : 'all';
   } catch (e) { return 'all'; }
+}
+// 模式的中文标签（顶栏提示 + 状态栏共用）
+function aiModeLabel() {
+  return ({
+    all: '全：整段替换',
+    some: '抽：只换代表帧',
+    merge: '融：与原精灵叠加',
+    none: '不用：保持原精灵',
+  })[state.aiMode] || '全：整段替换';
 }
 
 (async () => {
