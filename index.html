@@ -1754,6 +1754,28 @@
     return null;
   }
 
+  // 存档里的绑定可能指向「同一角色的旧包」。
+  // 例：林羽原本绑 LinYu（白模底座），后来生成了 LinYuKF（抽关键帧变体），
+  // 资产集 roster.json 的 defCharacterAssets 已改成 LinYuKF —— 这时存档要跟着迁移，
+  // 否则用户看到的还是旧包（表现为「标记了抽关键帧但看不出效果」）。
+  //
+  // 判定：存档绑的包与 defCharacterAssets **是同一个角色的不同版本**
+  //（variantOf 指向同一 charId，或 defCharacterAssets 声明了 variantOf）→ 迁移。
+  // 其它情况（用户手动换了别的角色）→ 保留存档。
+  function migrateSavedCharId(name, savedCharId) {
+    const defId = defaultCharIdFor(name, null);
+    if (!defId || !savedCharId || savedCharId === defId) return savedCharId;
+    const pool = packCharPool();
+    if (!pool.includes(savedCharId) || !pool.includes(defId)) return savedCharId;
+    // 变体关系：def 包的 char.json 声明 variantOf = 存档绑的包
+    const defMeta = charMeta(defId);
+    if (defMeta && defMeta.variantOf === savedCharId) return defId;
+    // 反向：存档绑的包声明 variantOf = def 包
+    const savedMeta = charMeta(savedCharId);
+    if (savedMeta && savedMeta.variantOf === defId) return savedCharId;
+    return savedCharId;
+  }
+
   // 组装 roster：有存档合并（保留同名角色的既有分配），没有则按默认绑定分配
   function composeRoster(chars, saved) {
     const savedMap = new Map((saved && saved.storyChars || []).map((c) => [c.name, c]));
@@ -1764,7 +1786,8 @@
       const fallbackSide = i === 0 ? 'p1' : (i === 1 ? 'p2' : 'bench');
       // 默认绑定：资产集 roster.json 的 defCharacterAssets → char.json → 随机
       const defId = defaultCharIdFor(c.name, null);
-      const charId = (s && packCharPool().includes(s.charId)) ? s.charId
+      const savedId = s ? migrateSavedCharId(c.name, s.charId) : null;
+      const charId = (savedId && packCharPool().includes(savedId)) ? savedId
                    : (defId || randomCharId());
       const meta = charMeta(charId);
       return {

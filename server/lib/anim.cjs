@@ -76,10 +76,16 @@ function animFrames(charsRoot, charId, actionNo) {
 
   // 每帧解码精灵 + 翻转。
   // 注意：服务端 spriteRgba 返回值不带 ax/ay（那在精灵目录头里），单独取。
+  //
+  // 调色板：只有**自带调色板**的精灵才用自己的调色板；
+  // 其余精灵用 def 的 pal1（.act，灰度素体色）。
+  // 不能一律套 pal —— 那样会把 AI 关键帧（自带彩色调色板）染成灰色。
   const sprites = [];
   for (const f of frames) {
     let img = null;
-    try { img = spriteRgba(buf, sff, f.grp, f.idx, pal); } catch { img = null; }
+    const sp0 = sff.sprites.get(f.grp + ',' + f.idx);
+    const ownPal = !!(sp0 && sp0.ownPal);
+    try { img = spriteRgba(buf, sff, f.grp, f.idx, ownPal ? null : pal); } catch { img = null; }
     if (!img) continue;
     const sp = sff.sprites.get(f.grp + ',' + f.idx);
     img.ax = sp ? sp.ax : Math.round(img.w / 2);

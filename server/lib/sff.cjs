@@ -135,6 +135,11 @@ function loadSff(buf) {
     let sp;
     if (h.ver === 1) {
       sp = { next: r.u32(), size: r.u32(), ax: r.i16(), ay: r.i16(), group: r.u16(), index: r.u16(), link: r.u16(), ps: r.u8(), at: of };
+      // SFF v1：ps === 0 表示该精灵**自带调色板**（块尾 0x0C 后的 768 字节），
+      // ps !== 0 表示沿用上一精灵的调色板。
+      // 自带调色板的精灵不能套用 def 的 .act（否则颜色被覆盖）——
+      // 「抽关键帧」变体包里的 AI 精灵就是这种情况。
+      sp.ownPal = sp.ps === 0;
       of = sp.next;
     } else {
       sp = {
