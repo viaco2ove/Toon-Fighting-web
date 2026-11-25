@@ -21,6 +21,17 @@ Node ≥ 18 即可，无需安装依赖。建议用独立的 Chrome / Edge 窗�
 不要用 IDE 内嵌浏览器（软件渲染会掉帧，且窗口失焦时浏览器会把帧循环降到 1fps）。
 
 调试与开发的工程规范见 [AGENTS.md](AGENTS.md)。
+- 基础启动：node serve.cjs
+- 连接toonflow-game-app 后端：node serve.cjs --conn
+将会读取 [.env](../../../.env)
+- 选定故事启动：
+node serve.cjs -- --story 末世选择，从解析神明开始成神 --conn
+将会加载资产集(地图集)：[末世选择，从解析神明开始成神](../../../workshops/toon-fighting-web/map_design/%E6%9C%AB%E4%B8%96%E9%80%89%E6%8B%A9%EF%BC%8C%E4%BB%8E%E8%A7%A3%E6%9E%90%E7%A5%9E%E6%98%8E%E5%BC%80%E5%A7%8B%E6%88%90%E7%A5%9E)
+并绑定 [story.json](../../../workshops/toon-fighting-web/map_design/%E6%9C%AB%E4%B8%96%E9%80%89%E6%8B%A9%EF%BC%8C%E4%BB%8E%E8%A7%A3%E6%9E%90%E7%A5%9E%E6%98%8E%E5%BC%80%E5%A7%8B%E6%88%90%E7%A5%9E/story.json) 
+对应的故事
+
+## gui 运行(构想中)
+node serve.cjs -gui --conn 
 
 ## 资产获取（重要）
 

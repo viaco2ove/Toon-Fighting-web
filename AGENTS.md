@@ -119,6 +119,13 @@ Node 版本 v22.23.2，直接跑，不需要装依赖。
    - **白模精灵的颜色来自 def 的 `pal1`（灰度 `.act`）**，不是 sff 内嵌调色板。
    - 解码器有**两份**：`server/lib/sff.cjs` 与 `ff-studio/src/viewer.html`，改一处不改另一处等于没改。对拍脚本 `.cache/scripts/probe-viewer-decode.mjs`（在 viewer 页面里跑它自己的解码器，与服务器比不透明像素数/颜色数）。
 
+13. **拳王模式（turns）与发言 agent 的口径（2026-11-25 八轮）。**
+   - **versus（含联动故事对战）= 拳王模式**：`startEngine` 里 `kof = MODE === 'versus'`，argv 传 `-tmode1 2 -tmode2 2`（main.lua quickmatch 分支：2=Turns，一次一人上场、一个 KO 算一回合、`setMatchWins(side, t_numChars[enemy])`=对方人数，打到一方全灭才出 Result）。**编队按「3 条命」摊开**（`kofTeam`）：1 人=同一角色重复 3 次、3 人=各 1 条命、2 人=2+1；同角色重复入场由 `t_assignedPals` 自动分配 palette。**practice（假人靠前端注入 P2 键，换人即断）/ survival（生存链单挑续关）不启用 turns**。
+   - **头部血条只有一条**是 motif `data/fight.def` 的 `[Turns Lifebar]` 段（只定义 p1/p2）保证的；别把 3 条堆叠误当 bug——那是 simul（tmode=1）的 `[Simul Lifebar]`，出现即说明传的是旧参数/旧页面。
+   - **诊断**：`window.__tfArgv` 在 startEngine 入口同步写入，点完【开始】立刻可读，不需要等引擎帧（headless 下引擎帧经常拿不到）。探针 `.cache/scripts/probe-kof-argv.mjs`（断言 tmode=2 + 1 人队 ×3）；`.cache/scripts/probe-kof.mjs` 走完整开打等帧。
+   - **发言 agent**（`server/lib/speech-agent.cjs` + `/api/conn/agent/speech`，走后端 `/plugin/agentRun` plugin-llm）三层齐全：开场 intro（battleIntro 双方并发）、过程 random（22s 轮询 22% 概率）、胜负 win/lose（onMatchResult）。前端 index.html：开场/胜负 = 打字机流式上屏（55ms/字，`showSpeech(side,text,stream)`，被顶掉时清定时器），随机发言即时显示；fetch 统一 `AbortSignal.timeout(15000)`，出错/超时静默跳过。**台词不显示 ≠ 没对接**——实测后端可能回「已达到 Token Plan 用量上限(2056)」，额度耗尽时全部静默跳过，先用 curl POST `/api/conn/agent/speech` 验证再查代码。已知渲染限制：facebar/headav 只显示每队第一个角色，turns 换人时不跟随当前上场者。
+   - 设置面板「战斗开场与发言」pane（st-speech：文字/文字+语音/关；st-countdown：3 秒倒计时开关）即发言的开关，语音用浏览器 speechSynthesis。
+
 ## 键位
 
 - P1：`←↑↓→`，A=`z` B=`x` C=`c` X=`a` Y=`s` Z=`d`，Start=`Enter`，D=`q` W=`w`，Esc
