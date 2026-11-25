@@ -1990,6 +1990,8 @@
       }
       charSel.addEventListener('change', () => {
         c.charId = charSel.value;
+        // 关键帧模式标签跟着新实体走（白模 → 抽 / 融 / 全 是不同的 char.json）
+        c.keyframeMode = keyframeModeOf(c.charId);
         renderRosterEditor();   // 换绑后头像跟着变
       });
       mg.appendChild(charSel);
