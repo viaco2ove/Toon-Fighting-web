@@ -391,20 +391,27 @@ async function handleApi(req, res, urlPath) {
       return json(res, 400, { ok: false, error: '头像路径不合法' });
     }
     try {
-      const key = rel + '@' + AVATAR_SIZE;
+      const isWebp = /\.webp$/i.test(rel);
+      const key = rel + '@' + AVATAR_SIZE + (isWebp ? '@anim' : '');
       let out = thumbCache.get(key);
       if (!out) {
         const r = await fetch(OSS_ROOT.replace(/\/+$/, '') + rel, { signal: AbortSignal.timeout(15000) });
         if (!r.ok) return json(res, 200, { ok: false, error: '头像取不到（HTTP ' + r.status + '）' });
         const raw = Buffer.from(await r.arrayBuffer());
+        // 关键：webp 动图必须带 animated:true，否则 sharp 只保留第一帧，
+        // 输出退化成静态 VP8X/ALPH/VP8，头像就变成死图。
         out = sharpMod
-          ? await sharpMod(raw).resize(AVATAR_SIZE, AVATAR_SIZE, { fit: 'cover', position: 'top' }).webp({ quality: 82 }).toBuffer()
+          ? await sharpMod(raw, isWebp ? { animated: true } : {})
+              .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: 'cover', position: 'top' })
+              .webp({ quality: 82 }).toBuffer()
           : raw;
         thumbCache.set(key, out);
       }
       const type = sharpMod ? 'image/webp'
         : (/\.png$/i.test(rel) ? 'image/png' : /\.jpe?g$/i.test(rel) ? 'image/jpeg' : /\.webp$/i.test(rel) ? 'image/webp' : 'image/png');
-      res.writeHead(200, { 'Content-Type': type, 'Content-Length': out.length, 'Cache-Control': 'public, max-age=3600' });
+      // 动图和静态图缓存策略不同：动图内容不变但体积大，静态图可能被重新生成。
+      const cc = isWebp ? 'public, max-age=86400' : 'public, max-age=3600';
+      res.writeHead(200, { 'Content-Type': type, 'Content-Length': out.length, 'Cache-Control': cc });
       return res.end(out);
     } catch (e) {
       return json(res, 200, { ok: false, error: (e && e.message) || '头像取不到' });
@@ -472,12 +479,21 @@ async function handleApi(req, res, urlPath) {
         const world = await bfAuth('/game/getWorld', { worldId }, { authTokenOverride: authTok });
         const settings = (world && world.settings) || {};
         const roles = Array.isArray(settings.roles) ? settings.roles : [];
+        // 玩家角色（主角）单独存在 world.playerRole 里，不在 settings.roles 里。
+        // 不合并的话，主角在选人屏上就没有 toonflow 头像（只剩静态兜底图）。
+        const playerRole = (world && world.playerRole) || null;
+        const merged = roles.slice();
+        if (playerRole && playerRole.name) {
+          const i = merged.findIndex((r) => r && String(r.name || '') === String(playerRole.name));
+          if (i >= 0) merged[i] = { ...merged[i], ...playerRole };
+          else merged.unshift(playerRole);
+        }
         return json(res, 200, {
           ok: true,
           worldId,
           worldName: String((world && world.name) || worldName),
           intro: String((world && world.intro) || ''),
-          roles: roles.map(normalizeRole),
+          roles: merged.map(normalizeRole),
         });
       } catch (e) {
         return json(res, 200, { ok: false, error: (e && e.message) || '取角色列表失败' });

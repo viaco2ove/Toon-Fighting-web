@@ -2792,7 +2792,7 @@
         b.appendChild(od);
       }
       const face = document.createElement('img');
-      face.className = 'face' + (tfAvatarUrl(e.r) ? ' ava' : '');
+      face.className = 'face' + (e.ava || tfAvatarUrl(e.r) ? ' ava' : '');
       face.alt = '';
       setImgChain(face, avaUrlFor(e));   // toonflow 头像（webp 动图）优先，退回 MUGEN 头像
       b.appendChild(face);
