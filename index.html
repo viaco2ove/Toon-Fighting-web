@@ -790,7 +790,13 @@
   .sess .meta{margin-left:auto;text-align:right;font-size:10.5px;color:#5a6478;line-height:1.8;flex:none}
   .sess .cur{color:var(--gold);font-size:10px;letter-spacing:.1em}
   /* 实体绑定行（原型 roster-bind：1fr 30px 1fr 三栏） */
-  #charrows{overflow-y:auto;min-height:0;padding-right:4px}
+  /* #charrows 不是 .stage 的直接 flex 子项（中间隔着 #story-roster），
+     收缩链必须在 #story-roster 上接通，否则列表撑爆 stage、整体溢出被裁——
+     表现就是「13 行绑到底、看不见滚动条也看不见保存按钮」 */
+  #story-roster{min-height:0}
+  #story-roster.flexon{flex:1;display:flex;flex-direction:column}
+  #story-roster .stfoot{flex-shrink:0}
+  #charrows{overflow-y:auto;min-height:0;flex:1;padding-right:4px}
   .brow{display:grid;grid-template-columns:1fr 30px 1fr;gap:0 10px;align-items:center;
     background:rgba(17,20,27,.88);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:9px}
   .brow .tf,.brow .mg{display:flex;gap:12px;align-items:center;min-width:0}
