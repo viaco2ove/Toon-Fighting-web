@@ -123,6 +123,28 @@ bsk console --session <id> --tab-id <tab> --limit 200 | grep -iE "missing sprite
 
 无 `Animation missing sprite` 报错。
 
+### ⚠️ 必须追加：静态复检「引擎会不会丢弃这些精灵」
+
+「引擎实测只看日志」**发现不了**引擎静默丢弃精灵的缺陷（引擎不打任何日志，
+查看器也照常显示）。所以还要跑：
+
+```powershell
+node ../../templates/diag-engine-drop.cjs <包>/<id>.sff
+```
+
+输出「保留 N 引擎丢弃 M」—— **M 必须是 0**。
+
+原理：写出器的 PCX 行宽 `bpl` **必须严格等于 `w`**（不能像 PCX 惯例那样补偶数）。
+引擎 raw 路径（`encoding=0`）不做行距换算，`px` 长度 = `bpl*h`，
+而 `SetPxl`（`src/image.go`）要求 `len(px) == w*h` → 不等就**静默丢弃整张精灵**。
+2026-11-26 实测：`LinYuKFA` 的 10 张 AI 精灵里有 4 张是奇数宽 → 4 张隐形。
+
+详见 [merge/SKILL.md 的坑 E](../merge/SKILL.md)。已有坏包的修法：
+
+```powershell
+node ../../templates/fix-sff-bpl.cjs <包>/<id>.sff
+```
+
 ## Output
 
 | 产物 | 位置 |

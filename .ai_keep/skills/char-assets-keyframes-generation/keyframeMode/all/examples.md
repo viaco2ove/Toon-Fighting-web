@@ -131,3 +131,23 @@ workshops/.../chars/LinYuKFA/             （同上，资产集侧）
    否则人物在动作里忽大忽小。
 4. **特效帧保持原样**：group ≥ 7000 的 helper 段本来就没有人像。
 5. **数据层解决，引擎零改动**。
+## 2026-11-26 追加：4 张 AI 精灵「隐形」（写出器 `bpl` 缺陷）
+
+与「抽」「融」同一个坑（详见 [merge/examples.md 的三次修复](../merge/examples.md)）：
+写出器把 PCX 行宽 `bpl` 按 PCX 惯例补成偶数（`w + (w & 1)`），
+但引擎 raw 路径要求 `bpl` **严格等于 `w`** ——
+`SetPxl` 判 `len(px) == w*h` 不成立就**静默丢弃整张精灵，全程零日志**。
+
+`LinYuKFA` 的 10 张 AI 精灵里有 4 张奇数宽（6001/6003/6006/6009）→ 那 4 张隐形。
+
+「全替」模式受影响最轻（每个 action 的每一帧都指向同一张 AI 图，
+丢 4 张只影响那 4 个类别），但依然是实打实的缺陷。
+
+修法（外科，不动 AIR/def —— 线上包可能有手工补丁）：
+
+```powershell
+node ../../templates/fix-sff-bpl.cjs <包>/LinYuKFA.sff
+```
+
+**验收**：构建后必须跑 `node ../../templates/diag-engine-drop.cjs <包>/<id>.sff`，
+「引擎丢弃 M」必须为 0。查看器正常不算数（查看器按 `bpl` 跨距读行，多余字节被忽略）。

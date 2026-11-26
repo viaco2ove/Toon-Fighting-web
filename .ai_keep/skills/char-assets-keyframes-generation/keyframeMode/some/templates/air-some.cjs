@@ -37,13 +37,6 @@ const SPRITE_OF = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.sprite]));
 /**
  * action 号 → 类别。**按这个包 cns 的实际引用**建表。
  * 没列到的 action 走 fallback（号段惯例），并被标记为低置信。
- *
- * ⚠️⚠️ 换底座必须重查这张表 —— 下面的 action 号是**包相关**的，
- * 不是通用规则。查法：
- *   grep -a -o "anim *= *[0-9]*" "ikemen-fs/file/chars/<id>/<id>-N.st"  *     | grep -o "[0-9]*$" | sort -n | uniq
- * -N.st = 站立/受击/倒地，-S.st = 蹲/普通技，-H.st = 跳跃/必杀。
- * 参考：LinYu 底座上，MUGEN 号段惯例是错的（5000 系是受击不是倒地，
- * 1200/1250 是走位不是空中，1400 是起手不是必杀）。
  */
 const ACTION_CATEGORY = {
   // stand：站立 / 转身前的常态
@@ -108,7 +101,9 @@ function classifyAction(id) {
 // time 允许负数（-1 = 持续到下一帧）
 // 注意：行首/行尾的空白只能用 [ \t]，**不能用 \s** ——
 // \s 会匹配 \r\n，把换行符一起吃掉 → 原位替换时行数对不上、字节错位。
-const FRAME_RE = /^([ \t]*)(\d+)[ \t]*,[ \t]*(\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*(?:,[ \t]*(\d+))?[ \t]*$/;
+// animType 是字母（H/U/D/F/B 等），不是数字；漏掉会整行不被扫描，
+// 导致翻转帧永远保持原精灵 → 融合角色每几个动作就闪回白模。
+const FRAME_RE = /^([ \t]*)(\d+)[ \t]*,[ \t]*(\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*(?:,[ \t]*([A-Za-z0-9]+))?[ \t]*$/;
 
 // helper / 特效（group ≥ 7000）：cns 里用 helper / id=7500 直接引用，**不能重映射**
 const HELPER_GROUP_MIN = 7000;

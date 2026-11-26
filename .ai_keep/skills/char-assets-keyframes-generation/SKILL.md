@@ -161,6 +161,21 @@ node .cache\scripts\mk-keyframes.mjs
   （`REF` 代表帧映射表 / `CATS` 类别表 / `refPngBuf` 废区裁剪三处按目标包核对）
 - [templates/gen-frames-note.md](templates/gen-frames-note.md)：现场生图的提示词与通道备忘
 
+### 引擎兼容性检查工具（2026-11-26 新增，三种模式通用）
+
+这三个是**自包含**脚本，拷到任意机器都能跑（`diag-engine-drop.cjs` / `fix-sff-bpl.cjs`
+零依赖；另两个需要 `sharp` / `ws`，可用环境变量 `SHARP_PATH` / `WS_PATH` 指向）：
+
+| 脚本 | 用途 |
+|---|---|
+| [templates/diag-engine-drop.cjs](templates/diag-engine-drop.cjs) | **静态复检**：按引擎口径算出「会被静默丢弃的精灵数」，必须为 0。退出码 0=通过 / 1=有丢弃，可直接进 CI |
+| [templates/fix-sff-bpl.cjs](templates/fix-sff-bpl.cjs) | **外科修复**：只重排 SFF 精灵链把 `bpl` 改成 `w`，AIR / def 一字不动（线上包可能有手工补丁，不能整体重建） |
+| [templates/capture-exact-frame.mjs](templates/capture-exact-frame.mjs) | 抓**指定引擎帧号**的截图（消除舞台背景动画的相位噪声） |
+| [templates/ascii-region.cjs](templates/ascii-region.cjs) | 把截图指定区域打成 ASCII（`#`背景 `*`内容），终端里直接目检「角色在不在」 |
+
+**三种模式（some/merge/all）组装完都必须跑 `diag-engine-drop.cjs`** ——
+引擎对非法精灵是静默丢弃的，查看器和日志都发现不了。
+
 ## 下一步：把关键帧装进引擎
 
 **本技能只到「资产落盘」** —— 落盘的 10 张 PNG 引擎根本读不到（引擎只认 sff 里的精灵
@@ -192,6 +207,25 @@ node .cache\scripts\mk-keyframes.mjs
 | `ps != 0` 的精灵像素流 | 读到**块尾**（`rleSize = blockEnd - pcxDataStart`）；停在 `0x0C` 会少读 128+ 字节 RLE → 多出上千个幻影不透明像素（烘成黑色方块） |
 | 白模精灵显示的颜色 | def 的 `pal1`（灰度 `.act`），不是 sff 内嵌调色板 |
 | 解码器有两份 | `server/lib/sff.cjs` **和** `ff-studio/src/viewer.html`（浏览器端各一份），必须同时改 |
+
+⚠️ **写出的 SFF 精灵「奇数宽就隐形」（2026-11-26，苏晚晴 KFM 实测）**
+
+症状：游戏里角色开局就消失，但 ff-studio 查看器完全正常。
+
+引擎口径（`src/image.go`）：raw 路径（`encoding=0`）**不做行距换算**
+（`readPcxHeader` 只在 `encoding==1` 时把 `bpl` 存进 `s.rle`），
+`px` 长度 = `bpl*h`；而 `SetPxl` 要求 `len(px) == w*h` → 不等就**静默丢弃整张精灵，不报错**。
+
+所以写出器的 `bpl` **必须严格等于 `w`**，不能按 PCX 惯例补偶数。
+原来的 `bpl = w + (w & 1)` → 所有奇数宽精灵隐形（苏晚晴站立循环 8 张全是奇数宽）。
+
+验收（**不能只看日志**）：
+
+```powershell
+node ../../templates/diag-engine-drop.cjs <包>/<id>.sff   # 「引擎丢弃 M」必须为 0
+```
+
+详见 [keyframeMode/merge/SKILL.md 坑 E](keyframeMode/merge/SKILL.md)。
 
 「融」模式额外注意：MUGEN 帧行一次只能画一个精灵，
 所以「AI 图 + 原精灵一起显示」**必须在构建期烘焙**（合成成一张图）；

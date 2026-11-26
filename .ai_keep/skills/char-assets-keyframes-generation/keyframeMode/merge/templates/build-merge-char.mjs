@@ -16,19 +16,38 @@
 // 同一精灵可能出现在不同类别的 action 里 → 每个 (精灵, 类别) 组合
 // 各生成一张合成精灵（804 个），air 按所属 action 的类别改指向。
 //
-// 跑: node .cache/scripts/build-merge-char.mjs <baseCharDir> <framesDir> <outDir> <id>
+// 跑: node build-merge-char.mjs <baseCharDir> <framesDir> <outDir> <id> [mergeAlpha] [bodyAlpha]
+//
+// 环境变量（底座目录里文件名不唯一时必须显式指定，避免选错）：
+//   BASE_SFF / BASE_AIR / BASE_DEF —— 显式指定底座的 sff / air / def 文件名
+//
+// 例（苏晚晴 KFM）：
+//   BASE_SFF=Athena-98.sff BASE_AIR=Athena-98.air BASE_DEF=98Athena.def \
+//   node build-merge-char.mjs ff-studio/white-mold/04_异能者/98Athena \
+//        .cache/ai-frames/苏晚晴 .cache/mg-build/SuWanqingKFM SuWanqingKFM 0.95 0.2
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { decodePng, quantize } = require('./lib/sprite-pack.cjs');
-const { mergeSprites, MERGE_ALPHA, MERGE_BODY_ALPHA } = require('./lib/merge-sprite.cjs');
-const { parseAir, scanFrames, classifyAction, SPRITE_OF } = require('./lib/air-some.cjs');
-const { appendSprites, readSffV1Dir } = require('./lib/sff-append.cjs');
-const { loadSff, spriteRgba, readPaletteFile } = require(path.resolve('server/lib/sff.cjs'));
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const { decodePng, quantize } = require('./sprite-pack.cjs');
+const { mergeSprites, MERGE_ALPHA, MERGE_BODY_ALPHA } = require('./merge-sprite.cjs');
+const { parseAir, scanFrames, classifyAction, SPRITE_OF } = require('./air-some.cjs');
+const { appendSprites, readSffV1Dir } = require('./sff-append.cjs');
+// 找项目根（含 server/lib/sff.cjs 的目录）—— 模板可能放在任意层级
+function findProjectRoot(start) {
+  let d = start;
+  for (let i = 0; i < 12; i++) {
+    if (fs.existsSync(path.join(d, 'server', 'lib', 'sff.cjs'))) return d;
+    const up = path.dirname(d);
+    if (up === d) break;
+    d = up;
+  }
+  throw new Error('找不到项目根（含 server/lib/sff.cjs）');
+}
+const { loadSff, spriteRgba, readPaletteFile } = require(path.join(findProjectRoot(__dirname), 'server', 'lib', 'sff.cjs'));
+
 const baseCharDir = process.argv[2];
 const framesDir = process.argv[3];
 const outDir = process.argv[4];
@@ -70,9 +89,20 @@ for (const f of manifest.frames) {
 console.log('AI 图：', manifest.frames.length, '张 · 融合不透明度 AI', ALPHA, '/ 原', BODY_ALPHA);
 
 // ---------- 2) 原包 ----------
-const baseSffPath = findFile(baseCharDir, /\.sff$/i);
-const baseAirPath = findFile(baseCharDir, /\.air$/i);
-const baseDefPath = findFile(baseCharDir, /\.def$/i);
+// 显式文件名优先（环境变量），避免目录里有多个 def/sff 时 findFile 按字母序选错。
+// 例：RalfAct 目录有 RalfAct.def（正确）和 ikari.def（无 sprite/anim 行）。
+const pick = (envName, re) => {
+  const name = process.env[envName];
+  if (name) {
+    const p = path.join(baseCharDir, name);
+    if (fs.existsSync(p)) return p;
+    console.warn(`${envName}=${name} 不存在，回退搜索`);
+  }
+  return findFile(baseCharDir, re);
+};
+const baseSffPath = pick('BASE_SFF', /\.sff$/i);
+const baseAirPath = pick('BASE_AIR', /\.air$/i);
+const baseDefPath = pick('BASE_DEF', /\.def$/i);
 const baseSffBuf = fs.readFileSync(baseSffPath);
 const baseSff = loadSff(baseSffBuf);
 const baseAirText = fs.readFileSync(baseAirPath, 'latin1');
@@ -100,8 +130,15 @@ for (const fr of manifest.frames) {
 }
 
 // ---------- 3) 逐 action 决定每帧是「融合」还是「保持原样」 ----------
+// 特效判定：原包 group ≥ 7000 视为 helper/特效段。
+// 注意合成精灵区会扩到 20000，不能单纯用 g>=7000 判定——
+// 改从原包 air 里收集「实际用到的 ≥7000 group」，只对原包 group 生效。
 const HELPER_GROUP_MIN = 7000;
 const acts = parseAir(baseAirText);
+const effectGroups = new Set();
+for (const a of acts) for (const f of scanFrames(a.body)) {
+  if (f.g >= HELPER_GROUP_MIN) effectGroups.add(f.g);
+}
 
 // (精灵, 类别) → 该组合需要一张合成精灵
 const needMerge = new Map();   // "g,n|cat" → {g,n,cat}
@@ -111,7 +148,7 @@ for (const a of acts) {
   const { cat } = classifyAction(a.id);
   const plan = [];
   for (const f of frames) {
-    const isEffect = f.g >= HELPER_GROUP_MIN;
+    const isEffect = effectGroups.has(f.g);
     if (isEffect) { plan.push({ ...f, merge: false }); continue; }
     const key = f.g + ',' + f.n + '|' + cat;
     needMerge.set(key, { g: f.g, n: f.n, cat });
@@ -132,7 +169,9 @@ const AI_GROUP = (() => {
   // 合成精灵数量可能上千 → 需要连续多个 group
   const need = needMerge.size;
   let run = [];
-  for (let g = 6100; g < 7000; g++) {
+  // group 是 u16；6100..7000 放不下上千张合成精灵时扩到 20000
+  // （底座实际 group 一般 <3000，扩区不会撞原包）
+  for (let g = 6100; g < 20000; g++) {
     if (used.has(g)) { run = []; continue; }
     run.push(g);
     if (run.length >= need) { console.log('合成精灵 group：', run[0], '..', run[run.length - 1]); return run[0]; }

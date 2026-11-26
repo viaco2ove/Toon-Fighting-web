@@ -139,6 +139,55 @@ node .cache/scripts/probe-viewer-decode.mjs 9391
 # 在 viewer 页面里跑它自己的 spriteRgba，与服务器结果对拍（不透明像素数/颜色数/前几个颜色）
 ```
 
+**坑 E：写出的 SFF 精灵「宽度为奇数就隐形」（2026-11-26，苏晚晴 KFM 实测）**
+
+症状：**游戏里角色开局就消失**，但 ff-studio 查看器里完全正常，看不出任何问题。
+
+根因（引擎 `src/image.go`）：
+
+```go
+// readPcxHeader：只有 encoding==1（RLE）才把 bpl 存进 s.rle；raw(encoding=0) 时 s.rle = 0
+if encoding == 1 { s.rle = int(bpl) } else { s.rle = 0 }
+// RlePcxDecode：s.rle<=0 时原样返回字节流 → px 长度 = rleSize = bpl*h
+// SetPxl：if len(px) != Size[0]*Size[1] { return }   ← 纹理不生成 → 精灵隐形，且不报错
+```
+
+`Size = w*h`，而 raw 模式下 `px` 长度 = `bpl*h`。
+**所以 `bpl` 必须严格等于 `w`，绝不能补偶数。**
+
+本项目原来的写出器是 `bpl = w + (w & 1)`（PCX 惯例补偶），
+→ **所有奇数宽的合成精灵被引擎静默丢弃**。
+苏晚晴 KFM 的站立 action 0 的 8 张合成精灵宽全是奇数（71/69/71…）→ 开局进站立循环人就消失。
+
+**为什么查看器看不出来**：查看器（`server/lib/sff.cjs` 和 viewer 自己那份）按 `bpl`
+跨距读行（`px[y*bpl+x]`），多出来的补齐字节被忽略 → 画面正常。
+**查看器正常 ≠ 引擎正常**，这类「引擎静默丢弃」的缺陷只有实机才能发现。
+
+修法（写出器，`sff-append.cjs` 的 `buildOwnPalBlock` 和 `sprite-pack.cjs` 的 `buildSffV1`）：
+
+```js
+const bpl = w;   // 不能是 w + (w & 1)
+```
+
+**验收判据（必做，不能只看日志）** —— 引擎对丢弃的精灵**不打任何日志**，
+所以必须静态复检 + 实机同帧对比：
+
+```powershell
+# 1) 静态复检：按引擎口径算出「会被丢弃的精灵数」，必须为 0
+node ../../templates/diag-engine-drop.cjs <包>/<id>.sff
+#    输出「保留 N 引擎丢弃 M」—— M 必须是 0
+
+# 2) 实机同帧对比：抓同一引擎帧号的图，坏包角色区是空白、好包有人形
+node ../../templates/capture-exact-frame.mjs <out.png> 9399 8100 <id> <id> 120
+node ../../templates/ascii-region.cjs <out.png> 0.22 0.42 0.32 0.90
+```
+
+已有的坏包可以用外科工具修（只重排 SFF 精灵链，AIR / def 一字不动）：
+
+```powershell
+node ../../templates/fix-sff-bpl.cjs <包>/<id>.sff
+```
+
 ### Step 2.5 — 处理三类失败
 
 | 情况 | 数量（LinYu） | 处理 |
@@ -242,6 +291,19 @@ node .cache/scripts/diag-merge-input.cjs      # 合成前 body/ai/merged/quant �
 融合帧的像素饱和度分布：**彩色约 45% + 灰度约 55%** ——
 AI 图的彩色被半透明稀释，原精灵的灰度结构还在。
 
+### ai帧 虚化
+靠写半透明 alpha 实现
+透明度 原100%，ai帧 55%。
+特点：原帧无透明度处理，单纯把 ai 帧的 alpha 乘以 0.55
+
+### 二值透明-v1-碎片模式
+例如：不透明度 原20%,ai帧 95% 
+二值透明（alpha<128 → 透明索引 0），所以 20% 不能靠写半透明 alpha 实现——那样 body-only 像素会整片消失。
+用「相对权重混合 + 保留原有不透明 mask」的口径来烘，这也是和现有包兼容的做法。
+构建核心 merge-sprite.cjs 加了 bodyAlpha 参数。SFF v1 调色板只有二值透明，写不了 20% alpha，
+所以：重叠区按相对权重把配比烘进 RGB，只有原图覆盖的区域用 4×4 有序抖动模拟淡显；旧行为（bodyAlpha=1）保持不变
+特点：原帧 的效果成了方块小碎片组成的图片，ai帧略有点模糊 
+
 ### 特效帧没被融合
 
 ```powershell
@@ -320,3 +382,18 @@ node .cache/scripts/probe-shot.mjs .cache/shots-mergefix shot.png "http://localh
 10. **白模包的「废区」其实是透明的**：`Lin.sff` 的下半带看着像近黑填充，
    但按引擎口径 RLE 解出来是 index 0（透明）。解码器截断 RLE 才会把它当成不透明色块
    —— 别按「废区要裁剪」的思路去改，先对齐引擎的 `rleSize`。
+11. **引擎会「静默丢弃」非法精灵**：精灵尺寸与像素流长度对不上时，
+   `SetPxl` 直接 return，纹理不生成 → **精灵隐形，且全程零日志**。
+   症状是「角色开局就消失」，而 ff-studio 查看器完全正常。
+   所以「精灵不见了」的第一件事是跑 `diag-engine-drop.cjs` 静态复检数据合法性，
+   而不是查渲染 / 查解码器。详见坑 E。
+12. **PCX 惯例在 MUGEN 引擎里不适用**：`bpl`（bytes per line）在 raw 模式下
+   **必须 = w**，不能补偶数。引擎拿 `bpl*h` 当字节数跟 `w*h` 比。
+13. **黑盒判据必须同帧对比**：舞台有背景动画时逐帧 diff 全是噪声
+   （实测同组内两帧自比就有 33%）。要抓**同一个引擎帧号**对齐相位再比。
+
+## 相关示例
+
+- [examples.md](examples.md)：
+  - 「2026-11-25 二次修复：纯色方块 + 彩色杂斑」= 解码器的调色板与 RLE 截断问题
+  - 「2026-11-26 三次修复：角色『开局就消失』」= 写出器 `bpl` 缺陷导致引擎静默丢弃

@@ -95,7 +95,15 @@ function readSpriteBlock(buf, sp) {
  * @param palette Uint8Array|Buffer 768 字节（RGB 三元组）
  */
 function buildOwnPalBlock(px, w, h, palette, ax, ay) {
-  const bpl = w + (w & 1);
+  // bpl 必须**等于** w，不能补偶数。
+  //
+  // 引擎 raw 路径（encoding=0）不做任何行距换算：
+  //   readPcxHeader: 只有 encoding==1 才把 bpl 存进 s.rle；raw 时 s.rle = 0
+  //   RlePcxDecode:  s.rle<=0 时原样返回字节流 → px 长度 = rleSize = bpl*h
+  //   SetPxl:       if len(px) != Size[0]*Size[1] { return }  ← 纹理不生成 → 精灵隐形
+  // 而 Size = w*h。**bpl ≠ w 时整张精灵被引擎静默丢弃，且不报任何错**。
+  // 宽度为奇数时 bpl=w+1 → bpl*h ≠ w*h → 精灵消失（2026-11-26 苏晚晴 KFM 实测）。
+  const bpl = w;
   const header = Buffer.alloc(128);
   header[0] = 0x0A;                    // PCX magic
   header[1] = 5;                       // PCX version

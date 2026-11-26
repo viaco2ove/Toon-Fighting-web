@@ -119,3 +119,19 @@ ikemen-fs/manifest.json                       （local48）
    后续 AIR 重映射/SFF 换图直接照表施工，不再猜。
 3. **引擎实测裁决渲染差异**：离线渲染与引擎调色板语义有差异时，用引擎截图做
    ground truth，再让离线渲染向引擎对齐（几何裁剪），而不是反过来改引擎。
+
+## 后续踩坑索引（这三个模式各踩一次，写在各自的 examples.md 里）
+
+| 坑 | 现象 | 记录位置 |
+|---|---|---|
+| 解码器调色板/RLE 截断 | 纯色方块 + 彩色杂斑 | [keyframeMode/merge/examples.md](keyframeMode/merge/examples.md)（2026-11-25 二次修复） |
+| 形象与立绘不一致 | 10 张图内部一致，但不是这个角色 | 本文件 Step 1（复用判定漏了） |
+| 写出器 `bpl` 缺陷 | **角色开局就消失**，查看器却完全正常 | [keyframeMode/merge/examples.md](keyframeMode/merge/examples.md)（2026-11-26 三次修复） |
+
+第三条最值得记：**引擎对非法精灵是「静默丢弃」的** ——
+纹理不生成 → 精灵隐形 → **日志全程干净**。
+所以「精灵不见了」的第一反应不该是查渲染，而是**静态复检数据合法性**：
+
+```powershell
+node ../../templates/diag-engine-drop.cjs <包>/<id>.sff   # 「引擎丢弃 M」必须为 0
+```

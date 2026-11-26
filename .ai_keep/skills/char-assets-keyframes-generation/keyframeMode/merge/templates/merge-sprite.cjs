@@ -153,4 +153,4 @@ function mergeSprites(body, ai, alpha = MERGE_ALPHA, bodyAlpha = MERGE_BODY_ALPH
   return { w, h, rgba: out, ax, ay };
 }
 
-module.exports = { MERGE_ALPHA, contentBox, fitFrame, mergeSprites };
+module.exports = { MERGE_ALPHA, MERGE_BODY_ALPHA, contentBox, fitFrame, mergeSprites };

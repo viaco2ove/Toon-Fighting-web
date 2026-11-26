@@ -165,7 +165,9 @@ function buildSffV1(sprites) {
   const blocks = [];
   for (const sp of sprites) {
     const { px, w, h, palette } = sp;
-    const bpl = w + (w & 1);
+    // bpl 必须等于 w（不能补偶数）。引擎 raw 路径下 px 长度 = bpl*h，
+    // 而 SetPxl 要求 len(px) == w*h，否则整张精灵被静默丢弃 → 隐形。
+    const bpl = w;
     const data = Buffer.alloc(128);
     data[0] = 0x0A;                   // PCX magic（引擎兼作 paletteSame 标志，须为 0x0A）
     data[1] = 5;                      // PCX version
