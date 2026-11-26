@@ -16,13 +16,15 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * 图片接口 —— PC 端 serve.cjs 同名接口的手机版。APK 内没有 Node/sharp，
- * 用平台 BitmapFactory 做缩放。
+ * 图片接口。APK 内没有 Node/sharp，用平台 BitmapFactory 做缩放。
+ * <b>不依赖 PC</b>：任何接口都不会去代理 PC 端 serve.cjs（2026-11-27 移除
+ * role-avatar 的 PC 代理与 /api/anim 的 PC 透传 —— SFF/AIR 解码由 webview 里的
+ * ff-decode.js 直接从本机 /packs/* 取字节自解，/api/anim 故意不提供，立即 404）。
  *
  * <ul>
  *   <li><b>GET /api/role-avatar/&lt;后端OSS相对路径&gt;</b> —— toonflow 角色头像。
- *       后端原图是 1024 级 webp（实测单张 7MB），直接进页面会拖死 WebView；
- *       这里解码后缩到 192px 方形再编码 webp（7MB → 十几 KB）。
+ *       直接取后端（backendUrl，部署在服务器上的 toonflow 平台）原图，
+ *       解码后缩到 192px 方形再编码 webp（7MB → 十几 KB）。
  *       已知折中：Android 平台解码 animated webp 只拿得到第一帧，
  *       所以手机端头像会是静态图（PC 端 sharp animated:true 才有动图）。</li>
  *   <li><b>GET /api/portrait/&lt;charId&gt;?pack=&lt;dir&gt;</b> —— MUGEN 实体头像。
@@ -30,9 +32,8 @@ import java.util.regex.Pattern;
  *       {@code chars/<id>/avatar/head.png}，缩到 256px。</li>
  *   <li><b>GET /api/pose/&lt;charId&gt;?pack=&lt;dir&gt;</b> —— 选人屏立绘，
  *       读 {@code full.png}（等比缩到最长边 512，不裁方形），回落 head.png。</li>
- *   <li><b>GET /api/anim/&lt;charId&gt;/&lt;action&gt;</b> —— 站立动画帧 JSON。
- *       手机端做不了 AIR/SFF 解码，直接<b>透传 PC 端 serve.cjs</b>（后端同主机 :8100，
- *       带 ?pack= 参数）；PC 不在线时 404，前端回落静态站立图（/api/pose）。</li>
+ *   <li><b>GET /api/anim/&lt;charId&gt;/&lt;action&gt;</b> —— 故意不实现（立即 404）。
+ *       帧序列由前端 ff-decode.js 在 webview 里解 SFF+AIR 本地生成，不需要任何服务端。</li>
  * </ul>
  *
  * <p>找不到/失败一律 404 —— 前端 img 的 onerror 会回落到首字占位，不会破图。
@@ -68,7 +69,9 @@ public class AvatarApi {
             if (p.startsWith("/api/pose/")) {
                 return packImage(p.substring("/api/pose/".length()), req.param("pack"), 512, false, "full.png", "head.png");
             }
-            if (p.startsWith("/api/anim/")) return animProxy(req);
+            // /api/anim 故意不路由：帧序列由前端 ff-decode.js 本地解码（不依赖 PC），
+            // 这里立即 404，前端拿不到响应就先走本地解码，不再空等任何代理。
+            if (p.startsWith("/api/anim/")) return McpHttpServer.Response.notFound();
         } catch (Exception e) {
             Log.w(TAG, "图片接口失败 " + p, e);
         }
@@ -92,22 +95,15 @@ public class AvatarApi {
         byte[] out;
         synchronized (cache) { out = cache.get(key); }
         if (out == null) {
-            // ① 优先代理 PC 端 serve.cjs 的同名接口（后端同主机、默认端口 8100）：
-            //    sharp 已压到 192px 且 animated:true 保留动图，几十 KB，比后端
-            //    原图（单张 7MB）稳得多。PC 没开 serve.cjs 时拿不到图，走 ②。
-            byte[] viaPc = httpGetQuiet(serveCjsUrl() + req.path.substring("/api/role-avatar/".length()));
-            if (looksLikeImage(viaPc)) out = viaPc;
-            // ② 回落：直接取后端原图，用 BitmapFactory 缩到 192px。
-            //    Android 对 animated webp 只能解第一帧（部分 ROM 甚至解不出 →
-            //    缩放失败），失败时原样转发 —— 大，但比 404 强。
-            if (out == null) {
-                byte[] raw = httpGetQuiet(base + rel);
-                if (looksLikeImage(raw)) {
-                    out = scale(raw, 192, true, webpFormat(), 85);
-                    if (out == null) {
-                        Log.w(TAG, "BitmapFactory 缩放失败，回落原图转发 " + rel + " (" + raw.length + "B)");
-                        out = raw;
-                    }
+            // 直接取后端原图（不经过任何 PC 代理），用 BitmapFactory 缩到 192px。
+            // Android 对 animated webp 只能解第一帧（部分 ROM 甚至解不出 →
+            // 缩放失败），失败时原样转发 —— 大，但比 404 强。
+            byte[] raw = httpGetQuiet(base + rel);
+            if (looksLikeImage(raw)) {
+                out = scale(raw, 192, true, webpFormat(), 85);
+                if (out == null) {
+                    Log.w(TAG, "BitmapFactory 缩放失败，回落原图转发 " + rel + " (" + raw.length + "B)");
+                    out = raw;
                 }
             }
             if (out == null) return McpHttpServer.Response.notFound();
@@ -122,45 +118,7 @@ public class AvatarApi {
         return r;
     }
 
-    // ------------------------------------------------------------ 站立动画透传
-
-    /**
-     * GET /api/anim/&lt;charId&gt;/&lt;action&gt;?pack=&lt;dir&gt; —— 透传 PC 端 serve.cjs
-     * 的动画帧 JSON（AIR action + SFF 精灵解码只有 PC 有）。PC 不在线 → 404，
-     * 前端回落 /api/pose 静态站立图。响应体几百 KB 级，走同一 LRU 缓存。
-     */
-    private McpHttpServer.Response animProxy(McpHttpServer.Request req) throws Exception {
-        String pack = req.param("pack");
-        String url = serveCjsUrl() + req.path
-                + (pack == null || pack.isEmpty() ? "" : "?pack=" + java.net.URLEncoder.encode(pack, "UTF-8"));
-        String key = "anim:" + req.path + ":" + pack;
-        byte[] body;
-        synchronized (cache) { body = cache.get(key); }
-        if (body == null) {
-            body = httpGetQuiet(url);
-            if (body == null || body.length == 0) return McpHttpServer.Response.notFound();
-            // JSON 里没有图片魔数，塞进缓存前粗验：必须是 { 开头且含 "frames"
-            String head = new String(body, 0, Math.min(body.length, 64), java.nio.charset.StandardCharsets.UTF_8);
-            if (!head.trim().startsWith("{") || !new String(body, java.nio.charset.StandardCharsets.UTF_8).contains("\"frames\"")) {
-                return McpHttpServer.Response.notFound();
-            }
-            if (body.length < 1024 * 1024) {
-                synchronized (cache) { cache.put(key, body); }
-            }
-        }
-        McpHttpServer.Response r = new McpHttpServer.Response();
-        r.contentType = "application/json; charset=utf-8";
-        r.body = body;
-        return r;
-    }
-
-    /** PC 端 serve.cjs 地址：后端同主机 + 默认端口 8100。 */
-    private String serveCjsUrl() throws Exception {
-        String base = config.getBackendUrl() == null ? "" : config.getBackendUrl().trim();
-        String host = new URL(base).getHost();
-        if (host == null || host.isEmpty()) host = "127.0.0.1";
-        return "http://" + host + ":8100";
-    }
+    // ------------------------------------------------------------ 站立动画（见类注释：前端本地解码，这里不再有任何代理）
 
     private static boolean looksLikeImage(byte[] b) {
         if (b == null || b.length < 16) return false;

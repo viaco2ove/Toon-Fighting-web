@@ -1985,7 +1985,12 @@
         + (CONN.user ? ' · 已登录：' + CONN.user.name : ' · 未登录');
       storyStatusEl.className = 'hint ok';
     } else {
-      storyStatusEl.textContent = '联动离线' + (r && r.error ? '：' + r.error : '') + '（用 node serve.cjs --conn 启动后刷新）';
+      // 提示文案按环境区分：PC 网页版才提 serve.cjs；手机 APK 不依赖 PC，
+      // 指到「设置 → 账号与服务器」的后端地址（可以是任意服务器部署），或直接离线玩。
+      const hint = IS_NATIVE
+        ? '（在设置 → 账号与服务器 里配置后端地址；不配置也能离线游玩全部模式）'
+        : '（用 node serve.cjs --conn 启动后刷新）';
+      storyStatusEl.textContent = '联动离线' + (r && r.error ? '：' + r.error : '') + hint;
       storyStatusEl.className = 'hint err';
     }
     return CONN.on;
@@ -3840,12 +3845,29 @@
     setTimeout(renderRot, 400);
   });
   rotEl.addEventListener('pointercancel', () => { rotDrag = null; });
+  // 位置记忆存的是**旧方向的绝对 left/top**。横竖屏一换，视口宽高互换
+  //（比如竖屏存 left=700px，转横屏视口只剩 412px）——不收回球就永远停在
+  // 屏外，看起来就是「点击切换后按钮消失了」，而且坐标在 localStorage 里，
+  // 重启也出不来。所以恢复记忆和每次 resize（= 旋转）后都必须钳回视口内。
+  function clampRot() {
+    if (rotEl.style.right !== 'auto') return;   // 还挂在默认锚点（right:12px）时不会出界
+    const w = rotEl.offsetWidth, h = rotEl.offsetHeight;
+    const l = parseFloat(rotEl.style.left) || 0;
+    const t = parseFloat(rotEl.style.top) || 0;
+    const nl = Math.max(2, Math.min(innerWidth - w - 2, l));
+    const nt = Math.max(2, Math.min(innerHeight - h - 2, t));
+    if (nl === l && nt === t) return;
+    rotEl.style.left = nl + 'px';
+    rotEl.style.top = nt + 'px';
+    try { localStorage.setItem(ROT_KEY, JSON.stringify({ l: rotEl.style.left, t: rotEl.style.top })); } catch (e) {}
+  }
   try {
     const p = JSON.parse(localStorage.getItem(ROT_KEY) || 'null');
     if (p && p.l && p.t) { rotEl.style.right = 'auto'; rotEl.style.left = p.l; rotEl.style.top = p.t; }
   } catch (e) {}
+  clampRot();
   renderRot();
-  addEventListener('resize', renderRot);
+  addEventListener('resize', () => { renderRot(); clampRot(); });
 
   // 右键 = 轻拳：名单格选中 / 出场位取消该位 / 确定按钮上 = 重拳取消确定（不弹浏览器菜单）
   document.addEventListener('contextmenu', (e) => {
