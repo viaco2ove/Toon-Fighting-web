@@ -306,6 +306,15 @@
   /* 手柄浮到选人屏之上（z-index 40 的 #select 挡住了战斗用的 z-index 35），并抬离页脚条 */
   #pad.selmode{z-index:60;bottom:92px}
   #pad.selmode .joyu{display:none}
+  /* ---------- 横竖屏切换悬浮球（可拖动，位置记忆；z-index 压过设置/故事/资产集弹层） ---------- */
+  #rotbtn{position:fixed;right:12px;top:34%;z-index:96;width:46px;height:46px;border-radius:50%;cursor:pointer;
+    font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0;
+    background:rgba(10,10,16,.6);border:1px solid rgba(255,255,255,.4);color:#ffe9e0;backdrop-filter:blur(3px);
+    box-shadow:0 4px 14px rgba(0,0,0,.5);touch-action:none;user-select:none;-webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;line-height:1}
+  #rotbtn .gl{font-size:16px;font-weight:900}
+  #rotbtn .tx{font-size:8px;letter-spacing:.12em;opacity:.85}
+  #rotbtn:active{filter:brightness(1.35)}
   @media (max-width:920px){
     #sel-title{font-size:30px}
     #select .stage{left:10px;right:10px;top:72px;bottom:122px;gap:10px;
@@ -617,13 +626,18 @@
     #select .meta{padding:5px 8px 6px;font-size:9.5px;gap:3px}
     #select .meta .row:nth-child(2){display:none}
     #select .panel.p2.sysrand .surnote{font-size:8.5px;padding:0 8px 6px}
-    /* 中栏：立绘压矮、名单区自身滚动，塞进剩余高度 */
-    #select .mugfig{height:56px}
+    /* 中栏：立绘压矮、名单区自身滚动，塞进剩余高度。
+       grid-auto-rows：手机浏览器（含安卓 WebView）里，「flex:1 受限高度 + overflow-y:auto」的
+       auto 行 grid 会出现卡片内容不贡献行高的 Blink quirk（卡片塌成 border+padding 的细条，
+       2026-11-26 一加6 横屏实测），必须显式给行高 minmax 才能正常显示 —— 2026-11-26 修 */
+    #select .mid .hlab{display:none}
+    #select .mugfig{height:40px}
     #select .minfo{gap:6px;padding:3px 8px 0;font-size:10.5px}
     #select .minfo .tfname{font-size:12px}
     .listrow{height:22px;gap:6px}
-    .rozlist{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;padding-bottom:4px}
-    #select .rozlist .k .fig{height:30px}
+    .rozlist{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;padding-bottom:4px;grid-auto-rows:minmax(62px,auto)}
+    #select .rozlist .k .fig{height:24px}
+    #select .rozlist .k .sub{display:none}
     #select .foot{left:8px;right:8px;bottom:8px}
     .namebar{flex:1 1 100%;padding:5px 9px}
     .namebar .ent{display:none}
@@ -661,14 +675,16 @@
     #select .plate .nm{font-size:14px}
     #select .meta{padding:4px 8px 5px;font-size:9.5px;gap:2px}
     #select .meta .row:nth-child(2){display:none}
-    #select .mugfig{height:44px}
+    /* 手机横屏：藏中栏标题、立绘再压矮，把高度让给选人列表（同竖屏，需显式行高防塌） */
+    #select .mid .hlab{display:none}
+    #select .mugfig{height:36px}
     #select .minfo{padding:2px 8px 0;font-size:10px;gap:6px}
     #select .minfo .tfname{font-size:11.5px}
     .listrow{height:20px;gap:6px}
     .phasebar{height:16px;font-size:8.5px;gap:4px}
     .phasebar span{padding:0 4px;height:14px}
     .okbtn{width:calc(100% - 14px);margin:0 7px 4px;height:20px;font-size:9.5px}
-    .rozlist{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;gap:4px}
+    .rozlist{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;gap:4px;grid-auto-rows:minmax(52px,auto)}
     #select .rozlist .k{padding:3px 5px 4px}
     #select .rozlist .k .fig{height:22px}
     #select .rozlist .k .nm{font-size:9.5px;margin-top:2px}
@@ -1051,6 +1067,9 @@
   </div>
   <button class="stbtn" data-act="start">START</button>
 </div>
+
+<!-- 横竖屏切换悬浮球：点按切换横/竖屏，拖动挪位置（位置记忆）。安卓 App 走 ScreenOrientation 插件锁方向 -->
+<button id="rotbtn" aria-label="切换横竖屏"><span class="gl">⇅</span><span class="tx">竖屏</span></button>
 
 <div id="settings">
   <div class="wrap">
@@ -1535,6 +1554,10 @@
     else if (PACKS.mapping && Array.isArray(PACKS.mapping.charPool)) for (const id of PACKS.mapping.charPool) PACK_CHARS.push(id);
     // 挂载资产集资源（零拷贝）
     PACKS.mount = await mountPack(dir);
+    // 资产集就绪：清空动画缓存（pack 就绪前带空参数的请求可能 404，失败结果不缓存
+    // 但已发出的 Promise 还挂着）——选人屏开着就重渲染，站立动画立即用正确 pack 重取
+    animCache.clear();
+    if (selEl.classList.contains('on')) renderSelect();
     renderPackLine();
     refreshPackStat();
     buildCharGrid();
@@ -2981,7 +3004,7 @@
     const tok = settings.keys.p1[btn.dataset.act];
     const code = INI2CODE[tok];
     if (!code) return;
-    document.dispatchEvent(new KeyboardEvent(type, { code, bubbles: true, cancelable: true }));
+    injectKey(type, code);
   }
   for (const btn of padEl.querySelectorAll('button[data-act]')) {
     btn.addEventListener('pointerdown', (e) => {
@@ -3029,8 +3052,7 @@
     const tok = settings.keys.p1[act];
     const code = tok && INI2CODE[tok];
     if (!code) return;
-    document.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup',
-      { code, bubbles: true, cancelable: true }));
+    injectKey(down ? 'keydown' : 'keyup', code);
   }
   function joyMove(e) {
     const r = joyEl.getBoundingClientRect();
@@ -3170,11 +3192,17 @@
   let animGen = 0;                      // 播放代际：renderSelect 重跑后旧循环作废
   function loadAnim(charId) {
     if (!animCache.has(charId)) {
-      animCache.set(charId,
-        fetch('/api/anim/' + encodeURIComponent(charId) + '/0' + packQuery())
-          .then((r) => r.json())
-          .then((j) => (j && j.ok ? j : null))
-          .catch(() => null));
+      const p = fetch('/api/anim/' + encodeURIComponent(charId) + '/0' + packQuery())
+        .then((r) => r.json())
+        .then((j) => {
+          if (j && j.ok) return j;
+          // 失败不缓存：手机上 pack 是异步就绪的（usePack 完成前 packQuery 为空，
+          // 请求 404）——缓存了 null 的话，pack 挂载好后也不会重试，动画永远空白
+          animCache.delete(charId);
+          return null;
+        })
+        .catch(() => { animCache.delete(charId); return null; });
+      animCache.set(charId, p);
     }
     return animCache.get(charId);
   }
@@ -3370,7 +3398,7 @@
       if (survival && s === 2) {
         const rnd = POOL[(teamSize + 1) % Math.max(1, POOL.length)] || null;
         if (rnd) {
-          showImg(avaUrlFor(rnd));
+          showImg(avaUrlFor(rnd));   // toonflow 头像（webp 动图）；退回 MUGEN 头像
           document.getElementById(pre + 'name').textContent = '系统随机';
           document.getElementById(pre + 'ent').textContent = rnd.id;
           document.getElementById(pre + 'job').textContent = '按资产集抽取';
@@ -3722,6 +3750,68 @@
   });
   padtogEl.classList.toggle('on', selPadOn);
 
+  /* ---------- 横竖屏切换悬浮球 ----------
+     安卓 App（Capacitor）：@capacitor/screen-orientation 插件 → Activity.setRequestedOrientation 锁方向；
+     普通浏览器：退回全屏 + screen.orientation.lock（安卓 Chrome 支持，桌面端不支持会提示）。
+     AndroidManifest 的 activity 已固定 landscape（不随传感器自动旋转），方向只由这个按钮控制。
+     点按 = 切到当前相反方向；按住拖 = 挪位置（挪了就不触发切换），位置存 toonfight:rot-v1。 */
+  const rotEl = document.getElementById('rotbtn');
+  const ROT_KEY = 'toonfight:rot-v1';
+  let rotDrag = null;
+  const rotTarget = () => (innerWidth >= innerHeight ? 'portrait' : 'landscape');
+  function renderRot() {
+    const t = rotTarget();
+    rotEl.firstElementChild.textContent = t === 'portrait' ? '⇅' : '⇄';
+    rotEl.lastElementChild.textContent = t === 'portrait' ? '竖屏' : '横屏';
+  }
+  async function setOrientation(o) {
+    const cap = window.Capacitor;
+    const P = cap && cap.Plugins && cap.Plugins.ScreenOrientation;
+    if (P && cap.isNativePlatform && cap.isNativePlatform()) {
+      await P.lock({ orientation: o });
+      return true;
+    }
+    try {
+      if (!document.fullscreenElement) { try { await document.documentElement.requestFullscreen(); } catch (e) {} }
+      await screen.orientation.lock(o);
+      return true;
+    } catch (e) { return false; }
+  }
+  rotEl.addEventListener('pointerdown', (e) => {
+    rotDrag = { x: e.clientX, y: e.clientY, l: rotEl.offsetLeft, t: rotEl.offsetTop, moved: false };
+    try { rotEl.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  rotEl.addEventListener('pointermove', (e) => {
+    if (!rotDrag) return;
+    const dx = e.clientX - rotDrag.x, dy = e.clientY - rotDrag.y;
+    if (!rotDrag.moved && Math.hypot(dx, dy) < 7) return;
+    rotDrag.moved = true;
+    rotEl.style.left = Math.max(2, Math.min(innerWidth - rotEl.offsetWidth - 2, rotDrag.l + dx)) + 'px';
+    rotEl.style.top = Math.max(2, Math.min(innerHeight - rotEl.offsetHeight - 2, rotDrag.t + dy)) + 'px';
+    rotEl.style.right = 'auto';
+  });
+  rotEl.addEventListener('pointerup', async () => {
+    if (!rotDrag) return;
+    const moved = rotDrag.moved;
+    rotDrag = null;
+    if (moved) {
+      try { localStorage.setItem(ROT_KEY, JSON.stringify({ l: rotEl.style.left, t: rotEl.style.top })); } catch (e) {}
+      return;
+    }
+    const target = rotTarget();
+    let ok = false;
+    try { ok = await setOrientation(target); } catch (e) {}
+    selToast(ok ? (target === 'landscape' ? '已切横屏' : '已切竖屏') : '此环境锁不了方向（安卓 APK 内可用）');
+    setTimeout(renderRot, 400);
+  });
+  rotEl.addEventListener('pointercancel', () => { rotDrag = null; });
+  try {
+    const p = JSON.parse(localStorage.getItem(ROT_KEY) || 'null');
+    if (p && p.l && p.t) { rotEl.style.right = 'auto'; rotEl.style.left = p.l; rotEl.style.top = p.t; }
+  } catch (e) {}
+  renderRot();
+  addEventListener('resize', renderRot);
+
   // 右键 = 轻拳：名单格选中 / 出场位取消该位 / 确定按钮上 = 重拳取消确定（不弹浏览器菜单）
   document.addEventListener('contextmenu', (e) => {
     if (engineStarted || !selEl.classList.contains('on')) return;
@@ -3779,9 +3869,9 @@
       const tok = settings.keys.p1[act];
       const code = tok && INI2CODE[tok];
       if (!code) continue;
-      document.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true }));
+      injectKey('keydown', code);
       await new Promise((r) => setTimeout(r, 70));
-      document.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true, cancelable: true }));
+      injectKey('keyup', code);
       await new Promise((r) => setTimeout(r, 110));
     }
   }
@@ -3865,8 +3955,8 @@
     const press = (act) => {
       const tok = k2[act]; const code = tok && INI2CODE[tok];
       if (!code) return;
-      document.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true }));
-      setTimeout(() => document.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true, cancelable: true })), 90);
+      injectKey('keydown', code);
+      setTimeout(() => injectKey('keyup', code), 90);
     };
     if (dummy.mode === 'jump' && Math.random() < 0.5) press('up');
     else if (dummy.mode === 'block') press(Math.random() < 0.5 ? 'right' : 'left'); // 后撤即防御方向
@@ -4223,15 +4313,85 @@
     }, 500);
   })();
 
+  // ---------------- 原生引擎模式（serve.cjs --go 启动档） ----------------
+  // 前端照旧做全部 UI；对局交给 serve.cjs spawn 的原生 Ikemen_GO.exe 子进程。
+  // 四条桥：argv 直通（POST /api/engine/start）、TF_HEAD/tf-result 走
+  // /api/engine/status|result 轮询、虚拟手柄按键走 /api/engine/key（SendInput）。
+  // 探测失败（手机 APK / 未开 --go / 没编 exe）一律回落 wasm 模式，行为不变。
+  let ENGINE_NATIVE = false;
+  (async function detectNativeEngine() {
+    try {
+      const r = await fetch('/api/engine/status');
+      const j = await r.json();
+      if (j && j.supported && (j.available || j.running)) {
+        ENGINE_NATIVE = true;
+        console.log('[engine] 原生引擎模式：' + (j.defaultExe || ''));
+      }
+    } catch { /* 非 serve.cjs 环境（手机 APK）保持 wasm */ }
+  })();
+
+  // 统一按键注入入口：wasm 模式合成 KeyboardEvent（引擎读 ev.code），
+  // 原生模式转发给 serve.cjs 的 SendInput 桥（合成的键进引擎 SDL 窗口）。
+  function injectKey(type, code) {
+    if (ENGINE_NATIVE) {
+      fetch('/api/engine/key', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, down: type === 'keydown' }), keepalive: true,
+      }).catch(() => {});
+      return;
+    }
+    document.dispatchEvent(new KeyboardEvent(type, { code, bubbles: true, cancelable: true }));
+  }
+
+  // 原生对局：拉起子进程 + 轮询 head/result 信号。
+  // ready 遮罩的解除条件与 wasm 不同：wasm 靠渲染帧计数，原生靠第一条
+  // TF_HEAD 输出（headavatar.lua 一进对局就有输出）。
+  async function startEngineNative(argv, packDir) {
+    try {
+      await fetch('/api/engine/stop', { method: 'POST' }).catch(() => {}); // quickmatch 一场一进程：上一场若还挂着先收掉
+      const r = await fetch('/api/engine/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ argv, pack: packDir || '' }),
+      });
+      const j = await r.json();
+      if (!j.ok) {
+        readyEl.classList.remove('on');
+        hudEl.classList.add('on');
+        hudEl.textContent = '原生引擎启动失败：' + (j.error || '未知错误') + (j.hint ? '（' + j.hint + '）' : '');
+        setTimeout(() => hudEl.classList.remove('on'), 15000);
+        engineStarted = false;
+        return;
+      }
+    } catch (e) {
+      readyEl.classList.remove('on');
+      engineStarted = false;
+      return;
+    }
+    let revealed = false, lastHead = '', lastResultAt = 0;
+    const poll = setInterval(async () => {
+      let j;
+      try { j = await (await fetch('/api/engine/status')).json(); } catch { return; }
+      if (j.head && j.head.line) {
+        if (j.head.line !== lastHead) { lastHead = j.head.line; onHeadPos(j.head.line); }
+        if (!revealed) {
+          revealed = true;
+          readyEl.classList.remove('on');
+          battleIntro();
+        }
+      }
+      if (j.result && j.result.at !== lastResultAt) {
+        lastResultAt = j.result.at;
+        if (Number.isFinite(j.result.value)) onMatchResult(j.result.value);
+      }
+    }, 300);
+  }
+
   // ---------------- 启动引擎 ----------------
   let engineStarted = false;
 
-  async function startEngine(p1List, p2List, aiVal) {
-    if (engineStarted) return;
-    engineStarted = true;
-    applyPad();
-
-    const go = new Go();
+  // argv 构造（wasm / 原生 --go 两档共用）：拳王摊 3 命、奇偶分边、入口 def 解析。
+  // 原生档把这个数组原样 POST 给 serve.cjs（spawn 直通），wasm 档喂给 Go wasm。
+  function buildEngineArgv(p1List, p2List, aiVal) {
     // 拳王模式（turns，tmode=2）：一次一人上场，一个 KO 算一回合，打到一方全灭。
     // 编队按「3 条命」摊开：1 人=同一角色重复 3 次（3 条命）；3 人=每人 1 条命；2 人=2+1。
     // 同角色重复入场时引擎按 t_assignedPals 自动分配 palette 2/3，不会同色。
@@ -4276,19 +4436,19 @@
     argv.push('-s', 'stages/kfm.def', '-loadmotif');
     if (q.get('time')) argv.push('-time', q.get('time'));
     if (q.get('rounds')) argv.push('-rounds', q.get('rounds'));
-    window.__tfArgv = argv; // 诊断探针：核对 turns 参数
-    go.argv = argv;
-    // GOGC / GOMEMLIMIT 都可用 URL 参数覆盖（改这个不用重编 wasm）。
-    // 两个参数联动：GOGC 抬高等于放宽堆目标，一旦撞上 GOMEMLIMIT 会触发更频繁的
-    // limit GC —— 实测 200 + 800MiB 明显差于 100 + 800MiB（见 .cache/scripts/compare-gogc.mjs），
-    // 所以默认维持 100。?godebug=gctrace=1 可把 GC 明细打到 console。
-    const gogc = q.get('gogc') || '100';
-    const memlimit = q.get('memlimit') || '800MiB';
-    const godebug = q.get('godebug');
-    go.env = { GOGC: gogc, GOMEMLIMIT: memlimit };
-    if (godebug) go.env.GODEBUG = godebug;
+    return argv;
+  }
 
-    // wasm 下载带进度（约 24MB）
+  async function startEngine(p1List, p2List, aiVal) {
+    if (engineStarted) return;
+    engineStarted = true;
+    applyPad();
+    const argv = buildEngineArgv(p1List, p2List, aiVal);
+    window.__tfArgv = argv; // 诊断探针：核对 turns 参数
+
+    // wasm 下载带进度（约 24MB）；原生档跳过 —— 引擎是 serve.cjs 的子进程
+    let bytes = null;
+    if (!ENGINE_NATIVE) {
     progress(32, '下载引擎镜像');
     const res = await fetch('./ikemen.wasm');
     const total = Number(res.headers.get('Content-Length')) || 24 * 1024 * 1024;
@@ -4305,11 +4465,13 @@
     } else {
       const buf = await res.arrayBuffer(); chunks.push(new Uint8Array(buf)); got = buf.byteLength;
     }
-    const bytes = new Uint8Array(got);
-    let at = 0;
-    for (const c of chunks) { bytes.set(c, at); at += c.length; }
+      const wasmBytes = new Uint8Array(got);
+      let at = 0;
+      for (const c of chunks) { wasmBytes.set(c, at); at += c.length; }
+      bytes = wasmBytes;
+    }
 
-    progress(100, '编译并启动引擎');
+    progress(100, ENGINE_NATIVE ? '拉起原生对局' : '编译并启动引擎');
     bootEl.classList.add('done');
     selEl.classList.remove('on');
     homeEl.classList.remove('on');
@@ -4332,6 +4494,23 @@
     renderSkills();
     renderHeadAvatars();
 
+    // 原生档：对局进程由 serve.cjs 拉起，这里只管信号轮询（head/result）
+    if (ENGINE_NATIVE) {
+      startEngineNative(argv, PACKS.cur && PACKS.cur.dir);
+      return;
+    }
+
+    const go = new Go();
+    // GOGC / GOMEMLIMIT 都可用 URL 参数覆盖（改这个不用重编 wasm）。
+    // 两个参数联动：GOGC 抬高等于放宽堆目标，一旦撞上 GOMEMLIMIT 会触发更频繁的
+    // limit GC —— 实测 200 + 800MiB 明显差于 100 + 800MiB（见 .cache/scripts/compare-gogc.mjs），
+    // 所以默认维持 100。?godebug=gctrace=1 可把 GC 明细打到 console。
+    const gogc = q.get('gogc') || '100';
+    const memlimit = q.get('memlimit') || '800MiB';
+    const godebug = q.get('godebug');
+    go.env = { GOGC: gogc, GOMEMLIMIT: memlimit };
+    if (godebug) go.env.GODEBUG = godebug;
+    go.argv = argv;
     const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
     go.run(instance); // 永不返回
 

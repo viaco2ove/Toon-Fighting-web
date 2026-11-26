@@ -30,6 +30,9 @@ import java.util.regex.Pattern;
  *       {@code chars/<id>/avatar/head.png}，缩到 256px。</li>
  *   <li><b>GET /api/pose/&lt;charId&gt;?pack=&lt;dir&gt;</b> —— 选人屏立绘，
  *       读 {@code full.png}（等比缩到最长边 512，不裁方形），回落 head.png。</li>
+ *   <li><b>GET /api/anim/&lt;charId&gt;/&lt;action&gt;</b> —— 站立动画帧 JSON。
+ *       手机端做不了 AIR/SFF 解码，直接<b>透传 PC 端 serve.cjs</b>（后端同主机 :8100，
+ *       带 ?pack= 参数）；PC 不在线时 404，前端回落静态站立图（/api/pose）。</li>
  * </ul>
  *
  * <p>找不到/失败一律 404 —— 前端 img 的 onerror 会回落到首字占位，不会破图。
@@ -65,6 +68,7 @@ public class AvatarApi {
             if (p.startsWith("/api/pose/")) {
                 return packImage(p.substring("/api/pose/".length()), req.param("pack"), 512, false, "full.png", "head.png");
             }
+            if (p.startsWith("/api/anim/")) return animProxy(req);
         } catch (Exception e) {
             Log.w(TAG, "图片接口失败 " + p, e);
         }
@@ -115,6 +119,38 @@ public class AvatarApi {
         McpHttpServer.Response r = new McpHttpServer.Response();
         r.contentType = "image/webp";
         r.body = out;
+        return r;
+    }
+
+    // ------------------------------------------------------------ 站立动画透传
+
+    /**
+     * GET /api/anim/&lt;charId&gt;/&lt;action&gt;?pack=&lt;dir&gt; —— 透传 PC 端 serve.cjs
+     * 的动画帧 JSON（AIR action + SFF 精灵解码只有 PC 有）。PC 不在线 → 404，
+     * 前端回落 /api/pose 静态站立图。响应体几百 KB 级，走同一 LRU 缓存。
+     */
+    private McpHttpServer.Response animProxy(McpHttpServer.Request req) throws Exception {
+        String pack = req.param("pack");
+        String url = serveCjsUrl() + req.path
+                + (pack == null || pack.isEmpty() ? "" : "?pack=" + java.net.URLEncoder.encode(pack, "UTF-8"));
+        String key = "anim:" + req.path + ":" + pack;
+        byte[] body;
+        synchronized (cache) { body = cache.get(key); }
+        if (body == null) {
+            body = httpGetQuiet(url);
+            if (body == null || body.length == 0) return McpHttpServer.Response.notFound();
+            // JSON 里没有图片魔数，塞进缓存前粗验：必须是 { 开头且含 "frames"
+            String head = new String(body, 0, Math.min(body.length, 64), java.nio.charset.StandardCharsets.UTF_8);
+            if (!head.trim().startsWith("{") || !new String(body, java.nio.charset.StandardCharsets.UTF_8).contains("\"frames\"")) {
+                return McpHttpServer.Response.notFound();
+            }
+            if (body.length < 1024 * 1024) {
+                synchronized (cache) { cache.put(key, body); }
+            }
+        }
+        McpHttpServer.Response r = new McpHttpServer.Response();
+        r.contentType = "application/json; charset=utf-8";
+        r.body = body;
         return r;
     }
 

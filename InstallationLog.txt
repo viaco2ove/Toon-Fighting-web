@@ -1,0 +1,7 @@
+************************************* Invoked: Thu Nov 26 17:16:29 2026
+[0] Arguments: D:\msys2-installer.exe, -y, -oD:/msys64
+[29] Operations sanity check succeeded.
+[54] Using metadata cache from "C:/Users/viaco/AppData/Local/cache\\qt-installer-framework\\d75f1c19-3379-3717-ae8d-1404b51494a9"
+[54] Found 0 cached items.
+[54] Language: zh-Hans-CN
+[54] Script file does not exist.

@@ -5,6 +5,9 @@
 //   node serve.cjs [port]                        # 纯本地（形态 A）
 //   node serve.cjs [port] --conn                 # 联动后端（读 .env，形态 B）
 //   node serve.cjs -- --story <故事名> --conn    # 直达故事会话（形态 C）
+//   node serve.cjs --chrome [port]               # Chrome/Edge app 模式（无地址栏独立窗口）
+//   node serve.cjs --go [exe路径]                # 原生引擎档：网页做 UI + spawn Ikemen_GO.exe 跑对局
+//                                                #   exe 默认找 .cache/ikemen-native/Ikemen_GO.exe
 //
 // 代理契约（前端只打 /api/conn/*，token 永不下发到页面）：
 //   GET  /api/conn/status                        # 联通自检（版本+登录态+会话数）
@@ -28,6 +31,7 @@ const { buildSpeechRequest, cleanLine } = require('./server/lib/speech-agent.cjs
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
 const ROOT = __dirname;
 const PLUGIN_ID = 'com.viaco.toon-fighting';
@@ -63,6 +67,22 @@ const allArgs = argv; // --conn 在两段都认
 let PORT = 8100;
 for (const a of preArgs) { const n = Number(a); if (Number.isFinite(n) && n > 0) PORT = n; }
 const CONN = allArgs.includes('--conn');
+
+// --chrome：Chrome/Edge 的 --app 模式开一个无地址栏的独立窗口（伪 GUI 壳）
+const CHROME = allArgs.includes('--chrome');
+// --go：原生引擎调度档。前端网页照旧做全部 UI，对局交给 serve.cjs spawn 的
+// 原生 Ikemen_GO.exe 子进程：argv 直通、stdout 收 TF_HEAD/TF_RESULT、
+// watch save/tf-result.ini 收结算、SendInput 桥注入虚拟手柄按键。
+// 可选紧跟一个 exe 路径：node serve.cjs --go D:\path\Ikemen_GO.exe
+const GO_MODE = allArgs.includes('--go');
+let GO_EXE = '';
+{
+  const i = allArgs.indexOf('--go');
+  if (i !== -1) {
+    const next = allArgs[i + 1];
+    if (next && !next.startsWith('--') && /\.(exe|AppImage)$/i.test(next)) GO_EXE = next;
+  }
+}
 
 // --story 末世选择，从解析神明开始成神
 let storyName = '';
@@ -484,6 +504,35 @@ async function handleApi(req, res, urlPath, query) {
     }
   }
 
+  // ---- --go 原生引擎调度接口（不依赖 --conn）----
+  // 前端先用 status 探测（supported+available 才走原生分支），失败自动回落 wasm。
+  if (urlPath === '/api/engine/status') {
+    return json(res, 200, engineStatus());
+  }
+  if (urlPath === '/api/engine/start' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let input = {};
+      try { input = JSON.parse(body || '{}'); } catch { /* 空参也允许 */ }
+      return json(res, 200, engineStart(input));
+    });
+    return;
+  }
+  if (urlPath === '/api/engine/stop' && req.method === 'POST') {
+    return json(res, 200, engineStop());
+  }
+  if (urlPath === '/api/engine/key' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let input = {};
+      try { input = JSON.parse(body || '{}'); } catch { return json(res, 200, { ok: false, error: 'body 需为 JSON' }); }
+      return json(res, 200, engineKey(input));
+    });
+    return;
+  }
+
   // ---- 以下都需要 --conn ----
   if (!CONN) return json(res, 503, { ok: false, error: '未启用 --conn（node serve.cjs --conn）' });
   if (!BACKEND) return json(res, 200, { ok: false, error: '.env 缺 game_app_service_url' });
@@ -729,6 +778,205 @@ async function handleApi(req, res, urlPath, query) {
   }
 }
 
+// ---------- --go 原生引擎调度 ----------
+// 形态：前端网页（Chrome app 档或普通浏览器）做 UI，这里 spawn 原生
+// Ikemen_GO.exe 跑对局。桥接四条通道：
+//   1. 启动参数：前端把 startEngine 构造的 argv 原样 POST 过来（直通 spawn）
+//   2. TF_HEAD：引擎 stdout 逐行解析（headavatar.lua 每 4 帧输出一次）
+//   3. 结算：watch <cwd>/save/tf-result.ini（main.lua/start.lua saveIni 写），
+//      stdout 里的 TF_RESULT: 行也一并收
+//   4. 输入注入：常驻 PowerShell 进程吃 stdin 行 → keybd_event 合成按键
+//      （引擎 SDL 窗口在前台时收到；物理键盘不经桥、直接进引擎）
+const GO_DEFAULT_EXE = path.join(ROOT, '.cache', 'ikemen-native', 'Ikemen_GO.exe');
+const GO_FALLBACK_CWD = path.join(ROOT, 'ikemen-fs', 'file');
+const ENGINE = {
+  proc: null, status: 'stopped', pid: 0, exe: '', cwd: '', argv: [],
+  startedAt: 0, exited: true, exitCode: null, error: '', stderrTail: '',
+  head: null,   // { line, at }  最新一条 TF_HEAD
+  result: null, // { value, at } 最新一次对局结算
+};
+let resultWatcherFile = '';
+let inputBridge = null; // 常驻 PowerShell：stdin 一行一个 keybd_event 调用
+
+// KeyboardEvent.code → Windows VK 码（keybd_event 只认 VK）
+const VK_MAP = {
+  ArrowLeft: 0x25, ArrowUp: 0x26, ArrowRight: 0x27, ArrowDown: 0x28,
+  PageUp: 0x21, PageDown: 0x22, End: 0x23, Home: 0x24, Insert: 0x2D, Delete: 0x2E,
+  Backspace: 0x08, Tab: 0x09, Enter: 0x0D, Escape: 0x1B, Space: 0x20,
+  ShiftLeft: 0xA0, ShiftRight: 0xA1, ControlLeft: 0xA2, ControlRight: 0xA3,
+  AltLeft: 0xA4, AltRight: 0xA5, CapsLock: 0x14, ContextMenu: 0x5D,
+  NumpadAdd: 0x6B, NumpadSubtract: 0x6D, NumpadMultiply: 0x6A, NumpadDivide: 0x6F,
+  NumpadDecimal: 0x6E, NumpadEnter: 0x0D,
+};
+for (let i = 1; i <= 12; i++) VK_MAP['F' + i] = 0x70 + i - 1;
+for (let i = 0; i < 10; i++) { VK_MAP['Digit' + i] = 0x30 + i; VK_MAP['Numpad' + i] = 0x60 + i; }
+for (let i = 0; i < 26; i++) VK_MAP['Key' + String.fromCharCode(65 + i)] = 0x41 + i;
+
+function engineStatus() {
+  // 不能用 exitCode===null 判断存活：被 kill 的进程 exitCode 也是 null
+  if (ENGINE.proc && !ENGINE.exited && ENGINE.proc.exitCode !== null) ENGINE.exited = true;
+  const running = !!(ENGINE.proc && !ENGINE.exited);
+  const exePath = GO_EXE || GO_DEFAULT_EXE;
+  return {
+    ok: true,
+    supported: GO_MODE,
+    available: GO_MODE && (fs.existsSync(exePath) || running),
+    defaultExe: exePath,
+    running,
+    pid: running ? ENGINE.pid : 0,
+    exe: ENGINE.exe, cwd: ENGINE.cwd, argv: ENGINE.argv,
+    startedAt: ENGINE.startedAt, exitCode: ENGINE.exitCode,
+    error: ENGINE.error, stderrTail: ENGINE.stderrTail.slice(-800),
+    head: ENGINE.head, result: ENGINE.result,
+  };
+}
+
+// 输入桥：懒启动一个 powershell（-Command - 从 stdin 逐行执行），断线自动重建。
+// 每个按键事件写一行 [TF.U32]::keybd_event(vk,0,flags,0)。
+function bridgeWrite(line) {
+  if (!inputBridge || inputBridge.exitCode !== null) {
+    inputBridge = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', '-'],
+      { stdio: ['pipe', 'ignore', 'ignore'] });
+    inputBridge.on('exit', () => { inputBridge = null; });
+    // P/Invoke 定义只发一次（会话内常驻）
+    inputBridge.stdin.write(
+      "Add-Type -Namespace TF -Name U32 -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtra);'\n"
+    );
+  }
+  try { inputBridge.stdin.write(line + '\n'); } catch { inputBridge = null; }
+}
+
+function engineKey(input) {
+  if (!GO_MODE) return { ok: false, error: '未启用 --go 启动档' };
+  const code = String(input.code || '');
+  const vk = VK_MAP[code];
+  if (!vk) return { ok: false, error: '不认识的键码：' + code };
+  const down = !!input.down;
+  bridgeWrite('[TF.U32]::keybd_event(' + vk + ',0,' + (down ? 0 : 2) + ',[UIntPtr]::Zero)');
+  return { ok: true, code, down, vk };
+}
+
+// 引擎窗口置前（spawn 后 MainWindowHandle 可能要几百毫秒才就绪 → 轮询重试）
+function focusEngineWindow(pid) {
+  bridgeWrite(
+    "Add-Type -Namespace TF -Name Wnd -MemberDefinition '[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr h);'\n" +
+    '1..20 | ForEach-Object { Start-Sleep -Milliseconds 400; ' +
+    '$p = Get-Process -Id ' + Number(pid) + ' -ErrorAction SilentlyContinue; ' +
+    'if ($p -and $p.MainWindowHandle -ne [IntPtr]::Zero) { [TF.Wnd]::SetForegroundWindow($p.MainWindowHandle) | Out-Null; break } }\n'
+  );
+}
+
+function engineStop() {
+  if (!ENGINE.proc || ENGINE.exited) return { ok: true, stopped: false };
+  try { ENGINE.proc.kill(); } catch { /* 已退出 */ }
+  ENGINE.exited = true; // kill 后 exit 事件的 code 可能是 null，不能靠它判断
+  return { ok: true, stopped: true };
+}
+
+function watchResultFile(cwd) {
+  const f = path.join(cwd, 'save', 'tf-result.ini');
+  if (resultWatcherFile === f) return;
+  if (resultWatcherFile) try { fs.unwatchFile(resultWatcherFile); } catch { /* 没在 watch */ }
+  resultWatcherFile = f;
+  fs.watchFile(f, { interval: 400 }, () => {
+    try {
+      const text = fs.readFileSync(f, 'utf8');
+      const m = text.match(/value\s*=\s*"?(-?\d+)"?/);
+      if (m) ENGINE.result = { value: Number(m[1]), at: Date.now() };
+    } catch { /* 写一半时读失败，等下一轮 */ }
+  });
+}
+
+function engineStart(input) {
+  if (!GO_MODE) return { ok: false, error: '未启用 --go 启动档（node serve.cjs --go）' };
+  if (ENGINE.proc && !ENGINE.exited && ENGINE.proc.exitCode === null) return { ok: false, error: '引擎已在运行（先 stop）' };
+  const exe = String(input.exe || GO_EXE || GO_DEFAULT_EXE).trim();
+  if (!fs.existsSync(exe)) {
+    return {
+      ok: false,
+      error: '没有找到原生引擎 exe：' + exe,
+      hint: '编译好的 Ikemen_GO.exe 放到 .cache/ikemen-native/ 下，或 node serve.cjs --go <exe路径>',
+    };
+  }
+  // cwd 决定引擎读哪套资产：优先资产集（chars/data/stages 全量），回落兜底层
+  let cwd = String(input.cwd || '').trim();
+  if (!cwd && input.pack) {
+    try { const b = packBase(String(input.pack)); if (b) cwd = b; } catch { /* pack 不存在 */ }
+  }
+  if (!cwd || !fs.existsSync(cwd)) cwd = GO_FALLBACK_CWD;
+  // -config 指向的 save/user-config.ini 资产集里未必有 → 从兜底层拷一份
+  const cfg = path.join(cwd, 'save', 'user-config.ini');
+  if (!fs.existsSync(cfg)) {
+    const src = path.join(GO_FALLBACK_CWD, 'save', 'user-config.ini');
+    if (fs.existsSync(src)) {
+      try { fs.mkdirSync(path.join(cwd, 'save'), { recursive: true }); fs.copyFileSync(src, cfg); } catch { /* 引擎会自己处理缺省 */ }
+    }
+  }
+  const argv = Array.isArray(input.argv) ? input.argv.map(String) : [];
+  const proc = spawn(exe, argv, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+  Object.assign(ENGINE, {
+    proc, pid: proc.pid, exe, cwd, argv, status: 'starting',
+    startedAt: Date.now(), exited: false, exitCode: null, error: '', stderrTail: '',
+    head: null, result: null,
+  });
+  let outBuf = '';
+  const onLine = (line) => {
+    line = line.trim();
+    if (!line) return;
+    const j = line.indexOf('TF_HEAD:');
+    if (j !== -1) ENGINE.head = { line: line.slice(j + 8).trim(), at: Date.now() };
+    const i2 = line.indexOf('TF_RESULT:');
+    if (i2 !== -1) ENGINE.result = { value: Number(line.slice(i2 + 10).trim()) || 0, at: Date.now() };
+  };
+  proc.stdout.on('data', (d) => {
+    outBuf += d.toString();
+    let nl;
+    while ((nl = outBuf.indexOf('\n')) !== -1) { onLine(outBuf.slice(0, nl)); outBuf = outBuf.slice(nl + 1); }
+    ENGINE.status = 'running';
+  });
+  proc.stderr.on('data', (d) => { ENGINE.stderrTail = (ENGINE.stderrTail + d.toString()).slice(-2000); });
+  proc.on('exit', (code) => {
+    ENGINE.exited = true;
+    ENGINE.exitCode = code;
+    ENGINE.status = code === 0 ? 'exited' : 'error';
+    if (resultWatcherFile) try { fs.unwatchFile(resultWatcherFile); } catch { /* 忽略 */ }
+    resultWatcherFile = '';
+  });
+  proc.on('error', (e) => { ENGINE.error = String(e && e.message || e); ENGINE.status = 'error'; });
+  watchResultFile(cwd);
+  focusEngineWindow(proc.pid); // 把对局窗口拉到前台：SendInput 注入的是前台窗口的键
+  return { ok: true, pid: proc.pid, exe, cwd, argv };
+}
+
+// ---------- --chrome 启动档 ----------
+// Chrome/Edge --app 模式：无地址栏、独立任务栏图标、独立 profile —— 观感接近桌面应用，
+// 内核仍是系统 Chrome（和安卓端「干净 Chromium 所以流畅」是同一个道理）。
+function findChromeExe() {
+  const candidates = [
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  ].filter(Boolean);
+  for (const c of candidates) { try { if (fs.existsSync(c)) return c; } catch { /* 跳过 */ } }
+  return null;
+}
+function launchChromeApp() {
+  const exe = findChromeExe();
+  if (!exe) { console.log('[chrome] 没找到 Chrome/Edge，--chrome 启动档失效（请手动打开页面）'); return; }
+  const profile = path.join(ROOT, '.cache', 'chrome-profile');
+  try { fs.mkdirSync(profile, { recursive: true }); } catch { /* 已存在 */ }
+  const url = 'http://127.0.0.1:' + PORT + '/index.html';
+  spawn(exe, [
+    '--app=' + url,
+    '--user-data-dir=' + profile,
+    '--no-first-run', '--no-default-browser-check',
+    '--window-size=1280,800',
+  ], { stdio: 'ignore' });
+  console.log('[chrome] app 模式窗口已拉起：' + exe);
+}
+
 // ---------- 静态服务（原逻辑不变） ----------
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -776,4 +1024,10 @@ http.createServer((req, res) => {
   } else {
     console.log('[conn] 未启用（加 --conn 开启联动）');
   }
+  if (GO_MODE) {
+    const exe = GO_EXE || GO_DEFAULT_EXE;
+    console.log('[go] 原生引擎调度已启用，默认 exe: ' + exe + (fs.existsSync(exe) ? '（存在）' : '（不存在，前端将回落 wasm）'));
+    console.log('[go] 引擎资产 cwd 优先级：请求 pack 参数 > 兜底层 ' + GO_FALLBACK_CWD);
+  }
+  if (CHROME) launchChromeApp();
 });
