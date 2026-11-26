@@ -607,7 +607,17 @@
      选人屏放弃三栏（412px 塞不下 3 列），改上下分区：
      行1 = P1/P2 面板并排（两段式本来就只有一侧激活），行2 = 中栏名单通栏滚动。 */
   @media (max-width:560px){
-    #sel-title{font-size:20px}
+    /* topbar 收成一行：大标题藏掉、菜单/模式钮压缩、「人数」文字标签隐藏 ——
+       412px 宽下 chips 会 wrap 到第二行并压进 stage 盖住面板标题（2026-11-27 实测） */
+    #sel-title{display:none}
+    #menuwrap{top:9px;left:10px}
+    #menuwrap .menubtn{padding:5px 12px;font-size:11px}
+    .topbar{top:10px;left:104px;right:8px;gap:3px;flex-wrap:nowrap}
+    .topbar>*{flex:none;white-space:nowrap}   /* 防容器不够宽时把钮文字挤成竖排 */
+    .topbar .tb{padding:3px 6px;font-size:10px;letter-spacing:.04em}
+    .topbar .cnt{margin-left:2px;font-size:0;gap:3px}
+    .topbar .cnt .chip{font-size:9.5px;padding:3px 6px}
+    #padtog{padding:3px 6px;font-size:9.5px}
     #select .stage{left:8px;right:8px;top:54px;bottom:120px;gap:8px;
       grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr)}
     #select .panel.p1{grid-column:1;grid-row:1}
@@ -991,8 +1001,8 @@
   <div class="stage">
     <!-- 1 · 我方 TOONFLOW 角色 -->
     <aside class="panel p1" id="panelp1">
-      <div class="phead"><span class="title">1 · 我方 TOONFLOW 角色</span>
-        <button class="swp" id="btn-swp">⇄ 出场顺序</button></div>
+      <div class="phead"><span class="title"> 我方</span>
+        <button class="swp" id="btn-swp">⇄ 顺序</button></div>
       <div class="slots" id="p1slots"></div>
       <button class="okbtn" id="ok1">确定队员</button>
       <div class="portrait" id="p1port">
@@ -1012,7 +1022,7 @@
     </aside>
     <!-- 2 · MUGEN 角色 -->
     <main class="mid">
-      <div class="hlab" style="text-align:center">2 · MUGEN 角色（引擎实体）</div>
+      <div class="hlab" style="text-align:center"> 角色（引擎实体）</div>
       <div class="mugfig" id="mugfig"><canvas id="muganim"></canvas><div class="mnone" id="mugnone">选一个角色查看引擎实体</div></div>
       <div class="minfo" id="minfo"></div>
       <div class="phasebar" id="phasebar"></div>
@@ -1024,8 +1034,8 @@
     </main>
     <!-- 3 · 对手 TOONFLOW 角色 -->
     <aside class="panel p2" id="panelp2">
-      <div class="phead"><span class="title" id="p2cap">3 · 对手 TOONFLOW 角色</span>
-        <button class="swp" id="btn-swp2">⇄ 出场顺序</button></div>
+      <div class="phead"><span class="title" id="p2cap">对手</span>
+        <button class="swp" id="btn-swp2">⇄ 顺序</button></div>
       <div class="slots" id="p2slots"></div>
       <button class="okbtn" id="ok2">确定队员</button>
       <div class="portrait" id="p2port">
@@ -1571,12 +1581,19 @@
     let id = null;
     try { id = localStorage.getItem(PACK_KEY); } catch { /* 私密模式 */ }
     if (PACKS.cur && !force) return;
-    // ?pack= 直选 / 存档 / --story 指定的资产集 / 唯一包自动选
-    const want = q.get('pack') || id || (r && r.story ? r.story : null) || (PACKS.list.length === 1 ? PACKS.list[0].dir : null);
-    if (want) {
-      const p = PACKS.list.find((x) => x.dir === want || x.id === want);
-      if (p) await usePack(p.dir);
+    // ?pack= 直选 / 存档 / --story 指定的故事 / 唯一包自动选。
+    // ⚠️ --story 给的是**故事名**，pack 的 dir/id 是 moshi-v1 这类目录名 ——
+    // 拿故事名去 find(dir/id) 永远匹配不上，自动装包静默失败，
+    // 选人池回落 5 个兜底角色（2026-11-27 实踩：--story --conn 工作流体现在
+    // 选人屏只有兜底角色，资产集角色出不来）。故事名要按 pack.stories 匹配。
+    let p = null;
+    const want = q.get('pack') || id || null;
+    if (want) p = PACKS.list.find((x) => x.dir === want || x.id === want) || null;
+    if (!p && r && r.story) {
+      p = PACKS.list.find((x) => (Array.isArray(x.stories) && x.stories.includes(r.story)) || x.story === r.story) || null;
     }
+    if (!p && PACKS.list.length === 1) p = PACKS.list[0];
+    if (p) await usePack(p.dir);
     renderPackLine();
   }
   // 把资产集挂进 VFS（零拷贝）+ 换掉引擎的角色名单。
@@ -3389,7 +3406,7 @@
     selEl.classList.add('on');
     phase = 1; activeSlot = 'p1-0'; page = 0; pageLock = false; randSlots.clear();
     selEl.classList.toggle('survival', MODE === 'survival');
-    document.getElementById('p2cap').textContent = MODE === 'survival' ? '3 · 对手（系统随机）' : '3 · 对手 TOONFLOW 角色';
+    document.getElementById('p2cap').textContent = MODE === 'survival' ? '对手（随机）' : '对手';
     document.querySelectorAll('.topbar .tb[data-m]').forEach((x) => x.classList.toggle('on', x.dataset.m === MODE));
     document.getElementById('difficulty').style.display = MODE === 'versus' ? '' : 'none';
     // 预填：故事绑定的 p1/p2 → ?p1=/&p2=（实体 id 转 key）→ 上局角色
