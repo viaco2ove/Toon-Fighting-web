@@ -944,7 +944,8 @@
       <div class="slots" id="p1slots"></div>
       <button class="okbtn" id="ok1">确定队员</button>
       <div class="portrait" id="p1port">
-        <img id="p1img" alt="">
+        <canvas id="p1anim"></canvas>
+        <img id="p1img" alt="" style="display:none">
         <div class="vacant" id="p1vac"><span class="q">？</span><span class="t">空位 · 点中间选人列表</span></div>
         <div class="plate">
           <div class="nm" id="p1name">&nbsp;</div>
@@ -976,7 +977,8 @@
       <div class="slots" id="p2slots"></div>
       <button class="okbtn" id="ok2">确定队员</button>
       <div class="portrait" id="p2port">
-        <img id="p2img" alt="">
+        <canvas id="p2anim"></canvas>
+        <img id="p2img" alt="" style="display:none">
         <div class="vacant" id="p2vac"><span class="q">？</span><span class="t">空位 · 点中间选人列表</span></div>
         <div class="plate">
           <div class="nm" id="p2name">&nbsp;</div>
@@ -3269,7 +3271,8 @@
 
   /* ---------- MUGEN 角色动态效果（/api/anim：AIR 动作 0 的帧序列） ---------- */
   const animCache = new Map();          // charId → Promise<frames|null>
-  let animGen = 0;                      // 播放代际：renderSelect 重跑后旧循环作废
+  const animGen = new WeakMap();        // canvas → 播放代际：每块画布独立计数，
+                                        // 重跑/换角色后该画布旧循环作废，多块画布并行互不打断
   function loadAnim(charId) {
     if (!animCache.has(charId)) {
       const p = fetch('/api/anim/' + encodeURIComponent(charId) + '/0' + packQuery())
@@ -3287,11 +3290,14 @@
     }
     return animCache.get(charId);
   }
-  // 在 canvas 上循环播放站立动画；代际号不匹配时自动停（页面重渲染）
+  // 在 canvas 上循环播放站立动画；该画布代际号不匹配时自动停（换角色/重渲染）。
+  // 有帧时由这里负责把 canvas 显示出来（调用方先藏好它，数据没就绪不闪空画布）。
   async function playAnim(charId, canvas) {
-    const gen = ++animGen;
+    const gen = (animGen.get(canvas) || 0) + 1;
+    animGen.set(canvas, gen);
     const data = await loadAnim(charId);
     if (!data || !canvas.isConnected) return;
+    canvas.style.display = 'block';
     canvas.width = data.w; canvas.height = data.h;
     const ctx = canvas.getContext('2d');
     const imgs = data.frames.map((f) => {
@@ -3300,10 +3306,10 @@
       return im;
     });
     await Promise.all(imgs.map((im) => im.decode().catch(() => {})));
-    if (gen !== animGen || !canvas.isConnected) return;
+    if (animGen.get(canvas) !== gen || !canvas.isConnected) return;
     let i = 0;
     const step = () => {
-      if (gen !== animGen || !canvas.isConnected) return;
+      if (animGen.get(canvas) !== gen || !canvas.isConnected) return;
       const fr = data.frames[i];
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (imgs[i].complete && imgs[i].naturalWidth) ctx.drawImage(imgs[i], 0, 0);
@@ -3466,20 +3472,33 @@
     renderSlotsRow(1);
     renderSlotsRow(2);
 
-    // 左右大头像：toonflow 角色头像（webp 动图自动播放）；
-    // 中间「2」区：MUGEN 引擎实体的动态效果（AIR 动作 0 的帧序列）；
-    // 「2」下面的文字行 = toonflow 角色名 / MUGEN 角色名 / 职业
+    // 左右大图：与中栏同款 MUGEN 引擎实体动画（AIR 动作 0；2026-11-27 从
+    // toonflow 头像改为实体）；没有动作帧退静态立绘 → 实体头像；
+    // 中间「2」区：同款实体动画，下面文字行 = 角色 / 实体 / 职业
     const fillPanel = (s) => {
       const pre = SIDE[s];
       const arr = L[pre];
+      const cv = document.getElementById(pre + 'anim');
       const img = document.getElementById(pre + 'img');
       const vac = document.getElementById(pre + 'vac');
-      const showVac = (t) => { img.style.display = 'none'; vac.style.display = 'flex'; vac.querySelector('.t').textContent = t; };
-      const showImg = (sources) => { vac.style.display = 'none'; img.style.display = 'block'; setImgChain(img, sources); };
+      const showVac = (t) => { cv.style.display = 'none'; img.style.display = 'none'; vac.style.display = 'flex'; vac.querySelector('.t').textContent = t; };
+      // 实体优先：AIR 动作 0 动画（playAnim 有帧时自己显示 canvas，不闪空画布）；
+      // 解不出动作帧（无 air / SFF 解不了）→ 静态站立立绘 → 实体头像
+      const showEntity = (e) => {
+        vac.style.display = 'none';
+        img.style.display = 'none';
+        cv.style.display = 'none';
+        playAnim(e.id, cv);
+        loadAnim(e.id).then((d) => {
+          if (d || !cv.isConnected) return;
+          img.style.display = 'block';
+          setImgChain(img, [standUrlFor(e), faceUrlFor(e)]);
+        });
+      };
       if (survival && s === 2) {
         const rnd = POOL[(teamSize + 1) % Math.max(1, POOL.length)] || null;
         if (rnd) {
-          showImg(avaUrlFor(rnd));   // toonflow 头像（webp 动图）；退回 MUGEN 头像
+          showEntity(rnd);   // 实体动画/立绘
           document.getElementById(pre + 'name').textContent = '系统随机';
           document.getElementById(pre + 'ent').textContent = rnd.id;
           document.getElementById(pre + 'job').textContent = '按资产集抽取';
@@ -3493,7 +3512,7 @@
       if (!want) want = arr.slice(0, teamSize).find(Boolean) || null;
       const e = poolByKey(want);
       if (e) {
-        showImg(avaUrlFor(e));   // toonflow 头像（webp 动图）；退回 MUGEN 头像
+        showEntity(e);   // 实体动画/立绘
         document.getElementById(pre + 'name').textContent = e.r;
         document.getElementById(pre + 'ent').textContent = e.id;
         document.getElementById(pre + 'job').textContent = e.job || '—';
