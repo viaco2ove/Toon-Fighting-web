@@ -1057,6 +1057,7 @@
       <button data-pane="personal">个性化配置</button>
       <button data-pane="battle">战斗开场</button>
       <button data-pane="account">账号与服务器</button>
+      <button data-pane="mcp">MCP 服务</button>
     </div>
 
     <div class="stpane on" id="pane-keys">
@@ -1158,6 +1159,51 @@
         由代理转交后端——页面与浏览器存储都不会留下后端 token。</div>
     </div>
 
+    <div class="stpane" id="pane-mcp">
+      <div class="pane-title">MCP 服务（AI 助手接入）</div>
+      <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.8;margin-bottom:12px">
+        MCP 让外部 AI 助手（Claude Code 等）操作这个游戏：按资产集切换角色、绑定故事会话。
+        服务跑在<b>本机（手机）</b>，同一 WiFi 下的助手可用 <code id="mcp-addr">—</code> 连接。
+        PC 浏览器里没有原生服务，这一页会提示不可用。</div>
+      <div class="connbox">
+        <div class="connrow">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="mcp-enabled" style="width:16px;height:16px">
+            <span>启用 MCP 服务</span>
+          </label>
+          <input type="number" id="mcp-port" min="1" max="65535" placeholder="7073" style="width:110px">
+          <button id="mcp-port-save">修改端口</button>
+          <button id="mcp-toggle">切换启停</button>
+        </div>
+        <div><span class="connstate idle" id="mcp-state">检测中…</span></div>
+      </div>
+
+      <div class="pane-title" style="margin-top:18px">后端服务地址</div>
+      <div class="connbox">
+        <div class="connrow">
+          <input type="text" id="mcp-backend" placeholder="后端服务地址，例如 http://192.168.1.10:60002/">
+          <button id="mcp-backend-save">保存</button>
+        </div>
+        <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.8;margin-top:8px">
+          MCP 自己连后端时用它（与「账号与服务器」那栏是两条独立的连接，各存各的）。</div>
+      </div>
+
+      <div class="pane-title" style="margin-top:18px">账号登录</div>
+      <div class="connbox">
+        <div class="connrow">
+          <input type="text" id="mcp-user" placeholder="账号" autocomplete="username">
+          <input type="password" id="mcp-pass" placeholder="密码" autocomplete="current-password">
+          <button id="mcp-login">登 录</button>
+        </div>
+        <div class="formmsg" id="mcp-login-msg"></div>
+      </div>
+
+      <div class="pane-title" style="margin-top:18px">已绑定</div>
+      <div class="connbox">
+        <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.9" id="mcp-bound">—</div>
+      </div>
+    </div>
+
     <div class="stfoot">
       <button id="st-reset">恢复默认</button>
       <button class="primary" id="st-done">完成，返回主界面</button>
@@ -1200,6 +1246,36 @@
   <span id="sr-hint" style="display:none"></span>
 </div>
 
+<script>
+// 手机 APK 内：webview 没有同源 API 服务端（没有 Node），把 /api/* 与
+// 资产集文件（/packs/*）的 fetch 重写到原生 MCP 服务（127.0.0.1:7073）。
+// http://127.0.0.1 是规范定义的「可信源」，https 页面请求它不算混合内容。
+// PC 浏览器（非原生环境）这段直接返回，一切照旧。
+// 端口可改：设置页改端口时同步写 localStorage['tf-mcp-base']。
+(function () {
+  try {
+    var cap = window.Capacitor;
+    if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return;
+    function base() {
+      try { return localStorage.getItem('tf-mcp-base') || 'http://127.0.0.1:7073'; }
+      catch (e) { return 'http://127.0.0.1:7073'; }
+    }
+    var orig = window.fetch;
+    if (!orig) return;
+    window.fetch = function (input, init) {
+      try {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (/^(?:\.\/|\/)?(api\/|packs\/)/.test(url)) {
+          var abs = base() + '/' + url.replace(/^\.\//, '').replace(/^\//, '');
+          if (typeof input === 'string') return orig.call(this, abs, init);
+          input = new Request(abs, input);
+        }
+      } catch (e) { /* 重写失败按原样发 */ }
+      return orig.call(this, input, init);
+    };
+  } catch (e) { /* 非原生环境 */ }
+})();
+</script>
 <script src="./vfs.js"></script>
 <script src="./wasm_exec.js"></script>
 <script>
@@ -1647,6 +1723,145 @@
   };
   const storyEl = document.getElementById('story');
   window.__tfConn = CONN; // 供自动化探针读取联动状态（不参与业务逻辑）
+
+  // MCP 桥：手机上的原生 MCP 服务通过 Capacitor 的 eval 调这里的函数，
+  // 实现「按资产集 / 绑定故事」的能力。PC 上没有原生服务时这段是死代码。
+  //
+  // 为什么要有这层：绑定动作必须发生在**游戏运行时**（要挂载资产集、
+  // 换角色名单、写会话绑定），所以原生不能自己实现，只能调游戏里的函数。
+  window.__tfMcp = {
+    // 资产集列表
+    async listPacks() {
+      await loadPacks(true);
+      return (PACKS.list || []).map((p) => ({
+        id: p.dir || p.id || '',
+        dir: p.dir || '',
+        dirName: p.dirName || '',
+        name: (p.pack && (p.pack.name || p.pack.title)) || p.name || p.dir || '',
+        chars: Array.isArray(PACKS.packChars && PACKS.packChars[(p.dir || p.id)]) ? PACKS.packChars[p.dir || p.id].length : 0,
+        bound: !!(PACKS.bound && PACKS.bound.packId === (p.dir || p.id)),
+      }));
+    },
+    // 资产集详情（角色名单 + 角色元信息）
+    async getPack(packId) {
+      const p = (PACKS.list || []).find((x) => x.dir === packId || x.id === packId);
+      if (!p) return null;
+      await usePack(p.dir || p.id);
+      const meta = {};
+      const cm = PACKS.charMeta || {};
+      for (const id of packCharPool()) {
+        if (cm[id]) meta[id] = cm[id];
+      }
+      return {
+        id: p.dir || p.id || '',
+        name: (p.pack && (p.pack.name || p.pack.title)) || p.name || p.dir || '',
+        story: PACKS.cur ? PACKS.cur.story : null,
+        mapping: PACKS.mapping || null,
+        roster: PACKS.roster || null,
+        chars: packCharPool(),
+        charMeta: meta,
+        mounted: PACKS.mounted || '',
+      };
+    },
+    // 切换当前资产集
+    async selectPack(packId) {
+      const p = (PACKS.list || []).find((x) => x.dir === packId || x.id === packId);
+      if (!p) return { ok: false, error: '没有这个资产集：' + packId };
+      await usePack(p.dir || p.id);
+      return { ok: true, id: p.dir || p.id, mounted: PACKS.mounted || '', chars: packCharPool().length };
+    },
+    // 当前资产集
+    currentPack() {
+      return {
+        id: PACKS.cur ? (PACKS.cur.dir || PACKS.cur.id || '') : '',
+        name: PACKS.cur ? ((PACKS.cur.pack && (PACKS.cur.pack.name || PACKS.cur.pack.title)) || PACKS.cur.name || '') : '',
+        mounted: PACKS.mounted || '',
+        chars: packCharPool(),
+        bound: PACKS.bound || null,
+        pendingBind: PACKS.pendingBind || null,
+      };
+    },
+    // 故事会话列表
+    async listSessions() {
+      const r = await connApi('/api/conn/sessions');
+      if (!r || !r.ok) return [];
+      CONN.sessions = r.sessions || [];
+      return (r.sessions || []).map((s) => ({
+        sessionId: s.sessionId || s.id || '',
+        title: s.title || s.worldName || '',
+        worldId: s.worldId || 0,
+        current: s.sessionId === CONN.sessionId,
+      }));
+    },
+    // 故事会话详情（含角色名单 + 已绑定资产集）
+    async getSession(sessionId) {
+      const s = (CONN.sessions || []).find((x) => (x.sessionId || x.id) === sessionId);
+      if (!s) return null;
+      await pickSession(sessionId);
+      return {
+        sessionId: CONN.sessionId || sessionId,
+        storyName: CONN.storyName || '',
+        worldId: CONN.worldId || 0,
+        intro: CONN.storyIntro || '',
+        roles: (CONN.storyRoles || []).map((r) => ({
+          name: r.name, roleType: r.roleType, profession: r.profession || '',
+        })),
+        chars: (CONN.roster && CONN.roster.storyChars) || [],
+        boundPackId: PACKS.bound ? PACKS.bound.packId : '',
+      };
+    },
+    // 绑定故事会话（可选同时切资产集）
+    async bindSession(sessionId, packId) {
+      const s = (CONN.sessions || []).find((x) => (x.sessionId || x.id) === sessionId);
+      if (!s) return { ok: false, error: '没有这个会话：' + sessionId };
+      if (packId) {
+        const p = (PACKS.list || []).find((x) => x.dir === packId || x.id === packId);
+        if (!p) return { ok: false, error: '没有这个资产集：' + packId };
+        await usePack(p.dir || p.id);
+      }
+      await pickSession(sessionId);
+      const bound = await bindPackToSession(packId || (PACKS.cur ? PACKS.cur.dir : null));
+      return {
+        ok: true,
+        sessionId: CONN.sessionId || sessionId,
+        storyName: CONN.storyName || '',
+        packId: PACKS.bound ? PACKS.bound.packId : (PACKS.cur ? PACKS.cur.dir : ''),
+        bound: bound,
+      };
+    },
+    // 当前故事
+    currentStory() {
+      return {
+        sessionId: CONN.sessionId || '',
+        storyName: CONN.storyName || '',
+        worldId: CONN.worldId || 0,
+        connected: !!CONN.on,
+        user: CONN.user ? CONN.user.name : '',
+        chars: (CONN.roster && CONN.roster.storyChars) || [],
+        boundPackId: PACKS.bound ? PACKS.bound.packId : '',
+      };
+    },
+  };
+
+  // MCP 调用落地桥：WebView 的 evaluateJavascript **不会 await Promise**，
+  // 原生直接调 __tfMcp.*（async 函数）只能拿到 "[object Promise]"。
+  // 所以原生走两步：① 调 __tfMcpCall 启动异步任务（立即返回 accepted），
+  // ② 轮询 __tfMcpResults[<id>] 直到结果落地。
+  window.__tfMcpResults = {};
+  window.__tfMcpCall = function (req) {
+    if (!req || typeof req.fn !== 'string') return 'bad-request';
+    (async () => {
+      try {
+        const fn = window.__tfMcp && window.__tfMcp[req.fn];
+        if (typeof fn !== 'function') throw new Error('没有这个方法：' + req.fn);
+        const r = await fn.apply(null, Array.isArray(req.args) ? req.args : []);
+        window.__tfMcpResults[req.id] = JSON.stringify(r === undefined ? null : r);
+      } catch (e) {
+        window.__tfMcpResults[req.id] = JSON.stringify({ ok: false, error: String((e && e.message) || e) });
+      }
+    })();
+    return 'accepted';
+  };
   const storyStatusEl = document.getElementById('story-status');
   const sessListEl = document.getElementById('sesslist');
   const storyRosterEl = document.getElementById('story-roster');
@@ -2540,6 +2755,124 @@
     msg.className = 'formmsg';
     msg.textContent = '要退出登录，请清除本站的 Cookie（浏览器设置 → 站点数据）。';
   });
+
+  // ---------- MCP 服务设置（Android 原生插件；PC 浏览器没有 → 不可用） ----------
+  const MCP_PLUG = () => (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins.Mcp : null;
+  function mcpMsg(text, kind) {
+    const el = document.getElementById('mcp-login-msg');
+    if (!el) return;
+    el.className = 'formmsg' + (kind ? ' ' + kind : '');
+    el.textContent = text;
+  }
+  async function mcpStatus() {
+    const st = document.getElementById('mcp-state');
+    const plug = MCP_PLUG();
+    if (!plug) {
+      st.className = 'connstate idle';
+      st.textContent = '当前环境没有原生 MCP 服务（PC 浏览器版）——MCP 只在 Android 安装版里可用';
+      const ad = document.getElementById('mcp-addr');
+      if (ad) ad.textContent = '—';
+      ['mcp-enabled', 'mcp-port', 'mcp-backend'].forEach((id) => { const e = document.getElementById(id); if (e) e.disabled = true; });
+      ['mcp-port-save', 'mcp-toggle', 'mcp-backend-save', 'mcp-login'].forEach((id) => { const e = document.getElementById(id); if (e) e.disabled = true; });
+      return null;
+    }
+    try {
+      const s = await plug.getStatus();
+      const en = document.getElementById('mcp-enabled');
+      if (en) en.checked = !!s.enabled;
+      const po = document.getElementById('mcp-port');
+      if (po) po.value = s.port;
+      const bu = document.getElementById('mcp-backend');
+      if (bu && document.activeElement !== bu) bu.value = s.backendUrl || '';
+      const us = document.getElementById('mcp-user');
+      if (us && !us.value) us.value = s.user || '';
+      st.className = 'connstate ' + (s.running ? 'ok' : (s.enabled ? 'err' : 'idle'));
+      st.textContent = s.running
+        ? ('运行中 · 监听 0.0.0.0:' + s.port)
+        : (s.enabled ? '已启用但未运行（端口可能被占用）' : '已停用');
+      const ad = document.getElementById('mcp-addr');
+      if (ad) ad.textContent = 'http://' + (s.ip || '<手机IP>') + ':' + s.port + '/mcp';
+      const bd = document.getElementById('mcp-bound');
+      if (bd) {
+        bd.textContent = '资产集：' + (s.boundPackId || '（未绑定）')
+          + ' · 故事会话：' + (s.boundSessionId || '（未绑定）')
+          + ' · 后端登录：' + (s.loggedIn ? ('已登录 ' + (s.user || '')) : '未登录');
+      }
+      return s;
+    } catch (e) {
+      st.className = 'connstate err';
+      st.textContent = '读取 MCP 状态失败：' + String((e && e.message) || e);
+      return null;
+    }
+  }
+  const mcpToggleBtn = document.getElementById('mcp-toggle');
+  if (mcpToggleBtn) {
+    mcpToggleBtn.addEventListener('click', async () => {
+      const plug = MCP_PLUG();
+      if (!plug) return;
+      const en = document.getElementById('mcp-enabled');
+      try {
+        const r = await plug.setEnabled({ enabled: !en.checked });
+        en.checked = !!r.enabled;
+        await mcpStatus();
+      } catch (e) { mcpMsg('切换失败：' + String((e && e.message) || e), 'err'); }
+    });
+    document.getElementById('mcp-enabled').addEventListener('change', async (e) => {
+      const plug = MCP_PLUG();
+      if (!plug) return;
+      try {
+        await plug.setEnabled({ enabled: !!e.target.checked });
+        await mcpStatus();
+      } catch (err) { mcpMsg('切换失败：' + String((err && err.message) || err), 'err'); }
+    });
+    document.getElementById('mcp-port-save').addEventListener('click', async () => {
+      const plug = MCP_PLUG();
+      if (!plug) return;
+      const p = parseInt(document.getElementById('mcp-port').value, 10);
+      if (!Number.isFinite(p) || p < 1 || p > 65535) { mcpMsg('端口必须在 1~65535 之间', 'err'); return; }
+      try {
+        await plug.setPort({ port: p });
+        try { localStorage.setItem('tf-mcp-base', 'http://127.0.0.1:' + p); } catch (e2) { /* 私密模式 */ }
+        mcpMsg('端口已改为 ' + p + '，服务已重启', 'ok');
+        await mcpStatus();
+      } catch (e) { mcpMsg('改端口失败：' + String((e && e.message) || e), 'err'); }
+    });
+    document.getElementById('mcp-backend-save').addEventListener('click', async () => {
+      const plug = MCP_PLUG();
+      if (!plug) return;
+      const u = document.getElementById('mcp-backend').value.trim();
+      try {
+        await plug.setBackendUrl({ backendUrl: u });
+        mcpMsg('后端地址已保存', 'ok');
+        await mcpStatus();
+      } catch (e) { mcpMsg('保存失败：' + String((e && e.message) || e), 'err'); }
+    });
+    document.getElementById('mcp-login').addEventListener('click', async () => {
+      const plug = MCP_PLUG();
+      if (!plug) return;
+      const u = document.getElementById('mcp-user').value.trim();
+      const p = document.getElementById('mcp-pass').value;
+      if (!u || !p) { mcpMsg('请填写账号与密码', 'err'); return; }
+      mcpMsg('登录中…');
+      try {
+        const r = await plug.login({ user: u, password: p });
+        if (r && r.ok) {
+          mcpMsg('登录成功：' + u, 'ok');
+          document.getElementById('mcp-pass').value = '';
+        } else {
+          mcpMsg('登录失败：' + ((r && r.error) || '未知错误'), 'err');
+        }
+        await mcpStatus();
+      } catch (e) { mcpMsg('登录失败：' + String((e && e.message) || e), 'err'); }
+    });
+  }
+  // 打开设置页时刷新一次状态
+  const stTabs = document.getElementById('st-tabs');
+  if (stTabs) {
+    stTabs.addEventListener('click', (e) => {
+      if (e.target && e.target.dataset && e.target.dataset.pane === 'mcp') mcpStatus();
+    });
+  }
   for (const k of ['master', 'wav', 'bgm']) {
     document.getElementById('st-vol-' + k).addEventListener('input', (e) => {
       settings.volume[k] = clampNum(e.target.value, 0, 100, 100); saveSettings();

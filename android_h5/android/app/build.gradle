@@ -3,6 +3,11 @@ apply plugin: 'com.android.application'
 android {
     namespace "com.viaco.toonfighting"
     compileSdk rootProject.ext.compileSdkVersion
+    // 源码是 UTF-8（含中文），javac 必须显式指定编码，
+    // 否则在 Windows 上按平台 GBK 编译 → 字符串常量里的中文全变乱码。
+    compileOptions {
+        encoding = 'UTF-8'
+    }
     defaultConfig {
         applicationId "com.viaco.toonfighting"
         minSdkVersion rootProject.ext.minSdkVersion
