@@ -163,18 +163,22 @@ node .cache\scripts\mk-keyframes.mjs
 
 ### 引擎兼容性检查工具（2026-11-26 新增，三种模式通用）
 
-这三个是**自包含**脚本，拷到任意机器都能跑（`diag-engine-drop.cjs` / `fix-sff-bpl.cjs`
-零依赖；另两个需要 `sharp` / `ws`，可用环境变量 `SHARP_PATH` / `WS_PATH` 指向）：
+这些是**自包含**脚本，拷到任意机器都能跑（`diag-engine-drop.cjs` / `fix-sff-bpl.cjs` /
+`rebuild-merge-batch.mjs` 零依赖；另两个需要 `sharp` / `ws`，可用环境变量
+`SHARP_PATH` / `WS_PATH` 指向）：
 
 | 脚本 | 用途 |
 |---|---|
 | [templates/diag-engine-drop.cjs](templates/diag-engine-drop.cjs) | **静态复检**：按引擎口径算出「会被静默丢弃的精灵数」，必须为 0。退出码 0=通过 / 1=有丢弃，可直接进 CI |
 | [templates/fix-sff-bpl.cjs](templates/fix-sff-bpl.cjs) | **外科修复**：只重排 SFF 精灵链把 `bpl` 改成 `w`，AIR / def 一字不动（线上包可能有手工补丁，不能整体重建） |
+| [templates/rebuild-merge-batch.mjs](templates/rebuild-merge-batch.mjs) | **批量重建**：plan.json 驱动，三种模式通用；两个硬判据（AIR 逐字节一致 + 引擎丢弃=0），不过就**不安装** |
 | [templates/capture-exact-frame.mjs](templates/capture-exact-frame.mjs) | 抓**指定引擎帧号**的截图（消除舞台背景动画的相位噪声） |
 | [templates/ascii-region.cjs](templates/ascii-region.cjs) | 把截图指定区域打成 ASCII（`#`背景 `*`内容），终端里直接目检「角色在不在」 |
 
 **三种模式（some/merge/all）组装完都必须跑 `diag-engine-drop.cjs`** ——
 引擎对非法精灵是静默丢弃的，查看器和日志都发现不了。
+
+详见 [templates/README.md](templates/README.md)。
 
 ## 下一步：把关键帧装进引擎
 
@@ -230,6 +234,18 @@ node ../../templates/diag-engine-drop.cjs <包>/<id>.sff   # 「引擎丢弃 M�
 「融」模式额外注意：MUGEN 帧行一次只能画一个精灵，
 所以「AI 图 + 原精灵一起显示」**必须在构建期烘焙**（合成成一张图）；
 特效帧（group ≥ 7000）不融合。
+
+⚠️ **融有两种互斥的透明度语义，已抽离成独立脚本**（2026-11-26）：
+
+| 模式 | 脚本 | 原帧 | AI 帧 | 效果 |
+|---|---|---|---|---|
+| **虚化** | `merge-alpha.cjs` | 100% | 55% | 只混 RGB，mask 不动 → 无挖空、无碎片 |
+| **二值碎片** | `merge-binary.cjs` | 20% | 95% | body-only 像素走 4×4 Bayer 抖动 → 方块小碎片 |
+
+SFF v1 只有**二值**透明（alpha<128 → 索引 0），所以「虚化」在 v1 下只能是
+颜色层面的淡化，不是真 alpha（真 alpha 要 SFF v2 的 RGBA PNG，项目暂无 v2 写出器）。
+「碎片」不是刻意设计的美术效果，是二值透明下模拟淡显的必然手段。
+详见 [keyframeMode/merge/SKILL.md 的「两种透明度语义」](keyframeMode/merge/SKILL.md)。
 
 `templates/` 下的脚本可直接运行（路径自包含）。
 

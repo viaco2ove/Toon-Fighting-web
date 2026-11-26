@@ -16,15 +16,25 @@
 // 同一精灵可能出现在不同类别的 action 里 → 每个 (精灵, 类别) 组合
 // 各生成一张合成精灵（804 个），air 按所属 action 的类别改指向。
 //
-// 跑: node build-merge-char.mjs <baseCharDir> <framesDir> <outDir> <id> [mergeAlpha] [bodyAlpha]
+// 跑: node build-merge-char.mjs <baseCharDir> <framesDir> <outDir> <id> [mergeAlpha] [bodyAlpha] [mode]
+//
+// mode（两种互斥的透明度语义）：
+//   alpha  （默认）虚化模式：原帧 100% 不做透明处理，只把 AI 权重混进 RGB
+//                     → mask 不动，无挖空、无碎片、边缘干净
+//   binary          二值模式：原帧可调不透明度；bodyAlpha<1 时 body-only 像素
+//                     走 4×4 Bayer 抖动 → 方块小碎片
+// 不传时按 bodyAlpha 自动选（<1 → binary，否则 alpha），与历史行为一致。
 //
 // 环境变量（底座目录里文件名不唯一时必须显式指定，避免选错）：
 //   BASE_SFF / BASE_AIR / BASE_DEF —— 显式指定底座的 sff / air / def 文件名
 //
-// 例（苏晚晴 KFM）：
+// 例（苏晚晴 KFM，二值碎片模式，与线上包一致）：
 //   BASE_SFF=Athena-98.sff BASE_AIR=Athena-98.air BASE_DEF=98Athena.def \
 //   node build-merge-char.mjs ff-studio/white-mold/04_异能者/98Athena \
-//        .cache/ai-frames/苏晚晴 .cache/mg-build/SuWanqingKFM SuWanqingKFM 0.95 0.2
+//        .cache/ai-frames/苏晚晴 .cache/mg-build/SuWanqingKFM SuWanqingKFM 0.95 0.2 binary
+//
+// 例（同上，但走虚化模式 —— 无碎片）：
+//   ... SuWanqingKFM 0.55 1 alpha
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +42,11 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { decodePng, quantize } = require('./sprite-pack.cjs');
-const { mergeSprites, MERGE_ALPHA, MERGE_BODY_ALPHA } = require('./merge-sprite.cjs');
+// 两种透明度语义是独立脚本：
+//   merge-alpha.cjs  虚化模式（原帧 100%，只混 RGB，mask 不动）
+//   merge-binary.cjs 二值模式（原帧可调不透明度，bodyAlpha<1 → Bayer 抖动碎片）
+const { mergeAlpha, MERGE_ALPHA } = require('./merge-alpha.cjs');
+const { mergeBinary, MERGE_BODY_ALPHA } = require('./merge-binary.cjs');
 const { parseAir, scanFrames, classifyAction, SPRITE_OF } = require('./air-some.cjs');
 const { appendSprites, readSffV1Dir } = require('./sff-append.cjs');
 // 找项目根（含 server/lib/sff.cjs 的目录）—— 模板可能放在任意层级
@@ -57,6 +71,15 @@ const ALPHA = Number.isFinite(alphaArg) && alphaArg > 0 ? alphaArg : MERGE_ALPHA
 // 第 7 个参数：原精灵不透明度（默认 1，即旧行为）
 const bodyArg = Number(process.argv[7]);
 const BODY_ALPHA = Number.isFinite(bodyArg) && bodyArg > 0 && bodyArg <= 1 ? bodyArg : MERGE_BODY_ALPHA;
+// 第 8 个参数：融合模式
+//   alpha（默认）= 虚化模式：原帧 100%，只把 AI 权重乘进 RGB，mask 不动
+//   binary        = 二值模式：原帧可调不透明度，bodyAlpha<1 时 body-only
+//                   像素走 4×4 Bayer 抖动 → 方块小碎片
+// 不传时按 bodyAlpha 自动选（<1 → binary，否则 alpha），与历史行为一致。
+const modeArg = (process.argv[8] || '').toLowerCase();
+const MODE = ['alpha', 'binary'].includes(modeArg)
+  ? modeArg
+  : (BODY_ALPHA < 1 ? 'binary' : 'alpha');
 
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -86,7 +109,8 @@ manifest.frames.sort((a, b) => a.sprite - b.sprite);
 for (const f of manifest.frames) {
   if (!f.file && f.aiFile) f.file = path.isAbsolute(f.aiFile) ? f.aiFile : path.join(framesDir, f.aiFile);
 }
-console.log('AI 图：', manifest.frames.length, '张 · 融合不透明度 AI', ALPHA, '/ 原', BODY_ALPHA);
+console.log('AI 图：', manifest.frames.length, '张 · 融合模式', MODE, '· AI 权重', ALPHA, '/ 原', BODY_ALPHA);
+  console.log('  （alpha=虚化：原帧 100% 不做透明处理，只混 RGB；binary=二值：原帧 <1 走 Bayer 抖动 → 碎片）');
 
 // ---------- 2) 原包 ----------
 // 显式文件名优先（环境变量），避免目录里有多个 def/sff 时 findFile 按字母序选错。
@@ -216,7 +240,9 @@ for (const [key, spec] of needMerge) {
   body.ax = sp.ax; body.ay = sp.ay;
   const ai = aiBySprite.get(SPRITE_OF[spec.cat]);
   if (!ai) { stats.fail++; continue; }
-  const merged = mergeSprites(body, ai, ALPHA, BODY_ALPHA);
+  const merged = MODE === 'binary'
+    ? mergeBinary(body, ai, ALPHA, BODY_ALPHA, true)
+    : mergeAlpha(body, ai, ALPHA);
   if (!merged) {
     // 原精灵全透明（白模包里的废区精灵）→ 没有可融合的东西，保持原样
     stats.fail++; stats.blank = (stats.blank || 0) + 1; continue;

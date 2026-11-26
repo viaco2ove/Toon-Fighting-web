@@ -76,7 +76,27 @@ node "$T/build-merge-char.mjs" `
   LinYuKFM
 ```
 
-可选第 6 个参数：融合不透明度（默认 0.55）。
+可选第 6 个参数：融合不透明度（默认 0.55），第 7 个参数：原精灵权重（默认 1）。
+
+⚠️ **底座目录里有多个 def/sff 时必须用环境变量显式指定**，否则脚本会按字母序选错
+（踩过：`LaoLeiKFM` 底座里有 `LaoLeiKFM.def` / `RalfAct.def` / `ikari.def` 三个）：
+
+```powershell
+$env:BASE_SFF = "Athena-98.sff"
+$env:BASE_AIR = "Athena-98.air"
+$env:BASE_DEF = "98Athena.def"
+node "$T/build-merge-char.mjs" `
+  "ff-studio/white-mold/04_异能者/98Athena" `
+  ".cache/ai-frames/苏晚晴" `
+  ".cache/mg-build/SuWanqingKFM" `
+  SuWanqingKFM 0.95 0.2
+```
+
+**批量重建**（一次改十几个包时用这个，自带硬判据，不过就不安装）：
+
+```powershell
+node ".zcode/skills/char-assets-keyframes-generation/templates/rebuild-merge-batch.mjs" plan.json --dry
+```
 
 脚本做三件事：
 1. **逐 (精灵, 类别) 组合**生成合成精灵 —— 同一精灵可能出现在不同类别的
@@ -291,23 +311,57 @@ node .cache/scripts/diag-merge-input.cjs      # 合成前 body/ai/merged/quant �
 融合帧的像素饱和度分布：**彩色约 45% + 灰度约 55%** ——
 AI 图的彩色被半透明稀释，原精灵的灰度结构还在。
 
-### ai帧 虚化
-靠写半透明 alpha 实现
-透明度 原100%，ai帧 55%。
-特点：原帧无透明度处理，单纯把 ai 帧的 alpha 乘以 0.55
+### 两种透明度语义（已抽离成独立脚本）
 
-### 二值透明-v1-碎片模式
-例如：不透明度 原20%,ai帧 95% 
-二值透明（alpha<128 → 透明索引 0），所以 20% 不能靠写半透明 alpha 实现——那样 body-only 像素会整片消失。
-用「相对权重混合 + 保留原有不透明 mask」的口径来烘，这也是和现有包兼容的做法。
-构建核心 merge-sprite.cjs 加了 bodyAlpha 参数。SFF v1 调色板只有二值透明，写不了 20% alpha，
-所以：重叠区按相对权重把配比烘进 RGB，只有原图覆盖的区域用 4×4 有序抖动模拟淡显；旧行为（bodyAlpha=1）保持不变
-特点：原帧 的效果成了方块小碎片组成的图片，ai帧略有点模糊 
+融合有两种**互斥**的透明度语义，几何完全一样，差别只在像素怎么算。
+2026-11-26 抽离成独立脚本（几何与混合公式抽到 `merge-core.cjs` 共用）：
+
+| 模式 | 脚本 | 原帧 | AI 帧 | 效果 |
+|---|---|---|---|---|
+| **虚化** | `merge-alpha.cjs` | 100%（不做任何透明处理） | 55% | 只把 AI 权重混进 RGB，**mask 不动** → 无挖空、无碎片、边缘干净 |
+| **二值碎片** | `merge-binary.cjs` | 20%（可调） | 95% | 重叠区按相对权重烘进 RGB；body-only 像素用 **4×4 Bayer 抖动**模拟淡显 → **方块小碎片** |
+
+构建脚本第 8 个参数选模式：
+
+```powershell
+node "$T/build-merge-char.mjs" <base> <frames> <out> <id> <mergeAlpha> <bodyAlpha> <mode>
+# mode: alpha（虚化，默认）| binary（二值碎片）
+# 不传时按 bodyAlpha 自动选（<1 → binary，否则 alpha），与历史行为一致
+```
+
+#### 为什么 v1 的「虚化」不是真半透明
+
+SFF v1 的调色板只有**二值**透明（alpha<128 → 索引 0 透明）。
+真的写 55% alpha → 那部分像素索引变 0 → **整片挖空**，不是虚化。
+所以 v1 下能落地的最接近形态是「颜色层面的淡化」：AI 帧按权重混进原帧 RGB，
+输出仍是不透明的索引色。
+
+引擎的 SFF **v2** 支持 format 11/12 = RGBA PNG（`image.go:1430` → `SetRaw(...,32)`），
+能真逐像素 alpha。但项目里**没有 v2 写出器**，且底座包是 v1 ——
+v1 底座 + v2 合成精灵的混编规则要另定，所以本轮不做。
+
+#### 关于「碎片」
+
+「碎片」**不是刻意设计的美术效果**，而是二值透明下模拟淡显的必然手段
+（SFF v1 没有逐像素 alpha，想让 body-only 像素半透明只能抖动）。
+`bodyAlpha=1` 时不抖动 → 无碎片。
+
+实测对比（`templates/diag-two-modes.cjs`，孤立像素 = 碎片特征）：
+
+```
+虚化 AI55/原100        不透明 2551 | 孤立像素    0 = 0.0%   ← 无碎片
+二值 AI95/原20(抖动)   不透明 1547 | 孤立像素  308 = 20.2% ← 碎片
+二值 AI95/原20(不抖动) 不透明 2551 | 孤立像素    0 = 0.0%   ← 无碎片
+二值 AI95/原100        不透明 2551 | 孤立像素    0 = 0.0%
+```
+
+⚠️ 换底座时如果发现「原帧成了方块小碎片」，那是 `bodyAlpha<1` 走抖动分支的结果，
+不是 bug。要「不碎片的淡显」→ 用虚化模式（`mode=alpha`）。
 
 ### 特效帧没被融合
 
 ```powershell
-node .cache/scripts/build-merge-char.mjs ...
+node "$T/build-merge-char.mjs" ...
 # 融合判定：
 #   身体帧行 → 合成 1599
 #   特效帧行 → 保持原样 91
@@ -343,20 +397,27 @@ node .cache/scripts/probe-shot.mjs .cache/shots-mergefix shot.png "http://localh
 | 资产集元信息 | `mapping.json`（charPool）+ `roster.json`（defCharacterAssets），两个目录各一份 |
 | 引擎 manifest | `ikemen-fs/manifest.json`（stamp 递增） |
 | 查看器 merge 模式 | `ff-studio/src/viewer.html` |
-| 组装脚本 | `.cache/scripts/build-merge-char.mjs` |
+| 组装脚本 | `keyframeMode/merge/templates/build-merge-char.mjs`（skill 目录内可直接跑） |
 | 合成核心库 | `.cache/scripts/lib/merge-sprite.cjs` |
 
 ## Reference Templates
 
 `templates/` 下的脚本**可直接运行**（路径自包含，从任意目录调用都行）：
 
-| 文件 | 用途 |
-|---|---|
-| `templates/build-merge-char.mjs` | 组装脚本 |
-| `templates/merge-sprite.cjs` | 逐像素合成核心（`mergeSprites`） |
-| `templates/air-some.cjs` | air 解析 + 类别映射（**`ACTION_CATEGORY` 表必须按包核对**） |
-| `templates/sff-append.cjs` | SFF v1 追加器 |
-| `templates/sprite-pack.cjs` | PNG 编解码 + 量化（依赖） |
+| 文件 | 用途                                                                            |
+|---|---------------------------------------------------------------------------------|
+| `templates/build-merge-char.mjs` | 组装脚本（第 8 参数选 `alpha` / `binary` 模式）                                 |
+| `templates/merge-core.cjs` | **共用核心**：几何对齐（包围盒/缩放/AI 图定位）+ 相对权重混合公式               |
+| `templates/merge-alpha.cjs` | **虚化模式**（`mergeAlpha`）：原帧 100%，只混 RGB，mask 不动                    |
+| `templates/merge-binary.cjs` | **二值碎片模式**（`mergeBinary`）：原帧可调不透明度，bodyAlpha<1 → Bayer 抖动   |
+| `templates/merge-binary.cjs` | **二值虚化模式**（`mergeBinary`）：原帧可调不透明度，bodyAlpha<1 → Bayer 不抖动 |
+| `templates/merge-sprite.cjs` | 兼容 shim（`mergeSprites`）：按 bodyAlpha 自动选模式。新代码别用它              |
+| `templates/air-some.cjs` | air 解析 + 类别映射（**`ACTION_CATEGORY` 表必须按包核对**）                     |
+| `templates/sff-append.cjs` | SFF v1 追加器                                                                   |
+| `templates/sprite-pack.cjs` | PNG 编解码 + 量化（依赖）                                                       |
+
+另有 `templates/diag-two-modes.cjs`（在技能根目录的 `templates/`）——
+对比两种模式的像素统计与碎片特征。
 
 ## Notes
 

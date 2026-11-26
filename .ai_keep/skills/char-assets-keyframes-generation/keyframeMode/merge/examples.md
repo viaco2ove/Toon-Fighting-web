@@ -188,7 +188,7 @@ a5000 纯特效=false 帧0应融=true
 ```
 ikemen-fs/file/chars/LinYuKFM/            （sff 9.6MB / air 84KB / def / cns / cmd / snd / act / char.json）
 workshops/.../chars/LinYuKFM/             （同上，资产集侧）
-.cache/scripts/build-merge-char.mjs        （组装脚本）
+keyframeMode/merge/templates/build-merge-char.mjs  （组装脚本，skill 目录内可直接跑）
 .cache/scripts/lib/merge-sprite.cjs        （逐像素合成核心）
 ```
 
@@ -455,11 +455,53 @@ const bpl = w;   // 不能是 w + (w & 1)
 |---|---|
 | `templates/diag-engine-drop.cjs` | 按引擎口径复算「会被丢弃的精灵数」，必须为 0（自包含脚本，永久保留） |
 | `templates/fix-sff-bpl.cjs` | 外科修复：只重排 SFF 精灵链把 `bpl` 改成 `w`，AIR/def 不动（自包含脚本） |
-| `.cache/scripts/rebuild-all-merge.mjs` | 幂等重建全部 KFM 包（AIR 逐字节一致为判据，不一致则不安装） |
+| `templates/rebuild-merge-batch.mjs` | **批量重建**：plan.json 驱动，三模式通用；两个硬判据（AIR 逐字节一致 + 引擎丢弃=0），不过就**不安装** |
 | `templates/capture-exact-frame.mjs` | 抓**指定引擎帧号**的截图（消除动画相位噪声，需 `ws`） |
 | `templates/ascii-region.cjs` | 把截图指定区域打成 ASCII（`#`背景 `*`内容），终端里直接目检（需 `sharp`） |
-| `.cache/scripts/region-stats.cjs` / `diff-shots.cjs` | 两图差异量 / 差异包围盒 |
-| `.cache/scripts/fix-pack-manifest.cjs` | 修资产集 manifest 的字节数登记 |
+| `.cache/scripts/region-stats.cjs` / `diff-shots.cjs` | 两图差异量 / 差异包围盒（项目级，非常驻） |
+| `.cache/scripts/fix-pack-manifest.cjs` | 修资产集 manifest 的字节数登记（项目级，非常驻） |
+
+### 顺带发现并修掉的一个模板缺陷
+
+`keyframeMode/merge/templates/build-merge-char.mjs` **在 skill 目录里根本跑不起来**：
+
+```
+Error: Cannot find module './lib/sprite-pack.cjs'
+```
+
+它用的是 `./lib/` 前缀，而 `some` / `all` 的模板都是同目录平铺（`./sprite-pack.cjs`）。
+`merge` 模板还额外用了 `require(path.resolve('server/lib/sff.cjs'))` ——
+那是**相对当前工作目录**的，`path.resolve` 拿 cwd 去找，换个目录跑就找不到。
+
+修法（照抄 `all` 模板的做法）：
+
+```js
+const { decodePng, quantize } = require('./sprite-pack.cjs');
+const { mergeSprites, ... } = require('./merge-sprite.cjs');
+// 找项目根（含 server/lib/sff.cjs 的目录）—— 模板可能放在任意层级
+function findProjectRoot(start) {
+  let d = start;
+  for (let i = 0; i < 12; i++) {
+    if (fs.existsSync(path.join(d, 'server', 'lib', 'sff.cjs'))) return d;
+    const up = path.dirname(d);
+    if (up === d) break;
+    d = up;
+  }
+  throw new Error('找不到项目根（含 server/lib/sff.cjs）');
+}
+const { loadSff, spriteRgba, readPaletteFile } = require(path.join(findProjectRoot(__dirname), 'server', 'lib', 'sff.cjs'));
+```
+
+改完后在 skill 目录里直接跑，产物与线上包**逐字节一致**：
+
+```
+f87148998b41ddf5815b8e3c6e728efa  SuWanqingKFM.sff   （模板产物 == 线上包）
+0f8216494b218886c9f411b5627d2025  SuWanqingKFM.air   （模板产物 == 线上包）
+```
+
+**教训**：模板脚本「写在 skill 目录里」和「能在这目录里跑起来」是两件事 ——
+`require` 的相对路径相对**脚本文件**，但 `path.resolve` 相对**工作目录**。
+凡是放进 skill 的脚本，都要实际跑一遍验证，不能只看代码。
 
 ## 关键设计点
 
