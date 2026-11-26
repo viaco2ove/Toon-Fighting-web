@@ -48,6 +48,11 @@ public class McpPlugin extends Plugin {
     private ConnApi connApi;
     private AvatarApi avatarApi;
 
+    /** 供 McpExecutor 原生直写会话绑定用（构造互相依赖：connApi 需要 executor，走 getter 拿）。 */
+    ConnApi connApi() {
+        return connApi;
+    }
+
     @Override
     public void load() {
         config = new McpConfig(getContext());

@@ -1965,7 +1965,7 @@
 
   async function connApi(path, opt) {
     try {
-      const r = await fetch(path, Object.assign({ signal: AbortSignal.timeout(8000) }, opt || {}));
+      const r = await fetch(path, Object.assign({ signal: AbortSignal.timeout(IS_NATIVE ? 15000 : 8000) }, opt || {}));
       return await r.json();
     } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
   }
@@ -1990,7 +1990,10 @@
       const hint = IS_NATIVE
         ? '（在设置 → 账号与服务器 里配置后端地址；不配置也能离线游玩全部模式）'
         : '（用 node serve.cjs --conn 启动后刷新）';
-      storyStatusEl.textContent = '联动离线' + (r && r.error ? '：' + r.error : '') + hint;
+      // 带上实际使用的后端地址：输入框显示值 ≠ 生效值时（存的是另一个地址），
+      // 不然「signal timed out」根本猜不到在连谁（2026-11-27 实踩）
+      storyStatusEl.textContent = '联动离线' + (r && r.error ? '：' + r.error : '')
+        + (r && r.backendUrl ? ' · 正在连接 ' + r.backendUrl : '') + hint;
       storyStatusEl.className = 'hint err';
     }
     return CONN.on;
@@ -2785,9 +2788,22 @@
   function savedServer() {
     try { return localStorage.getItem(SERVER_KEY) || ''; } catch { return ''; }
   }
-  function syncAccountControls() {
+  async function syncAccountControls() {
     const srv = document.getElementById('st-server');
-    if (srv) srv.value = savedServer();
+    const plug = MCP_PLUG();
+    if (srv) {
+      // 原生环境：真正生效的是原生 McpConfig 里的 backendUrl（ConnApi/登录都读它），
+      // 输入框必须回填它而不是 localStorage —— 否则显示值 ≠ 生效值，用户改了输入框
+      // 点测试还是拿旧地址测（2026-11-27 实踩：输入框 127.0.0.1、实际连的 10.10.4.148）
+      if (plug && IS_NATIVE) {
+        try {
+          const s = await plug.getStatus();
+          srv.value = (s && s.backendUrl) || savedServer();
+        } catch (e) { srv.value = savedServer(); }
+      } else {
+        srv.value = savedServer();
+      }
+    }
     const st = document.getElementById('st-server-state');
     if (!st) return;
     if (CONN.on) {
@@ -2799,10 +2815,26 @@
     }
     document.getElementById('st-auth-msg').textContent = '';
   }
-  document.getElementById('st-server-save').addEventListener('click', () => {
+  document.getElementById('st-server-save').addEventListener('click', async () => {
     const v = document.getElementById('st-server').value.trim();
-    try { v ? localStorage.setItem(SERVER_KEY, v) : localStorage.removeItem(SERVER_KEY); } catch { /* 私密模式 */ }
     const st = document.getElementById('st-server-state');
+    const plug = MCP_PLUG();
+    if (plug && IS_NATIVE) {
+      if (!v) { st.className = 'connstate err'; st.textContent = '手机版必须填写后端地址（如 http://127.0.0.1:60002）'; return; }
+      st.className = 'connstate idle';
+      st.textContent = '保存中…';
+      try {
+        await plug.setBackendUrl({ backendUrl: v });
+        try { localStorage.setItem(SERVER_KEY, v); } catch (e) { /* 私密模式 */ }
+        st.className = 'connstate ok';
+        st.textContent = '已保存到本机：' + v;
+      } catch (e) {
+        st.className = 'connstate err';
+        st.textContent = '保存失败：' + String((e && e.message) || e);
+      }
+      return;
+    }
+    try { v ? localStorage.setItem(SERVER_KEY, v) : localStorage.removeItem(SERVER_KEY); } catch { /* 私密模式 */ }
     st.className = 'connstate ok';
     st.textContent = '已保存：' + (v || '（默认）');
   });
@@ -2810,8 +2842,17 @@
     const st = document.getElementById('st-server-state');
     st.className = 'connstate idle';
     st.textContent = '测试中…';
+    // 原生环境：先落输入框当前值再测 —— 测试的必须是用户看到的地址，
+    // 不是上次保存的（否则「改完直接测」永远测旧地址，误导排查方向）
+    const plug = MCP_PLUG();
+    const v = document.getElementById('st-server').value.trim();
+    if (plug && IS_NATIVE && v) {
+      try { await plug.setBackendUrl({ backendUrl: v }); } catch (e) { /* 测试仍按已存值 */ }
+    }
     const ok = await probeConn();
-    syncAccountControls();
+    // 必须等回填完成再写错误文案 —— syncAccountControls 现在是 async（原生
+    // 环境要拉 getStatus），不 await 的话它的「未连接」闲态文案会异步覆盖掉错误详情
+    await syncAccountControls();
     if (!ok) { st.className = 'connstate err'; st.textContent = '连不上后端：' + (storyStatusEl.textContent || '未知错误'); }
   });
   for (const [btnId, mode] of [['st-tab-login', 'login'], ['st-tab-register', 'register']]) {

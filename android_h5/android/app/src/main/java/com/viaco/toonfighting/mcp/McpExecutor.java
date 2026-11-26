@@ -164,15 +164,72 @@ public class McpExecutor {
         String sid = McpJson.str(args, "sessionId", "");
         if (sid.isEmpty()) return McpJson.toolResult("缺少参数 sessionId", true);
         String packId = McpJson.str(args, "packId", "");
-        Object r = callGame("bindSession", "[" + jsStr(sid) + "," + jsStr(packId) + "]");
-        JSONObject o = asObject(r);
-        if (o == null) return McpJson.toolResult("绑定失败：游戏未响应", true);
-        if (!o.optBoolean("ok", false)) {
-            return McpJson.toolResult("绑定失败：" + o.optString("error", "未知原因"), true);
+        if (packId.isEmpty()) packId = config.getBoundPackId();   // 省略 = 沿用当前资产集
+        if (packId.isEmpty()) return McpJson.toolResult("缺少 packId 且当前没有已选资产集（先调 select_asset_pack）", true);
+        ConnApi conn = plugin.connApi();
+
+        // ① 会话存在性 + 故事名 / 世界 id —— 原生直查后端，不依赖 webview 是否就绪
+        String title = null;
+        try {
+            org.json.JSONArray list = conn.sessionList();
+            for (int i = 0; i < list.length(); i++) {
+                JSONObject s = list.optJSONObject(i);
+                if (s != null && sid.equals(s.optString("sessionId", s.optString("id", "")))) {
+                    title = s.optString("title", s.optString("name", ""));
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "查会话列表失败", e);
         }
-        config.setBoundSessionId(o.optString("sessionId", sid));
-        config.setBoundPackId(o.optString("packId", ""));
-        return McpJson.toolResult(o.toString(), false);
+        if (title == null) return McpJson.toolResult("没有这个会话：" + sid, true);
+        long worldId = 0;
+        try {
+            JSONObject meta = conn.sessionMeta(sid);
+            worldId = meta == null ? 0 : meta.optLong("worldId", 0);
+        } catch (Exception e) {
+            Log.w(TAG, "getSessionMeta 失败", e);
+        }
+
+        // ② 绑定主体：原生直接写会话插件数据 + 本机配置。
+        //    此前整条链走 webview 桥（bindSession → usePack + pickSession）——
+        //    冷启动 + 大包挂载 + 引擎加载 wasm 时经常超过 90s 轮询预算，
+        //    实测「服务端绑定已写成功」却报「绑定失败：游戏未响应」（2026-11-27）。
+        JSONObject bind = new JSONObject()
+                .put("storyName", title)
+                .put("sessionId", sid)
+                .put("worldId", worldId)
+                .put("packId", packId);
+        try {
+            conn.putSessionData(sid, "tf_fight_bind", bind);
+        } catch (Exception e) {
+            return McpJson.toolResult("绑定失败：写会话数据出错："
+                    + (e.getMessage() == null ? e.toString() : e.getMessage()), true);
+        }
+        config.setBoundSessionId(sid);
+        config.setBoundPackId(packId);
+
+        // ③ best-effort 通知页面同步界面状态（短预算 15s；冷启动拿不到就算了 ——
+        //    绑定本体已落库，下次打开故事面板/重启自动恢复）。页面自己的
+        //    bindSession 也写同一份数据，与原生写库重复执行幂等。
+        String note = "";
+        try {
+            Object r = callGame("bindSession", "[" + jsStr(sid) + "," + jsStr(packId) + "]", 15_000);
+            JSONObject o = asObject(r);
+            if (o == null) note = "；页面未就绪，界面状态稍后自动同步";
+            else if (!o.optBoolean("ok", false)) note = "；界面状态同步失败：" + o.optString("error", "?");
+        } catch (Exception e) {
+            note = "；界面状态同步异常：" + (e.getMessage() == null ? e.toString() : e.getMessage());
+        }
+
+        JSONObject out = new JSONObject();
+        out.put("ok", true);
+        out.put("sessionId", sid);
+        out.put("storyName", title);
+        out.put("worldId", worldId);
+        out.put("packId", packId);
+        if (!note.isEmpty()) out.put("note", note.substring(1));   // 去掉开头的「；」
+        return McpJson.toolResult(out.toString(), false);
     }
 
     private JSONObject doCurrentStory() throws Exception {
@@ -320,6 +377,10 @@ public class McpExecutor {
      * @return 结果对象（JSON 文本）；超时/异常返回 null
      */
     private Object callGame(String fn, String argsJson) throws Exception {
+        return callGame(fn, argsJson, 90_000);
+    }
+
+    private Object callGame(String fn, String argsJson, long budgetMs) throws Exception {
         String id = "cb" + System.nanoTime();
         JSONObject req = new JSONObject();
         req.put("id", id);
@@ -333,11 +394,10 @@ public class McpExecutor {
             return null;
         }
 
-        // ② 轮询结果 —— **总预算 90s**（不是每步 90s）。bindSession 要拉
-        //    故事角色+头像再写会话绑定，实测会超过旧的 20s 预算；超时会
-        //    导致操作其实做完了但工具报「游戏未响应」、原生状态也没回写。
-        //    单次 eval 仍有 10s 上限，90s 总限可控。
-        long deadline = System.currentTimeMillis() + 90_000;
+        // ② 轮询结果 —— **总预算 budgetMs**（不是每步 90s）。多数工具 90s 足够；
+        //    best-effort 的界面通知用短预算（15s），别让冷启动把工具拖住。
+        //    单次 eval 仍有 10s 上限，总限可控。
+        long deadline = System.currentTimeMillis() + budgetMs;
         while (System.currentTimeMillis() < deadline) {
             Thread.sleep(200);
             String v = evalRaw("window.__tfMcpResults['" + id + "']");
@@ -346,7 +406,9 @@ public class McpExecutor {
                 return parseEvalResult(v);
             }
         }
-        Log.w(TAG, "callGame 超时：" + fn);
+        // 超时：把没被消费的结果位清掉（页面稍后落地也没人读，留着会堆积）
+        evalRaw("(function(){delete window.__tfMcpResults['" + id + "']})()");
+        Log.w(TAG, "callGame 超时（预算 " + budgetMs + "ms）：" + fn);
         return null;
     }
 

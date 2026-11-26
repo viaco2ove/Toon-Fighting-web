@@ -117,6 +117,10 @@ public class ConnApi {
         o.put("connected", connected);
         o.put("backendVersion", version);
         o.put("sessions", sessions);
+        // 带回实际使用的后端地址：前端把它显示在报错里，避免「输入框是 A、
+        // 实际连的是 B」时无从排查（2026-11-27 实踩）
+        String u = config.getBackendUrl();
+        o.put("backendUrl", u == null ? JSONObject.NULL : u);
         String name = tokenUserName();
         o.put("user", name == null ? JSONObject.NULL : new JSONObject().put("name", name));
         o.put("viaSession", false);
@@ -142,6 +146,31 @@ public class ConnApi {
         sessionsCache = o.toString();
         sessionsCacheAt = now;
         return McpHttpServer.Response.json(sessionsCache);
+    }
+
+    /** 会话列表（带 60s 缓存；bind_story_session 校验会话存在 + 取故事名用）。 */
+    public org.json.JSONArray sessionList() throws Exception {
+        if (sessionsCache == null || System.currentTimeMillis() - sessionsCacheAt >= SESSIONS_TTL) {
+            sessions();
+        }
+        JSONObject o = new JSONObject(sessionsCache == null ? "{}" : sessionsCache);
+        org.json.JSONArray a = o.optJSONArray("sessions");
+        return a == null ? new org.json.JSONArray() : a;
+    }
+
+    /** 会话元数据（getSessionMeta）—— bind 取 worldId 用。bf 失败抛异常，调用方自己兜。 */
+    public JSONObject sessionMeta(String sid) throws Exception {
+        return bf("/game/getSessionMeta", new JSONObject().put("sessionId", sid), true, "POST");
+    }
+
+    /** 写会话插件数据（op=set）。bf 失败抛异常，调用方自己兜。 */
+    public JSONObject putSessionData(String sid, String key, Object value) throws Exception {
+        return bf("/plugin/data", new JSONObject()
+                .put("sessionId", sid)
+                .put("pluginId", PLUGIN_ID)
+                .put("op", "set")
+                .put("dataKey", key)
+                .put("value", value), true, "POST");
     }
 
     // ------------------------------------------------------------ roles
@@ -344,7 +373,10 @@ public class ConnApi {
         while (b.endsWith("/")) b = b.substring(0, b.length() - 1);
         HttpURLConnection conn = (HttpURLConnection) new URL(b + pathname).openConnection();
         conn.setRequestMethod(method);
-        conn.setConnectTimeout(8000);
+        // 连接超时 5s：必须短于 webview 侧 fetch 的 AbortSignal（原生 15s），
+        // 否则 JS 先报笼统的「signal timed out」，Java 侧精确的
+        // refused / connect timed out 就传不回界面了
+        conn.setConnectTimeout(5000);
         conn.setReadTimeout(20000);
         conn.setRequestProperty("Accept", "application/json");
         if (auth) {
