@@ -91,7 +91,9 @@ public class McpHttpServer {
         public static Response notFound() {
             Response r = new Response();
             r.status = 404;
-            return json("{\"ok\":false,\"error\":\"not found\"}");
+            // 不能调 json()：那会 new 一个新 Response（status 回到 200）
+            r.body = "{\"ok\":false,\"error\":\"not found\"}".getBytes(StandardCharsets.UTF_8);
+            return r;
         }
     }
 

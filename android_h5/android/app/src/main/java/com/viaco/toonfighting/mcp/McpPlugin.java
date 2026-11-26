@@ -46,6 +46,7 @@ public class McpPlugin extends Plugin {
     private PackStore packStore;
     private PackApi packApi;
     private ConnApi connApi;
+    private AvatarApi avatarApi;
 
     @Override
     public void load() {
@@ -54,6 +55,7 @@ public class McpPlugin extends Plugin {
         packApi = new PackApi(packStore);
         executor = new McpExecutor(this, config, packStore);
         connApi = new ConnApi(config, executor);
+        avatarApi = new AvatarApi(config, packStore);
         startServerIfEnabled();
     }
 
@@ -135,6 +137,9 @@ public class McpPlugin extends Plugin {
         // 故事联动 API（APK 内 webview 用的）：/api/conn/*
         McpHttpServer.Response connResp = connApi.handle(req);
         if (connResp != null) return connResp;
+        // 图片接口：/api/role-avatar、/api/portrait、/api/pose（PC 端 serve.cjs 同名接口的手机版）
+        McpHttpServer.Response avResp = avatarApi.handle(req);
+        if (avResp != null) return avResp;
         // 资产集 API（APK 内 webview 用的）：/api/assetpacks、/api/packs/:dir/*、/packs/:dir/*
         McpHttpServer.Response apiResp = packApi.handle(req);
         if (apiResp != null) return apiResp;

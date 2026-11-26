@@ -18,6 +18,9 @@
         <item name="android:statusBarColor">#07080b</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">#07080b</item>
+        <!-- Android 15+ 强制 edge-to-edge，statusBarColor 失效，
+             系统栏背后露出的是 windowBackground —— 必须也是深色，否则状态栏/挖孔留白区是白的 -->
+        <item name="android:windowBackground">#07080b</item>
     </style>
 
 
@@ -26,5 +29,6 @@
         <item name="android:statusBarColor">#07080b</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">#07080b</item>
+        <item name="android:windowBackground">#07080b</item>
     </style>
 </resources>

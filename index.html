@@ -1328,6 +1328,38 @@
     return '/api/role-avatar/' + role.avatarPath.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/')
       + '?v=' + AVATAR_VER;
   }
+  // 原生环境（APK）里 img 标签的相对 src 不会经过上面的 fetch 劫持，
+  // 直接打到 Capacitor 内置 server 必然 404 → 所有头像退化成文字占位。
+  // 统一先 fetch（走劫持 → 原生 7073）拿 blob 再赋给 img.src；PC 浏览器直通。
+  const IS_NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const IMG_OBJ_URLS = new Map();
+  async function resolveImgSrc(src) {
+    if (!src || !IS_NATIVE || !/^(?:\.\/|\/)?(?:api\/|packs\/)/.test(src)) return src;
+    let u = IMG_OBJ_URLS.get(src);
+    if (u) return u;
+    try {
+      const r = await fetch(src);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      u = URL.createObjectURL(await r.blob());
+      IMG_OBJ_URLS.set(src, u);
+      return u;
+    } catch (e) { return src; }
+  }
+  // 把容器里所有带 data-src 的 img 异步装上真图（innerHTML 模板用）
+  async function fillImgs(root) {
+    if (!root) return;
+    if (!IS_NATIVE) {   // PC：同源直连，直接装 src
+      for (const img of root.querySelectorAll('img[data-src]')) {
+        img.src = img.getAttribute('data-src');
+      }
+      return;
+    }
+    for (const img of root.querySelectorAll('img[data-src]')) {
+      const real = await resolveImgSrc(img.getAttribute('data-src'));
+      if (img.isConnected) img.src = real;
+    }
+  }
+
   // 生成一个头像节点（img 或首字），onerror 时自动退回文字
   function avatarNode(src, fallbackText, cls) {
     const box = document.createElement('div');
@@ -1335,8 +1367,8 @@
     box.textContent = fallbackText || '?';
     if (src) {
       const img = document.createElement('img');
-      img.src = src;
       img.alt = '';
+      resolveImgSrc(src).then((s) => { img.src = s; });
       img.addEventListener('load', () => { box.textContent = ''; box.appendChild(img); });
       img.addEventListener('error', () => { /* 保留文字首字 */ });
     }
@@ -3122,11 +3154,15 @@
     let i = 0;
     img.onerror = () => {
       i += 1;
-      if (i < sources.length) img.src = sources[i];
+      if (i < sources.length) apply(i);
       else { img.onerror = null; img.style.display = 'none'; }
     };
     img.style.display = '';
-    img.src = sources[0];
+    const apply = async (idx) => {
+      const s = await resolveImgSrc(sources[idx]);
+      if (img.isConnected) img.src = s;
+    };
+    apply(0);
   }
 
   /* ---------- MUGEN 角色动态效果（/api/anim：AIR 动作 0 的帧序列） ---------- */
@@ -3490,7 +3526,7 @@
       const e = poolByKey(arr.slice(0, teamSize).find(Boolean));
       const lineup = arr.slice(0, teamSize).map((k) => {
         const x = poolByKey(k);
-        return x ? '<img src="' + esc(x.ava || faceUrlFor(x)) + '" alt="" onerror="this.style.display=\'none\'">' : '';
+        return x ? '<img data-src="' + esc(x.ava || faceUrlFor(x)) + '" alt="" onerror="this.style.display=\'none\'">' : '';
       }).join('');
       if (!e) {
         return '<span class="role" style="color:#5a6478">' +
@@ -3502,6 +3538,8 @@
     };
     document.getElementById('bar1').innerHTML = bar(1);
     document.getElementById('bar2').innerHTML = bar(2);
+    fillImgs(document.getElementById('bar1'));
+    fillImgs(document.getElementById('bar2'));
 
     // 阶段条 / 【确定队员】/ 面板锁定（两段式：《选人.md》先我方→确定→再对方→开始）
     const pb = document.getElementById('phasebar');
@@ -3955,10 +3993,10 @@
     const roleMeta = c ? (CONN.storyRoles.find((r) => r.name === c.name) || c) : null;
     const src = rolePortraitUrl(roleMeta) || mugPortraitUrl(charId);
     const avatar = esc(c ? c.name.slice(0, 1) : m.glyph) +
-      '<img src="' + src + '" alt="" onerror="this.remove()">';
+      '<img data-src="' + esc(src) + '" alt="" onerror="this.remove()">';
     return {
       glyph: avatar,
-      muglyph: esc(m.glyph) + '<img src="' + mugPortraitUrl(charId) + '" alt="" onerror="this.remove()">',
+      muglyph: esc(m.glyph) + '<img data-src="' + esc(mugPortraitUrl(charId)) + '" alt="" onerror="this.remove()">',
       name: c ? c.name : (m.cn || charId),
       job: c && c.profession ? c.profession : (m.tag || ''),
       ent: (side === 'p1' ? 'P1' : 'P2') + ' · ' + (charId || '?') + (m.cn ? '（' + m.cn + '）' : ''),
@@ -3976,6 +4014,7 @@
       (f.rec ? '<div class="rec">' + esc(f.rec) + '</div>' : '') +
       '</div>';
     facebarEl.innerHTML = mk(a, 'p1') + mk(b, 'p2');
+    fillImgs(facebarEl);
     facebarEl.classList.add('on');
   }
   function showResult(msg, winnerSide) {
@@ -4151,7 +4190,8 @@
       pic.textContent = name.slice(0, 1);
       if (src) {
         const img = document.createElement('img');
-        img.src = src; img.alt = '';
+        img.alt = '';
+        resolveImgSrc(src).then((s) => { img.src = s; });
         img.addEventListener('load', () => { pic.textContent = ''; pic.appendChild(img); });
       }
       wrap.appendChild(pic);
