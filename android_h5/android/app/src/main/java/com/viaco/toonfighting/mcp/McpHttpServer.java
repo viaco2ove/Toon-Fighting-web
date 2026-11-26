@@ -120,7 +120,11 @@ public class McpHttpServer {
             return;
         }
         running = true;
-        pool = Executors.newFixedThreadPool(8);
+        // CachedThreadPool：**每连接一线程，不设上限**。不能换成固定池 ——
+        // MCP 的 callGame 占一个线程等 webview 的 JS 结果，而 JS 侧的
+        // fetch（/api/assetpacks 等）会**回环打到本服务器**；固定池被占满时
+        // 两者互相等待 → 整个服务挂死（2026-11-26 实测）。
+        pool = Executors.newCachedThreadPool();
         acceptThread = new Thread(new Runnable() {
             @Override
             public void run() {
