@@ -13,10 +13,18 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- WebView 已由 adjustMarginsForEdgeToEdge=force 避开状态栏；
+             状态栏自身涂成页面底色、图标用白色，避免亮色主题的黑字看不清 -->
+        <item name="android:statusBarColor">#07080b</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">#07080b</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <item name="android:statusBarColor">#07080b</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">#07080b</item>
     </style>
 </resources>

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Toon Fighting — 网页格斗 Demo</title>
 <style>
   :root{
@@ -43,11 +43,17 @@
   #boot .err{color:#ff7b72;max-width:min(560px,72vw);text-align:center;white-space:pre-wrap;font-size:13px}
 
   /* ---------- 主界面（原型 home.html 同款：stage 760 + brand 行 + 三卡 + 一行四钮） ---------- */
+  /* 小屏：内容超高时必须能滚。flex-start + stage 的 margin:auto 做到
+     「内容少时垂直居中、内容多时从顶部开始且一路滚到底」；
+     旧的 center + 无 overflow 会把首尾裁掉且完全滚不动。
+     env() 兜底浏览器/刘海屏；APK 内 WebView 已由原生避开状态栏，这里读到 0。 */
   #home{position:fixed;inset:0;z-index:40;display:none;
-    align-items:center;justify-content:center;padding:32px;
+    align-items:flex-start;justify-content:center;
+    padding:calc(32px + env(safe-area-inset-top,0px)) 32px calc(32px + env(safe-area-inset-bottom,0px));
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
     background:radial-gradient(1100px 640px at 75% -12%,#101a2a 0%,#07080b 62%)}
   #home.on{display:flex}
-  #home .stage{width:min(760px,100%)}
+  #home .stage{width:min(760px,100%);margin:auto 0}
   #home .brand{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:26px}
   #home .brand h1{font-size:22px;font-weight:900;letter-spacing:.34em}
   #home .brand h1 i{font-style:normal;color:var(--gold)}

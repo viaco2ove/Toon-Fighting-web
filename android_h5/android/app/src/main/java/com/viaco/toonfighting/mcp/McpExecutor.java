@@ -333,9 +333,11 @@ public class McpExecutor {
             return null;
         }
 
-        // ② 轮询结果 —— **总预算 20s**（不是每步 20s）。页面忙时单次 eval
-        //    可能阻塞很久，不设总限的话最坏 100 次 × 10s ≈ 17 分钟。
-        long deadline = System.currentTimeMillis() + 20_000;
+        // ② 轮询结果 —— **总预算 90s**（不是每步 90s）。bindSession 要拉
+        //    故事角色+头像再写会话绑定，实测会超过旧的 20s 预算；超时会
+        //    导致操作其实做完了但工具报「游戏未响应」、原生状态也没回写。
+        //    单次 eval 仍有 10s 上限，90s 总限可控。
+        long deadline = System.currentTimeMillis() + 90_000;
         while (System.currentTimeMillis() < deadline) {
             Thread.sleep(200);
             String v = evalRaw("window.__tfMcpResults['" + id + "']");

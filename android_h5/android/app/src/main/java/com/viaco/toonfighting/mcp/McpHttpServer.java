@@ -221,7 +221,9 @@ public class McpHttpServer {
             head.append("Content-Length: ").append(resp.body.length).append("\r\n");
             head.append("Access-Control-Allow-Origin: *\r\n");
             head.append("Access-Control-Allow-Headers: Content-Type, Authorization, Mcp-Session-Id\r\n");
-            head.append("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS\r\n");
+            // PUT 必须放行：故事绑定要写会话的 tf_fight_bind，
+            // webview 的 fetch 用 PUT，少一项就会被 CORS 预检拦下来。
+            head.append("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n");
             head.append("Connection: close\r\n\r\n");
             out.write(head.toString().getBytes(StandardCharsets.UTF_8));
             out.write(resp.body);
