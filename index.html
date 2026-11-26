@@ -165,7 +165,7 @@
   #select .slot .th{width:100%;height:clamp(54px,6.2vw,86px);border-radius:5px;overflow:hidden;display:flex;align-items:center;justify-content:center;
     background:repeating-linear-gradient(45deg,rgba(255,255,255,.06) 0 6px,rgba(0,0,0,.18) 6px 12px);border:1px solid rgba(255,255,255,.28);
     font-weight:900;color:rgba(255,255,255,.4)}
-  #select .slot .th img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+  #select .slot .th img{width:auto;height:100%;object-fit:cover;object-position:top center;display:block}
   #select .slot .lb{font-size:9px;color:#ffe9e0;letter-spacing:.04em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #select .slot .od{position:absolute;top:-6px;left:-4px;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:8px;
     font-size:9.5px;font-weight:900;color:#241a06;background:linear-gradient(180deg,#ffe08a,#e2a308);box-shadow:0 2px 6px rgba(0,0,0,.45);z-index:2}
@@ -319,7 +319,7 @@
     #sel-title{font-size:30px}
     #select .stage{left:10px;right:10px;top:72px;bottom:122px;gap:10px;
       grid-template-columns:clamp(140px,25%,200px) minmax(0,1fr) clamp(120px,22%,180px)}
-    #select .panel .title{font-size:9px}
+    #select .panel .title{font-size:0.6vw}
     #select .panel.p1 .phead{padding-right:22px}
     #select .panel.p2 .phead{padding-left:22px}
     #select .plate .nm{font-size:clamp(18px,2.6vw,26px)}
@@ -608,41 +608,46 @@
      行1 = P1/P2 面板并排（两段式本来就只有一侧激活），行2 = 中栏名单通栏滚动。 */
   @media (max-width:560px){
     #sel-title{font-size:20px}
-    #select .stage{left:8px;right:8px;top:60px;bottom:132px;gap:8px;
+    #select .stage{left:8px;right:8px;top:54px;bottom:120px;gap:8px;
       grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr)}
     #select .panel.p1{grid-column:1;grid-row:1}
     #select .panel.p2{grid-column:2;grid-row:1}
     #select .mid{grid-column:1/-1;grid-row:2;min-height:0}
-    /* 面板压扁：出场位一行小瓦片，大头像定高（auto 行内 flex:1 会塌成 0） */
-    #select .panel .phead{padding:6px 9px 3px}
+    /* 面板压扁：出场位一行小瓦片，大头像定高（auto 行内 flex:1 会塌成 0）。
+       2026-11-27 二轮压扁：目标名单 ≥2 行完整可见（之前只有 1.5 行）——
+       meta 整行藏掉（plate 上已有同名信息）、portrait 120→100、phead/slots 压矮 */
+    #select .panel .phead{padding:3px 9px 2px}
     #select .panel.p1 .phead{padding-right:14px}
     #select .panel.p2 .phead{padding-left:14px}
-    #select .slots{padding:0 8px 5px}
+    #select .slots{padding:0 8px 4px}
     #select .panel.p2 .slots{padding-left:12px}
-    #select .slot .th{height:34px}
-    #select .portrait{flex:none;height:120px;margin:0 7px}
-    #select .plate{padding:4px 8px 6px}
-    #select .plate .nm{font-size:15px}
-    #select .meta{padding:5px 8px 6px;font-size:9.5px;gap:3px}
-    #select .meta .row:nth-child(2){display:none}
+    #select .slot .th{height:28px}
+    #select .portrait{flex:none;height:100px;margin:0 7px}
+    #select .plate{padding:3px 8px 5px}
+    #select .plate .nm{font-size:14px}
+    #select .panel .meta{display:none}
     #select .panel.p2.sysrand .surnote{font-size:8.5px;padding:0 8px 6px}
     /* 中栏：立绘压矮、名单区自身滚动，塞进剩余高度。
        grid-auto-rows：手机浏览器（含安卓 WebView）里，「flex:1 受限高度 + overflow-y:auto」的
        auto 行 grid 会出现卡片内容不贡献行高的 Blink quirk（卡片塌成 border+padding 的细条，
        2026-11-26 一加6 横屏实测），必须显式给行高 minmax 才能正常显示 —— 2026-11-26 修 */
     #select .mid .hlab{display:none}
-    #select .mugfig{height:40px}
-    #select .minfo{gap:6px;padding:3px 8px 0;font-size:10.5px}
-    #select .minfo .tfname{font-size:12px}
-    .listrow{height:22px;gap:6px}
+    #select .mugfig{height:26px}
+    /* minfo 压成单行：实体 id（plate 上已有）藏掉，防窄屏折两行 */
+    #select .minfo{gap:4px;padding:2px 7px 0;font-size:9.5px;white-space:nowrap;overflow:hidden}
+    #select .minfo .tfname{font-size:11px}
+    #select .minfo .ent{display:none}
+    .listrow{height:20px;gap:6px}
+    .phasebar{height:16px;font-size:8.5px;gap:4px}
+    .phasebar span{padding:0 4px;height:14px}
     .rozlist{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;padding-bottom:4px;grid-auto-rows:minmax(62px,auto)}
     #select .rozlist .k .fig{height:24px}
     #select .rozlist .k .sub{display:none}
     #select .foot{left:8px;right:8px;bottom:8px}
-    .namebar{flex:1 1 100%;padding:5px 9px}
+    .namebar{flex:1 1 100%;padding:4px 9px}
     .namebar .ent{display:none}
-    #btn-fight{padding:7px 18px;font-size:12.5px;letter-spacing:.14em;text-indent:.14em}
-    #pad.selmode{bottom:118px}
+    #btn-fight{padding:6px 18px;font-size:12.5px;letter-spacing:.14em;text-indent:.14em}
+    #pad.selmode{bottom:106px}
     /* 手柄再缩一档：412px 宽内摇杆与六键互不重叠 */
     #pad .joy{transform:scale(.72)}
     #pad .bt{transform:scale(.72);right:6px}
@@ -709,6 +714,53 @@
     #facebar .nm i{font-size:8px}
     #facebar .rec{display:none}
     #headav .ha .pic{width:36px;height:36px;font-size:13px}
+  }
+
+  /* ---------- 超矮横屏（一加6 真机实测 751×307，横屏档之下再压一档） ----------
+     307px 高按横屏档的预留（top52 + bottom104 + 中栏家具 ~114）算下来名单只剩 37px
+     —— 一行都放不下，「选人连列表都看不见」（2026-11-27 实机截图证实，矩阵 gridH:0）。
+     原则：这个高度下「看见可选的人」优先 —— 名单保底 3 行，面板实体保留（面板里
+     本来就有同款动画），中栏立绘区藏掉、标题藏掉、底部名字条压扁。 */
+  @media (max-width:920px) and (max-height:380px){
+    /* 头部：大标题藏掉，菜单/模式 chips 收成一行贴顶，stage 预留 52→36 */
+    #sel-title{display:none}
+    #menuwrap .menubtn{padding:3px 10px;font-size:10px}
+    .topbar{top:7px;left:112px;right:10px;gap:5px}
+    .topbar .tb{padding:3px 10px;font-size:10px}
+    #select .stage{top:36px;bottom:50px;left:6px;right:6px;gap:6px;
+      grid-template-columns:clamp(128px,21%,156px) minmax(0,1fr) clamp(104px,17%,132px)}
+    /* 左右面板：出场位/确定/实体区（min-height 保底）/meta 全保留 */
+    #select .panel .phead{padding:2px 7px 1px;font-size:8.5px}
+    #select .slots{padding:0 6px 2px;gap:4px}
+    #select .slot .th{height:22px}
+    #select .portrait{flex:1 1 auto;min-height:92px;margin:0 5px}
+    #select .plate{padding:2px 6px 3px}
+    #select .plate .nm{font-size:12px}
+    #select .plate .job{font-size:8px;padding:1px 6px}
+    #select .meta{padding:2px 6px 3px;font-size:8.5px;gap:1px}
+    .okbtn{width:calc(100% - 12px);margin:0 6px 3px;height:18px;font-size:9px}
+    /* 中栏：立绘区藏掉（左右面板已有同款实体动画），信息压一行，名单 ≥3 行 */
+    #select .mugfig{display:none}
+    #select .minfo{padding:1px 6px 0;font-size:9px;gap:5px}
+    #select .minfo .tfname{font-size:10px}
+    .listrow{height:16px;gap:5px}
+    .qbtn{padding:0 5px;font-size:9px}
+    .phasebar{height:14px;font-size:8px;gap:3px}
+    .phasebar span{padding:0 3px;height:12px}
+    .rozlist{flex:1 1 auto;min-height:96px;overflow-y:auto;align-content:start;gap:3px;grid-auto-rows:minmax(44px,auto)}
+    #select .rozlist .k{padding:2px 4px 3px;gap:4px}
+    #select .rozlist .k .fig{height:18px}
+    #select .rozlist .k .nm{font-size:8.5px;margin-top:1px}
+    /* 底部：名字条压扁、开始钮缩小，stage 预留 104→50；手柄贴底（面板可能被
+       摇杆压到一角 —— 手柄可收，列表可见是刚需） */
+    #select .foot{left:6px;right:6px;bottom:4px;height:42px;gap:4px}
+    .namebar{padding:3px 8px;gap:6px}
+    .namebar .role{font-size:11px}
+    #btn-fight{padding:5px 14px;font-size:11px}
+    #pad.selmode{bottom:28px}
+    #pad .joy{transform:scale(.6)}
+    #pad .bt{transform:scale(.55);right:4px}
+    #pad .stbtn{transform:translateX(-50%) scale(.55);bottom:8px}
   }
 
   /* ---------- 系统设置 ---------- */
