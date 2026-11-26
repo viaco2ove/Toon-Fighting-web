@@ -1301,6 +1301,7 @@
   } catch (e) { /* 非原生环境 */ }
 })();
 </script>
+<script src="./ff-decode.js"></script>
 <script src="./vfs.js"></script>
 <script src="./wasm_exec.js"></script>
 <script>
@@ -1362,7 +1363,40 @@
       u = URL.createObjectURL(await r.blob());
       IMG_OBJ_URLS.set(src, u);
       return u;
-    } catch (e) { return src; }
+    } catch (e) {
+      // 原生服务解不出（包里没有 avatar/*.png、PC 端 serve.cjs 不在线）→
+      // webview 本地解码兜底：ff-decode.js 直接解角色包 SFF 出头像/立绘，不依赖 PC。
+      u = await ffDecodeImg(src);
+      if (u) IMG_OBJ_URLS.set(src, u);
+      return u || src;
+    }
+  }
+  // 从 /api/portrait|/api/pose 的 URL 反解 (pack, charId)，离线解码。
+  // pose = 站立动画第一帧，解不出再退 9000,0 头像（口径同 serve.cjs /api/pose）。
+  async function ffDecodeImg(src) {
+    if (!window.FFDecode) return null;
+    const m = /^(?:\.\/|\/)?api\/(portrait|pose)\/([^/?]+)(?:\?(.*))?$/.exec(src);
+    if (!m) return null;
+    const charId = decodeURIComponent(m[2]);
+    const pack = new URLSearchParams(m[3] || '').get('pack') || '';
+    try {
+      if (m[1] === 'pose') {
+        const a = await window.FFDecode.anim(pack, charId, 0);
+        if (a && a.ok && a.frames && a.frames.length) return 'data:image/png;base64,' + a.frames[0].png;
+      }
+      const r = await window.FFDecode.portrait(pack, charId);
+      return r && r.url;
+    } catch (e) { return null; }
+  }
+  // /api/anim 的离线兜底：PC 不在线时 webview 自己解 SFF+AIR 出帧序列。
+  // pack 取当前绑定资产集 —— 与上面「失败不缓存」的注释同理：pack 异步就绪后
+  // 重试时 packQuery 会带上，这里跟着取当前值即可。
+  async function ffDecodeAnim(charId) {
+    if (!IS_NATIVE || !window.FFDecode) return null;
+    try {
+      const a = await window.FFDecode.anim((PACKS.cur && PACKS.cur.dir) || '', charId, 0);
+      return a && a.ok && a.frames && a.frames.length ? a : null;
+    } catch (e) { return null; }
   }
   // 把容器里所有带 data-src 的 img 异步装上真图（innerHTML 模板用）
   async function fillImgs(root) {
@@ -3199,9 +3233,10 @@
           // 失败不缓存：手机上 pack 是异步就绪的（usePack 完成前 packQuery 为空，
           // 请求 404）——缓存了 null 的话，pack 挂载好后也不会重试，动画永远空白
           animCache.delete(charId);
-          return null;
+          // PC 端不在线（原生环境常态）→ webview 本地解码 SFF+AIR 兜底
+          return ffDecodeAnim(charId);
         })
-        .catch(() => { animCache.delete(charId); return null; });
+        .catch(() => { animCache.delete(charId); return ffDecodeAnim(charId); });
       animCache.set(charId, p);
     }
     return animCache.get(charId);
