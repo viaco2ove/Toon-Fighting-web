@@ -2594,7 +2594,9 @@
     // ② 没有声明匹配 → 尊重会话侧旧绑定（findPackById 兼容 dir/id/dirName 三种格式）
     // ③ 都没有 → 保持当前资产集不动，状态行如实展示
     if (PACKS.list.length) {
-      const storyPack = PACKS.list.find((p) => (p.stories || []).includes(CONN.storyName));
+      // stories 兜底：原生端旧 APK 只把 stories 放在 registry info 里
+      const packStories = (p) => Array.isArray(p.stories) ? p.stories : (p.info && Array.isArray(p.info.stories) ? p.info.stories : []);
+      const storyPack = PACKS.list.find((p) => packStories(p).includes(CONN.storyName));
       if (storyPack) {
         if (!PACKS.cur || PACKS.cur.dir !== storyPack.dir) await usePack(storyPack.dir);
         if (!PACKS.bound || PACKS.bound.packId !== storyPack.dir) await bindPackToSession(storyPack.dir);
@@ -4545,7 +4547,7 @@
     ctx.globalCompositeOperation = 'lighter';
     for (const p of SKFX.parts) {
       p.life -= dt;
-      if (p.update) { try { p.update(p, dt); } catch (e) { p.life = 0; } }
+      if (p.update) { try { p.update(p, dt); } catch (e) { p.life = 0; window.__skfxErr = window.__skfxErr || ('update:' + String(e && e.stack || e).slice(0, 300)); } }
       const a = Math.max(0, Math.min(1, p.life / p.max)) * (p.a || 1);
       if (a <= 0) continue;
       if (typeof p.r === 'number' && p.r < 0) p.r = 0;   // 负半径会让 arc/ellipse 抛异常
@@ -4672,6 +4674,35 @@
         ctx.globalAlpha = a * 0.9;
         ctx.strokeStyle = p.color; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.r * 0.72), 0, 7); ctx.stroke();
+        ctx.globalAlpha = a;
+      } else if (p.kind === 'orb2') {
+        // 属性球体 v2（2026-11-28 用户实报「球体不明显」）：外晕 + 旋转双环 + 大核心 + spell 法阵图标
+        // 图标走 field-survival 同款映射（images/spells/<系>/<招式>.png，26x26 放大到球径），
+        // 画图标时切回 source-over，避免 lighter 把半透明图标洗成白块。
+        const rr = Math.max(0.1, p.r);
+        const gw = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr * 2.1);
+        gw.addColorStop(0, p.color); gw.addColorStop(0.4, p.color); gw.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = a * 0.55;
+        ctx.fillStyle = gw;
+        ctx.beginPath(); ctx.arc(p.x, p.y, rr * 2.1, 0, 7); ctx.fill();
+        ctx.globalAlpha = a * 0.85;
+        ctx.strokeStyle = p.color; ctx.lineWidth = 2.5;
+        const ph = p.phase || 0;
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, rr * (1.16 + 0.12 * Math.sin(ph)), rr * 0.88, ph * 1.7, 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, rr * 0.88, rr * (1.16 + 0.12 * Math.cos(ph * 0.9)), -ph * 1.3, 0, 7); ctx.stroke();
+        const g2 = ctx.createRadialGradient(p.x - rr * 0.25, p.y - rr * 0.3, 1, p.x, p.y, rr);
+        g2.addColorStop(0, '#ffffff'); g2.addColorStop(0.55, p.color); g2.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = a;
+        ctx.fillStyle = g2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, 7); ctx.fill();
+        const im = p.iconImg;
+        if (im) {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = Math.min(1, a * 1.5);
+          const s = rr * 1.6;
+          try { ctx.drawImage(im, p.x - s / 2, p.y - s / 2, s, s); } catch (e) { /* 图标没就绪就只画球 */ }
+          ctx.globalCompositeOperation = 'lighter';
+        }
         ctx.globalAlpha = a;
       }
       if (p.kind !== 'mist') ctx.globalAlpha = 1;
@@ -5053,6 +5084,96 @@
     const s = classifyMove(mv);
     return s === 'cone' ? 'melee' : s;
   }
+  // ---- 属性球体 v2（真实飞行 + 逐帧碰撞判定）----
+  // spell 法阵图标：field-survival 同款映射（toonflow-field-survival entry.js EFFECT_ICON），
+  // 图标文件在 ikemen-fs/file/images/spells/<系>/<招式>.png（26x26），HTTP 直读（PC/APK 都走同路径）。
+  const SPELL_ICON = {
+    normal: 'images/spells/enchantment/sure_blade.png',
+    fire: 'images/spells/fire/fireball.png',
+    water: 'images/spells/ice/freeze.png',
+    thunder: 'images/spells/air/lightning_bolt.png',
+    wind: 'images/spells/air/tornado.png',
+    earth: 'images/spells/earth/iron_shot.png',
+    metal: 'images/spells/earth/iron_shot.png',
+    wood: 'images/spells/poison/poison_arrow.png',
+    light: 'images/spells/restoration/minor_heal.png',
+    dark: 'images/spells/necromancy/agony.png',
+    poison: 'images/spells/poison/alistairs_intoxication.png',
+    bleed: 'images/spells/necromancy/bolt_of_draining.png',
+  };
+  const spellImgCache = {};
+  function spellImg(fx) {
+    const path = SPELL_ICON[fx];
+    if (!path) return null;
+    let im = spellImgCache[path];
+    if (im === undefined) {
+      try {
+        im = new Image();
+        im.src = '/ikemen-fs/file/' + path;
+        spellImgCache[path] = im;
+      } catch (e) { spellImgCache[path] = null; im = null; }
+    }
+    return (im && im.complete && im.naturalWidth) ? im : null;
+  }
+  window.__tfOrbLog = [];
+  const ORB_HIT_W = 30, ORB_HIT_H = 62;   // 命中判定半宽/半高（按「站立宽度≈1米」的站位口径）
+  function launchOrb(mv, atk, from, dir, C) {
+    const sc0 = headScale();
+    const pierce = !!atk.pierce;
+    const rangeM = Number(atk.rangeM) || 0;
+    const dmgPct = Number(atk.dmgPct) || 10;
+    const cvW = () => (SKFX.cv ? SKFX.cv.width : 1280);
+    const entry = { name: mv.name, fx: mv.fx || '', pierce, rangeM, dmgPct, hits: [], kill: '', dist: 0, at: Date.now() };
+    window.__tfOrbLog.push(entry);
+    if (window.__tfOrbLog.length > 8) window.__tfOrbLog.shift();
+    const orb = {
+      kind: 'orb2', x: from.x, y: from.y, r: 15 * sc0.sx, color: C,
+      life: 6, max: 6, phase: 0, iconImg: spellImg(mv.fx),
+      owner: 1, dir, traveled: 0, hitSet: {},
+      // update 里读的是 p.* —— dmgPct/rangeM/pierce/name 必须挂在球上，
+      // 否则 engineCmdFile 收到 undefined 会把整行滤掉（2026-11-28 实测扣血参数丢失的根因）
+      pierce, rangeM, dmgPct, name: mv.name,
+      speed: 300 * Math.max(0.5, atk.speed || 1) * sc0.sx,   // 基准 300 CSS px/s
+      update(p, dt2) {
+        const sc = headScale();
+        const step = p.speed * dt2;
+        p.x += p.dir * step;
+        p.traveled += step;
+        p.phase += dt2 * 9;
+        p.r = 15 * sc.sx;
+        if (Math.random() < 0.7) P({ kind: 'spark', x: p.x - p.dir * rnd(0, p.r), y: p.y + rnd(-p.r, p.r) * 0.7,
+          vx: -p.dir * rnd(30, 140), vy: rnd(-60, 60), color: p.color, r: rnd(2, 3.5), life: 0.3, max: 0.3 });
+        // 逐帧碰撞：碰到谁谁扣血（每个球对每个目标只结算一次）
+        for (const pn of [1, 2]) {
+          if (pn === p.owner || p.hitSet[pn]) continue;
+          const hp = headPos[pn];
+          if (!hp) continue;
+          const cx = sc.ox + hp.x * sc.sx;
+          const cy = sc.oy + hp.y * sc.sy - CHEST_LIFT * sc.sy;
+          if (Math.abs(p.x - cx) <= ORB_HIT_W * sc.sx && Math.abs(p.y - cy) <= ORB_HIT_H * sc.sy) {
+            p.hitSet[pn] = 1;
+            engineCmdFile({ dmgPct: p.dmgPct, victim: pn, name: p.name });   // 命令桥 → setLife → TF_HIT
+            P({ kind: 'ringE', x: cx, y: cy, r: 26 * sc.sx, w: 3.5, e: 0.4, color: p.color, life: 0.34, max: 0.34 });
+            P({ kind: 'glow', x: cx, y: cy, r: 64 * sc.sx, color: p.color, life: 0.4, max: 0.4 });
+            skBurst(cx, cy, p.color, 16, 140, 430);
+            if (!p.pierce) { p.life = 0; p.__kill = 'hit'; }
+          }
+        }
+        entry.hits = Object.keys(p.hitSet).map(Number);
+        entry.dist = Math.round(p.traveled / Math.max(0.01, sc.sx));
+        if (p.rangeM > 0 && p.traveled >= p.rangeM * PX_PER_M * sc.sx) {
+          p.life = 0; p.__kill = 'range';
+          P({ kind: 'glow', x: p.x, y: p.y, r: 58 * sc.sx, color: p.color, life: 0.36, max: 0.36 });
+          skBurst(p.x, p.y, p.color, 12, 110, 360);
+        } else if (p.x < sc.ox + 6 || p.x > sc.ox + cvW() - 6) {
+          p.life = 0; p.__kill = 'edge';
+        }
+        if (p.life <= 0 && !entry.kill) entry.kill = p.__kill || 'life';
+      },
+    };
+    P(orb);
+    skfxEnsure();
+  }
   // P1 释放技能 → 机制可视化 + 真实效果注入。AI 侧没有「释放」信号，只有 TF_HIT 反馈。
   function combatCast(mv) {
     const kind = moveKind(mv);
@@ -5085,8 +5206,22 @@
         setTimeout(() => injectKey('keyup', fwdCode), 80);          // 第一次点前
         setTimeout(() => injectKey('keydown', fwdCode), 140);       // 第二次点前 = 冲刺/奔跑
         setTimeout(() => injectKey('keyup', fwdCode), 1050);        // 冲刺段结束（98Ryo 系步速慢，实测 820ms≈20px）
+        const dashDmgPct = Math.max(1, atk.dmgPct || 6);
         for (let i = 0; i < hits; i++) {
-          setTimeout(() => { injectKey('keydown', atkCode); setTimeout(() => injectKey('keyup', atkCode), 70); }, 1120 + i * 240);
+          // 每一击：真实伤害判定（冲到对手身前后距离 < 2.5 米，每击都扣血——命令桥 → setLife → TF_HIT）
+          setTimeout(() => {
+            injectKey('keydown', atkCode); setTimeout(() => injectKey('keyup', atkCode), 70);
+            const q1 = headPos[1], q2 = headPos[2];
+            if (!q1 || !q2) return;
+            const sc2 = headScale();
+            const dist = Math.abs(q2.x - q1.x);
+            if (dist <= 2.5 * PX_PER_M) {
+              engineCmdFile({ dmgPct: dashDmgPct, victim: 2, name: mv.name });
+              const cx2 = sc2.ox + q2.x * sc2.sx, cy2 = sc2.oy + q2.y * sc2.sy - CHEST_LIFT * sc2.sy;
+              P({ kind: 'ringE', x: cx2, y: cy2, r: 26 * sc2.sx, w: 3.5, e: 0.4, color: C, life: 0.3, max: 0.3 });
+              skBurst(cx2, cy2, C, 10, 120, 380);
+            }
+          }, 1120 + i * 240);
         }
       } else {
         fireCommandTokens(toks.length ? toks : ['f', 'f']).catch(() => {});
@@ -5131,18 +5266,29 @@
         color: C, life: 0.26, max: 0.26 });
       P({ kind: 'glow', x: endX, y: chestY, r: 44, color: C, life: 0.3, max: 0.3 });
       skBurst(endX, chestY, C, 10, 100, 330);
+      // 真实伤害（2026-11-28 用户复测「改到10米也没有伤害判定，只影响特效范围」）：
+      // 近程 = rangeM 米内的对手都扣血（命令桥 → 引擎 setLife → TF_HIT 回报伤害数字）
+      const meleeDmgPct = Math.max(1, atk.dmgPct || 10);
+      const meleeRange = (atk.rangeM || 2) * PX_PER_M;
+      setTimeout(() => {
+        const q1 = headPos[1], q2 = headPos[2];
+        if (!q1 || !q2) return;
+        const dist = Math.abs(q2.x - q1.x);
+        if (dist <= meleeRange) {
+          engineCmdFile({ dmgPct: meleeDmgPct, victim: 2, name: mv.name });
+          const sc2 = headScale();
+          const cx2 = sc2.ox + q2.x * sc2.sx, cy2 = sc2.oy + q2.y * sc2.sy - CHEST_LIFT * sc2.sy;
+          P({ kind: 'ringE', x: cx2, y: cy2, r: 26 * sc2.sx, w: 3.5, e: 0.4, color: C, life: 0.34, max: 0.34 });
+          P({ kind: 'glow', x: cx2, y: cy2, r: 64 * sc2.sx, color: C, life: 0.4, max: 0.4 });
+          skBurst(cx2, cy2, C, 14, 130, 400);
+        }
+      }, 120);
     } else if (kind === 'proj') {
-      // 远程：属性球体（核心白 + 属性晕 + 边缘环 + 拖尾火花），胸前 → 对方胸前
-      const dur = 0.34 / Math.max(0.5, atk.speed || 1);
-      P({ kind: 'orb', x: ax, y: chestY, r: 15, color: C, life: dur, max: dur,
-        update(p, dt2) {
-          const k = Math.max(0, Math.min(1, 1 - p.life / p.max));
-          p.x = ax + (bx - ax) * k; p.y = chestY + (chest2Y - chestY) * k;
-          if (Math.random() < 0.55) P({ kind: 'spark', x: p.x, y: p.y, vx: rnd(-50, 50), vy: rnd(-50, 50),
-            color: p.color, r: 2.5, life: 0.25, max: 0.25 });
-        } });
-      P({ kind: 'glow', x: bx, y: chest2Y, r: 54, color: C, life: 0.42, max: 0.42 });
-      skBurst(bx, chest2Y, C, 12, 110, 340);
+      // 远程 v2（2026-11-28 用户实报「球体没有伤害判定/不明显」）：
+      //   pierce=true  → 穿透全场，出场景边缘才清除，路径上碰到的都扣血（解析突刺）
+      //   rangeM=N     → 射程 N 米（站位距离），走满就炸（问题风暴=5米）
+      //   dmgPct=N     → 碰到扣最大生命的 N%（命令桥 → 引擎 setLife → TF_HIT 自动回报伤害数字）
+      launchOrb(mv, atk, { x: ax, y: chestY }, dir, C);
     } else if (kind === 'dash') {
       // 冲锋轨迹（真实判定由注入承担，命中见连击计数）
       for (let i = 0; i < 12; i++) {
@@ -5329,7 +5475,7 @@
     // 「切换」按钮常驻（单页也显示，页数会随角色/冷却后重渲染变化）
     {
       const t = document.createElement('button');
-      t.innerHTML = '🔁 切换<b>技能组 ' + (page + 1) + '/' + pages + '</b>';
+      t.innerHTML = '<b>🔁换组 ' + (page + 1) + '/' + pages + '</b>';
       t.addEventListener('click', () => {
         root.dataset.page = String((page + 1) % pages);
         renderSkills();

@@ -237,7 +237,7 @@ body{background:#000;color:var(--txt);font-family:'Noto Sans SC','Microsoft YaHe
   <button onclick="cast('轻拳')">👊 轻拳<b>Z</b></button>
   <button onclick="cast('中拳')">🥊 中拳<b>X</b></button>
   <button onclick="cast('重拳')">💥 重拳<b>C</b></button>
-  <button onclick="cycleSkills(this)">🔁 切换<b>技能组 1/2</b></button>
+  <button onclick="cycleSkills(this)"><b>🔁换组 1/2</b></button>
 </div>
 
 <div id="pad">
@@ -300,8 +300,8 @@ function cast(n){toast('释放技能：'+n+'（INI2CODE 反查按键序列注入
 function flash(){const f=document.createElement('div');
  f.style.cssText='position:fixed;inset:0;background:rgba(255,214,110,.16);z-index:60;pointer-events:none';
  document.body.appendChild(f);setTimeout(()=>f.remove(),140)}
-function cycleSkills(btn){const g2=[['🌊 霸王翔吼拳','↓↘→↓↘→ C'],['🌪 真空波动拳','↓↙←↓↙← A'],['✋ 轻拳','Z'],['🥊 中拳','X'],['☄ 天雷破','←↙↓↘→ C'],['🔁 切换','技能组 2/2']];
- const g1=[['⚡ 波动（下前+重拳）','↓↘→ C'],['🔥 升龙（下前+轻拳）','→↓↘ A'],['👊 轻拳','Z'],['🥊 中拳','X'],['💥 重拳','C'],['🔁 切换','技能组 1/2']];
+function cycleSkills(btn){const g2=[['🌊 霸王翔吼拳','↓↘→↓↘→ C'],['🌪 真空波动拳','↓↙←↓↙← A'],['✋ 轻拳','Z'],['🥊 中拳','X'],['☄ 天雷破','←↙↓↘→ C'],['🔁换 ','组 2/2']];
+ const g1=[['⚡ 波动（下前+重拳）','↓↘→ C'],['🔥 升龙（下前+轻拳）','→↓↘ A'],['👊 轻拳','Z'],['🥊 中拳','X'],['💥 重拳','C'],['🔁换 ','组 1/2']];
  const g=btn.dataset.g==='2'?g1:g2;btn.dataset.g=btn.dataset.g==='2'?'1':'2';
  [...document.querySelectorAll('#skills button')].forEach((b,i)=>{b.innerHTML=g[i][0]+'<b>'+g[i][1]+'</b>';
   b.onclick=i===5?cycleSkills:()=>cast(g[i][0].replace(/^[^\s]+\s*/,''))})}

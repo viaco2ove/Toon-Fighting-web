@@ -99,6 +99,14 @@ public class PackStore {
                 if (pf.exists()) {
                     JSONObject pk = new JSONObject(new String(readAll(new FileInputStream(pf)), StandardCharsets.UTF_8));
                     name = pk.optString("name", pk.optString("title", id));
+                    // stories/type 提到顶层：webview 的「资产集跟随故事」按 p.stories 匹配
+                    // （PC 端 serve.cjs 的 listPacks 有这个字段，原生端漏了 → 切故事永远匹配不上）
+                    if (pk.has("stories")) p.put("stories", pk.optJSONArray("stories"));
+                    if (pk.has("type")) p.put("type", pk.optString("type"));
+                }
+                if (!p.has("stories") && reg.has(id)) {
+                    JSONObject info = reg.optJSONObject(id);
+                    if (info != null && info.has("stories")) p.put("stories", info.optJSONArray("stories"));
                 }
                 p.put("name", name);
                 p.put("installed", true);
