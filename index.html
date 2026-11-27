@@ -4157,6 +4157,11 @@
   const MOVES_CACHE = new Map();
   async function preloadMoves(id) {
     if (!id || MOVES_CACHE.has(id)) return;
+    // ?auto=1 直启会在 loadPacks 完成前跑到这里：没有资产集上下文就解析必然失败，
+    // 空结果会毒化缓存（包装载好了也不再重试）——先等包就绪（最多 ~18s），再读指令
+    for (let i = 0; i < 60 && !(PACKS.cur && PACKS.cur.dir); i++) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
     let m = null;
     try { m = await window.FFDecode.loadCommands((PACKS.cur && PACKS.cur.dir) || '', id); } catch (e) { m = null; }
     // 失败/空都落 []（装过 = 诚实结果，不再反复重取也不显示假宏）；成功映射成技能条条目
@@ -4968,6 +4973,10 @@
     }
 
     const go = new Go();
+    // 引擎 os.Exit 后，oto 的音频回调还会继续踩调度器 → 「Go program has already
+    // exited」uncaught 刷屏。实例级包一层（vendor 的 wasm_exec.js 不动）：已退出就静默。
+    const origResume = go._resume.bind(go);
+    go._resume = function () { if (go.exited) return; return origResume(); };
     // GOGC / GOMEMLIMIT 都可用 URL 参数覆盖（改这个不用重编 wasm）。
     // 两个参数联动：GOGC 抬高等于放宽堆目标，一旦撞上 GOMEMLIMIT 会触发更频繁的
     // limit GC —— 实测 200 + 800MiB 明显差于 100 + 800MiB（见 .cache/scripts/compare-gogc.mjs），
@@ -4979,7 +4988,12 @@
     if (godebug) go.env.GODEBUG = godebug;
     go.argv = argv;
     const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
-    go.run(instance); // 永不返回
+    // go.run 的 promise 在引擎 os.Exit 时 resolve（quickmatch 一场打完 / 暂停菜单退出 /
+    // panic）。正常打完由结果链接管（tf-result 轮询 → matchSettled → reload）；除此之外的
+    // 退出 = 页面永久黑屏 + 报错刷屏 —— 统一走 engineGone 自愈重启。
+    go.run(instance)
+      .then(() => engineGone('引擎已退出'))
+      .catch((e) => engineGone('引擎异常：' + (e && e.message || e)));
 
     // 首帧出来之前一直盖着 ready 遮罩
     const wait = setInterval(() => {
@@ -5054,6 +5068,9 @@
       // 调试用：?auto=1 跳过所有界面直接开打（练习默认 ai=0，?ai= 可覆盖）
       if (q.get('auto') === '1') {
         const a = q.get('ai');
+        // 直启角色通常来自资产集：先装载（VFS 挂载 + charMeta），否则引擎找不到
+        // 挂载的角色文件（0 帧卡死）、技能条读不到泛技能（2026-11-27 真机实测）
+        await loadPacks();
         await startEngine([curP1], [curP2], a === null ? 0 : Number(a));
         return;
       }
@@ -5137,6 +5154,28 @@
 
   // ---------------- 运行状态监控（引擎起来后） ----------------
   let fpsWin = [], lastFrames = 0, lastT = Date.now(), warnTimer = 0, lowCount = 0;
+  // 引擎死亡的统一自愈（一场一进程，reload 是既有恢复路径）。三个触发源：
+  // ① go.run resolve —— 引擎 os.Exit（暂停菜单退出 / panic 等，正常打完由结果链接管）
+  // ② WebGL 上下文丢失（手机后台切回常见，画布永久黑屏）
+  // ③ 出过帧后页面在前台却连续 8s 一帧未进（引擎挂死 / rAF 死锁）
+  // 先等 2.2s 再看 matchSettled——给 tf-result 轮询留窗口，不抢正常结算的 reload。
+  let engineGoneDone = false;
+  function engineGone(reason) {
+    if (engineGoneDone || !engineStarted) return;
+    engineGoneDone = true;
+    setTimeout(() => {
+      if (matchSettled) { engineGoneDone = false; return; }
+      warnEl.textContent = reason + '，正在自动重启对局…';
+      warnEl.classList.add('on');
+      setTimeout(() => location.reload(), 1200);
+    }, 2200);
+  }
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    engineGone('渲染上下文丢失');
+  }, false);
+  window.__tfEngineGone = engineGone; // 诊断/自动化验证钩子：手动触发自愈链
+  let stallLast = -1, stallTicks = 0;
   setInterval(() => {
     if (!engineStarted) return;
     const now = Date.now();
@@ -5149,6 +5188,13 @@
       const avg = fpsWin.reduce((a, b) => a + b, 0) / fpsWin.length;
       if (fpsWin.length >= 6 && avg < 25 && !coverOn && document.visibilityState === 'visible') lowCount++;
       else lowCount = 0;
+      // 冻结检测：boot 期 0 帧不算（大包解码本来就要十几秒），出过 30 帧再起测
+      if (f > 30) {
+        if (f === stallLast && document.visibilityState === 'visible' && !coverOn) {
+          if (++stallTicks >= 8) engineGone('引擎已冻结');
+        } else stallTicks = 0;
+        stallLast = f;
+      }
       if (lowCount >= 3) {
         warnEl.textContent = '帧率偏低（约 ' + avg.toFixed(0) + ' 帧 / 秒），把浏览器窗口保持在前台、或换个轻一点的角色';
         warnEl.classList.add('on');
