@@ -53,14 +53,17 @@ local function combatfx_cmd()
 	combatfx.cmdSeq = seq
 	local pct = tonum('healPct%s*=%s*([%d.]+)')
 	if pct ~= nil and pct > 0 then
-		if player(1) then
+		-- victim 可选（默认 1）：探针用 healPct=100 给假人回满血，让多段伤害断言互不干扰
+		local healWho = tonum('victim%s*=%s*(%d+)') or 1
+		if healWho < 1 or healWho > 4 then healWho = 1 end
+		if player(healWho) then
 			local lm = lifeMax()
 			local before = life()
 			local add = math.floor(lm * pct / 100 + 0.5)
 			if add > 0 then
 				local after = math.min(lm, before + add)
 				setLife(after)
-				print('TF_HEAL:v=1,amt=' .. tostring(after - before))
+				print('TF_HEAL:v=' .. tostring(healWho) .. ',amt=' .. tostring(after - before))
 			end
 		end
 		player(1)
