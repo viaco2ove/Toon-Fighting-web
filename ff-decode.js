@@ -491,7 +491,86 @@ window.FFDecode = (function () {
       const m = new RegExp('^\\s*' + key + '\\s*=\\s*(.+?)\\s*(?:;.*)?$', 'im').exec(text);
       return m ? m[1].trim() : null;
     };
-    return { sprite: get('sprite'), anim: get('anim'), pal1: get('pal1') };
+    // 状态文件键一族：st（可多次）、st1..stN（部分包的拆分约定）、cns（单文件约定）、stcommon。
+    // SuWanqingKFM.def 实测：St/St1..St4/Cns/StCommon 五种键混用，漏收会丢引用过滤。
+    const st = [];
+    const stRe = /^\s*(?:st\d*|cns)\s*=\s*(.+?)\s*(?:;.*)?$/gim;
+    let sm;
+    while ((sm = stRe.exec(text))) st.push(sm[1].trim());
+    return { sprite: get('sprite'), anim: get('anim'), pal1: get('pal1'), cmd: get('cmd'), stcommon: get('stcommon'), st };
+  }
+
+  // ---------- 指令（[Command]）解析：技能条的数据源 ----------
+  // MUGEN 指令块大小写混用（[Command] / [command] 都有），匹配必须带 i。
+  // token 序列语义：F/B/D/U/DF/DB/UF/UB 方向（相对面向）、a/b/c/x/y/z 按钮键、
+  // s=START、~Ns = 前一 token 按住 N ticks 后松开、~ = 快速释放、> = 结尾保持。
+  function parseCommands(text) {
+    const out = [];
+    const nameRe = /^\s*name\s*=\s*"?([^"\r\n;]+)"?\s*(?:;.*)?$/im;
+    const cmdRe = /^\s*command\s*=\s*(.+?)\s*(?:;.*)?$/im;
+    const blocks = text.split(/^\s*\[Command\]\s*$/im).slice(1);
+    for (const b of blocks) {
+      const nm = nameRe.exec(b);
+      const km = cmdRe.exec(b);
+      if (!nm || !km) continue;
+      const name = nm[1].trim().replace(/^"|"$/g, '');
+      const tokens = km[1].split(',').map((t) => t.trim()).filter(Boolean);
+      const btnSet = new Set(tokens.map((t) => t.toLowerCase().replace(/^~/, '').replace(/\d+s$/, '')).filter((t) => /^[abcxyz]$/.test(t)));
+      out.push({ name, tokens, btns: btnSet });
+    }
+    return out;
+  }
+
+  // 装载角色的指令包（cmd 文本 + cns/st 引用集合，全部带缓存）。
+  // 只取文本，不碰 SFF —— 即使角色几 MB 也能秒级出技能表。
+  const cmdCache = new Map();
+  async function loadCommands(pack, charId) {
+    const key = (pack || '') + '|' + charId;
+    if (cmdCache.has(key)) return cmdCache.get(key);
+    const p = (async () => {
+      try {
+        let root = pack ? 'packs/' + enc(pack) + '/' : 'ikemen-fs/file/';
+        let defRel = 'chars/' + enc(charId) + '/' + enc(charId) + '.def';
+        const fl = await packFiles(pack);
+        if (fl) {
+          if (fl.baseUrl) root = encPath(fl.baseUrl) + '/';
+          if (fl.defs && fl.defs[charId]) defRel = fl.defs[charId].split('/').map(enc).join('/');
+        }
+        const base = root + 'chars/' + enc(charId) + '/';
+        const defText = await fetchLatin(root + defRel);
+        const meta = parseDef(defText);
+        if (!meta.cmd) return { ok: false, reason: 'def 没挂 cmd', moves: [] };
+        const cmdText = await fetchLatin(base + enc(meta.cmd));
+        const all = parseCommands(cmdText);
+        // 引用过滤：只认 def 的 st/stcommon 文件里 command="名字" 引用过的指令。
+        // st 文件 404/读不到时不算失败（hasRefs=false → 不过滤，全部展示）。
+        const stFiles = [...new Set([...(meta.st || []), meta.stcommon].filter(Boolean))];
+        const wired = new Set();
+        let hasRefs = false;
+        await Promise.all(stFiles.map(async (f) => {
+          try {
+            const t = await fetchLatin(base + enc(f));
+            hasRefs = true;
+            const re = /command\s*=\s*"([^"]+)"/gi;
+            let m;
+            while ((m = re.exec(t))) wired.add(m[1].trim().toLowerCase());
+          } catch (e) { /* 该 st 文件不存在 */ }
+        }));
+        const seen = new Set();
+        const moves = [];
+        for (const c of all) {
+          const lk = c.name.toLowerCase();
+          if (seen.has(lk)) continue;                       // 同名指令（x/y 两个版本）只留第一个
+          seen.add(lk);
+          if (!c.btns.size) continue;                       // 纯方向/时间指令，技能条没意义
+          if (hasRefs && !wired.has(lk)) continue;          // 没被任何状态引用 → 按了也白发
+          moves.push({ name: c.name, cmd: c.tokens });
+        }
+        return { ok: moves.length > 0, cmdFile: meta.cmd, total: all.length, wiredCount: wired.size, hasRefs, moves };
+      } catch (e) { return null; }
+    })();
+    cmdCache.set(key, p);
+    return p;
   }
 
   function parseAirAction(text, actionNo) {
@@ -528,6 +607,11 @@ window.FFDecode = (function () {
       catch (e) { latin1Dec = new TextDecoder('utf-8'); }
     }
     return latin1Dec;
+  }
+  let utf8Dec = null;
+  function utf8() {
+    if (!utf8Dec) utf8Dec = new TextDecoder('utf-8');
+    return utf8Dec;
   }
   async function fetchLatin(url) {
     const r = await fetch(url);
@@ -728,5 +812,16 @@ window.FFDecode = (function () {
     return p;
   }
 
-  return { loadChar, portrait, anim };
+  // 资产集内任意文本文件（utf8 解码，survival.json / 配置类文件用）。
+  // 相对 rel 按资产集根解析；不带 pack 时按兜底 www/ 解析。
+  async function fetchPackText(pack, rel) {
+    let root = pack ? 'packs/' + enc(pack) + '/' : 'ikemen-fs/file/';
+    const fl = await packFiles(pack);
+    if (fl && fl.baseUrl) root = encPath(fl.baseUrl) + '/';
+    const r = await fetch(root + rel.split('/').map(enc).join('/'));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return utf8().decode(await r.arrayBuffer());
+  }
+
+  return { loadChar, portrait, anim, loadCommands, fetchPackText };
 })();

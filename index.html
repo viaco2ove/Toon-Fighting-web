@@ -483,7 +483,16 @@
   #skills button:hover{border-color:var(--cyan)}
   #skills button:active{transform:scale(.94);border-color:var(--gold)}
   #skills button b{display:block;color:var(--gold);font-family:Consolas,monospace;font-weight:700;
-    font-size:10px;margin-top:2px}
+    margin-top:2px;font-size:10px}
+  /* 泛技能点击浮字（技能名+描述，1.3s 上飘淡出） */
+  .skillpop{position:fixed;left:50%;top:24%;transform:translateX(-50%);z-index:47;pointer-events:none;
+    text-align:center;animation:skillpop 1.3s ease-out forwards}
+  .skillpop b{display:block;font-size:22px;font-weight:900;color:var(--gold);
+    text-shadow:0 0 14px rgba(255,194,51,.75),0 2px 6px rgba(0,0,0,.85);letter-spacing:.08em}
+  .skillpop span{display:block;margin-top:4px;font-size:12px;color:#e8ddd2;text-shadow:0 1px 4px rgba(0,0,0,.9)}
+  @keyframes skillpop{0%{opacity:0;transform:translateX(-50%) translateY(16px) scale(.92)}
+    16%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+    72%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-28px)}}
 
   /* 战斗菜单（招式 / 练习配置） */
   #bmenu{position:fixed;inset:0;z-index:68;display:none;align-items:center;justify-content:center;
@@ -1595,6 +1604,8 @@
     if (!p && PACKS.list.length === 1) p = PACKS.list[0];
     if (p) await usePack(p.dir);
     renderPackLine();
+    // 生存模式直启（胜利续关的 ?auto=1 重载）也需要资产集 survival.json
+    if (MODE === 'survival') preloadSurvival();
   }
   // 把资产集挂进 VFS（零拷贝）+ 换掉引擎的角色名单。
   //
@@ -3254,6 +3265,87 @@
   let teamSize = Number(q.get('n')) === 3 ? 3 : 1;
   const slots = { p1: [null, null, null], p2: [null, null, null] }; // 存 POOL 条目 key 或 '?'→随机
   let activeSlot = 'p1-0'; // 'side-idx'
+
+  // ---------------- 生存模式（资产集 survival.json 配置驱动） ----------------
+  // 资产集根的 survival.json（设计见 md/curdesign/ai格斗设计/生存模式/资产集生存配置.md）：
+  //   rounds: "infinite" | N；ai: {start,step,max}；pool: 随机对手限定名单；
+  //   bosses: { mini/mid/final: {stage, char, title, ai, intro, win, lose} }；
+  //   stages: { "N": { char?, intro?, win?, lose? } }；defaultNarration: { intro/win/lose: [...] }。
+  // 没有配置文件的资产集 = 纯随机对手 + AI 递增（原有行为）。
+  let SURV_CFG = null;
+  let survCfgLoaded = false;
+  async function preloadSurvival() {
+    if (survCfgLoaded || !MODE || MODE !== 'survival') return;
+    if (!(window.FFDecode && window.FFDecode.fetchPackText)) return;
+    survCfgLoaded = true;
+    const dir = PACKS.cur && PACKS.cur.dir;
+    if (!dir) return;
+    try { SURV_CFG = JSON.parse(await window.FFDecode.fetchPackText(dir, 'survival.json')); }
+    catch (e) { SURV_CFG = null; }   // 没有配置 = 纯随机模式
+    if (selEl && selEl.classList.contains('on')) renderSelect();
+  }
+  const pickN = (arr) => Array.isArray(arr) && arr.length ? arr[Math.floor(Math.random() * arr.length)] : null;
+  // 当前关的合并配置：Boss（mini/mid/final 按 stage 命中）> stages["N"] > 默认旁白池
+  function survCfg() {
+    if (!SURV_CFG) return null;
+    const stage = Number(q.get('stage') || 1);
+    const bosses = SURV_CFG.bosses || {};
+    let boss = null;
+    for (const k of ['mini', 'mid', 'final']) {
+      const b = bosses[k];
+      if (b && Number(b.stage) === stage) boss = { rank: k, stage, char: b.char, title: b.title || '', ai: b.ai, intro: b.intro, win: b.win, lose: b.lose };
+    }
+    const st = (SURV_CFG.stages && SURV_CFG.stages[String(stage)]) || null;
+    const dn = SURV_CFG.defaultNarration || {};
+    return {
+      stage, boss, st, dn,
+      aiCfg: SURV_CFG.ai || null,
+      pool: Array.isArray(SURV_CFG.pool) && SURV_CFG.pool.length ? SURV_CFG.pool : null,
+      rounds: SURV_CFG.rounds,
+    };
+  }
+  function survNarr(kind) {
+    const c = survCfg();
+    if (!c) return null;
+    return (c.boss && c.boss[kind]) || (c.st && c.st[kind]) || pickN(c.dn[kind]) || null;
+  }
+  // 生存对手解析：Boss 关用指定角色，普通关按 pool 限定随机（无配置 = 全池随机）
+  function survivalOpponent(avoid) {
+    const c = survCfg();
+    if (c && c.boss && c.boss.char) return c.boss.char;
+    if (c && c.st && c.st.char) return c.st.char;
+    let pool = packCharPool();
+    if (c && c.pool) pool = pool.filter((id) => c.pool.includes(id));
+    const f = pool.filter((id) => !avoid || (Array.isArray(avoid) ? !avoid.includes(id) : id !== avoid));
+    if (f.length) return f[Math.floor(Math.random() * f.length)];
+    return randomCharId(avoid);
+  }
+  // 展示位对手段：每关固定一次（重渲染不换人），从 POOL 找条目保 toonflow 头像链
+  let survOppDisplay = null, survOppKey = null;
+  function survDisplayChar(avoid) {
+    const key = String(q.get('stage') || '1');
+    if (survOppKey !== key || !survOppDisplay) {
+      survOppKey = key;
+      const oppId = survivalOpponent(avoid);
+      survOppDisplay = POOL.find((x) => x.id === oppId) || { id: oppId, r: oppId };
+    }
+    return survOppDisplay;
+  }
+  // 生存 AI：Boss 关用配置覆盖；否则 start + step*(stage-1) 封顶 max；无配置沿用 URL ai
+  function survAi(stage, aiCfg) {
+    const c = survCfg();
+    if (c) {
+      const a = aiCfg || c.aiCfg || {};
+      const base = a.start !== undefined ? Number(a.start) : Number(q.get('ai') || 1);
+      return Math.min(a.max || 8, base + (a.step || 1) * (stage - 1));
+    }
+    return Math.min(8, Number(q.get('ai') || curAI) + (Number(stage) - Number(q.get('stage') || 1)));
+  }
+  function survAiNow() {
+    const c = survCfg();
+    if (c && c.boss && c.boss.ai !== undefined) return Number(c.boss.ai);
+    return survAi(Number(q.get('stage') || 1), c ? c.aiCfg || {} : {});
+  }
   let phase = 1;                       // 两段式：1=选我方 2=选对方 3=双方已确定
   const randSlots = new Set();         // 「？随机」抽中的位置（'1:0'）
   let page = 0, pageLock = false;      // 名单分页；手动翻页后暂不跟随选中位
@@ -3406,7 +3498,8 @@
     selEl.classList.add('on');
     phase = 1; activeSlot = 'p1-0'; page = 0; pageLock = false; randSlots.clear();
     selEl.classList.toggle('survival', MODE === 'survival');
-    document.getElementById('p2cap').textContent = MODE === 'survival' ? '对手（随机）' : '对手';
+    if (MODE === 'survival') preloadSurvival();   // 资产集 survival.json（Boss/旁白/池）
+    document.getElementById('p2cap').textContent = MODE === 'survival' ? '对手' : '对手';
     document.querySelectorAll('.topbar .tb[data-m]').forEach((x) => x.classList.toggle('on', x.dataset.m === MODE));
     document.getElementById('difficulty').style.display = MODE === 'versus' ? '' : 'none';
     // 预填：故事绑定的 p1/p2 → ?p1=/&p2=（实体 id 转 key）→ 上局角色
@@ -3565,13 +3658,15 @@
         });
       };
       if (survival && s === 2) {
-        const rnd = POOL[(teamSize + 1) % Math.max(1, POOL.length)] || null;
+        const rnd = survDisplayChar(p1SlotChars()[0] || curP1) || null;
         if (rnd) {
           showEntity(rnd);   // 实体动画/立绘
-          document.getElementById(pre + 'name').textContent = '系统随机';
+          const sc = survCfg();
+          const oppName = sc && sc.boss ? sc.boss.title : '系统随机';
+          document.getElementById(pre + 'name').textContent = oppName;
           document.getElementById(pre + 'ent').textContent = rnd.id;
           document.getElementById(pre + 'job').textContent = '按资产集抽取';
-          document.getElementById(pre + 'm1').textContent = '系统随机';
+          document.getElementById(pre + 'm1').textContent = oppName;
           document.getElementById(pre + 'm2').textContent = rnd.id;
           document.getElementById(pre + 'm3').textContent = '胜+1 续关';
         } else showVac('对手随机');
@@ -3622,6 +3717,14 @@
       mugNone.style.display = '';
       minfo.className = 'minfo empty';
       minfo.textContent = '选一个角色查看引擎实体动态效果';
+    }
+    // 生存模式：对手栏标题带关数与 Boss（survival.json 装载完成后由 renderSelect 刷新）
+    if (MODE === 'survival') {
+      const sc = survCfg();
+      const sStage = Number(q.get('stage') || 1);
+      document.getElementById('p2cap').textContent = '对手'
+        + (sStage > 1 ? ' · 第 ' + sStage + ' 关' : '')
+        + (sc && sc.boss ? ' · ' + sc.boss.title : '（随机）');
     }
 
     // 选人列表：一页 15 个（3 列 × 5 行），超 15 翻页；「？」随机是列表外常驻按钮
@@ -3896,7 +3999,7 @@
       }
     }
     // 生存模式 P2 随机生成
-    if (MODE === 'survival') out.p2 = [randomCharId(out.p1)];
+    if (MODE === 'survival') out.p2 = [survDisplayChar(out.p1).id];
     if (!out.p1.length) out.p1 = [curP1];
     if (!out.p2.length && MODE !== 'survival') out.p2 = [curP2];
     return out;
@@ -4034,8 +4137,13 @@
   });
 
   // ---------------- 招式（快捷技能 + 菜单查看） ----------------
-  // 默认通用 KOF 序列（按键是「动作名」，发键时按用户键位设置反查）；
-  // 资产集 mapping.moves[id] 可覆盖。
+  // 数据源优先级：
+  //   ① 资产集 mapping.moves[id]（人工配置，动作名序列，发键走 fireSeq）
+  //   ② 角色资产 .cmd 自动提取的真实搓招指令（FFDecode.loadCommands 双层过滤：
+  //      只认「被状态 command="…" 引用」的指令；发键走 fireCommandTokens ——
+  //      方向滑动按住、~Ns 保持释放、双击缓冲的 MUGEN 指令语义）
+  //   ③ DEFAULT_MOVES：仅作装载完成前的占位/兜底（按键是「动作名」的通用 KOF 序列，
+  //      对真实角色基本打不出指令 —— 所以装载后确认没招的角色会隐藏技能条而不是显示废钮）
   const DEFAULT_MOVES = () => [
     { name: '⚡ 波动（下前+重拳）', seq: ['down', 'right', 'c'] },
     { name: '🔥 升龙（下前+轻拳）', seq: ['down', 'right', 'a'] },
@@ -4045,10 +4153,44 @@
     { name: '🏃 前冲', seq: ['right', 'right'] },
     { name: '↩ 疾退', seq: ['left', 'left'] },
   ];
+  // 角色招式缓存：charId → moves 数组；[] = 已装载且确认没有可用指令（隐藏技能条）
+  const MOVES_CACHE = new Map();
+  async function preloadMoves(id) {
+    if (!id || MOVES_CACHE.has(id)) return;
+    let m = null;
+    try { m = await window.FFDecode.loadCommands((PACKS.cur && PACKS.cur.dir) || '', id); } catch (e) { m = null; }
+    // 失败/空都落 []（装过 = 诚实结果，不再反复重取也不显示假宏）；成功映射成技能条条目
+    MOVES_CACHE.set(id, (m && m.ok && m.moves.length)
+      ? m.moves.map((c) => ({ name: c.name, cmd: c.tokens }))
+      : []);
+    renderSkills();
+  }
+  // 泛技能：char.json genericSkills（资产侧生成，模仿 field-survival 的 文字+参数+特效 数据条目）
+  function genericMovesFor(id) {
+    const gs = PACKS.charMeta && PACKS.charMeta[id] && PACKS.charMeta[id].genericSkills;
+    if (!Array.isArray(gs)) return [];
+    return gs.map((g) => ({
+      name: g.name, desc: g.desc || '', fx: g.fx || '', cd: Number(g.cd) || 0,
+      cmd: String(g.cmd || '').split(/\s+/).filter(Boolean),
+    })).filter((m) => m.cmd.length);
+  }
   function movesFor(id) {
     if (!id) return [];
     const ov = PACKS.mapping && PACKS.mapping.moves && PACKS.mapping.moves[id];
-    return Array.isArray(ov) && ov.length ? ov : DEFAULT_MOVES();
+    if (Array.isArray(ov) && ov.length) return ov;
+    const gs = genericMovesFor(id);
+    if (gs.length) return gs;
+    return MOVES_CACHE.get(id) || DEFAULT_MOVES();
+  }
+  // 泛技能冷却（按技能名记冷却到期时刻）+ 点击浮字（技能名+描述）
+  const SKILL_CD_UNTIL = new Map();
+  let skillCdTimer = null;
+  function skillPop(mv) {
+    const d = document.createElement('div');
+    d.className = 'skillpop' + (mv.fx ? ' fx-' + mv.fx : '');
+    d.innerHTML = '<b>' + esc(mv.name) + '</b>' + (mv.desc ? '<span>' + esc(mv.desc) + '</span>' : '');
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 1400);
   }
   async function fireSeq(seq) {
     for (const act of seq) {
@@ -4061,19 +4203,140 @@
       await new Promise((r) => setTimeout(r, 110));
     }
   }
+  // ---- MUGEN 指令回放：把 [Command] 的 token 序列编译成注入时间线 ----
+  // 方向 token 相对「角色面向」，这里固定按 P1 面向右处理（对手默认在右）；
+  // 对手换边后 F/B 反向是已知限制（后续可读引擎朝向包修正）。
+  function compileCommand(tokens) {
+    const TICK = 16.7;
+    const DIR_ACTS = { f: ['right'], b: ['left'], d: ['down'], u: ['up'],
+      df: ['down', 'right'], db: ['down', 'left'], uf: ['up', 'right'], ub: ['up', 'left'] };
+    const ev = [];
+    let t = 60;                          // 起手缓冲
+    const held = new Map();              // act → keydown 时刻
+    const rel = (act, at) => { if (held.has(act)) { ev.push({ act, type: 'keyup', at }); held.delete(act); } };
+    const press = (act, at) => { if (!held.has(act)) { ev.push({ act, type: 'keydown', at }); held.set(act, at); } };
+    let prev = null;                     // 上一 token：{ acts, isBtn, pressAt }
+    let endHold = false;
+    for (let i = 0; i < tokens.length; i++) {
+      const low = String(tokens[i]).trim().toLowerCase();
+      if (low === '~') continue;         // 快速释放：默认 70ms 已足够快
+      const hm = /^~(\d+)s$/.exec(low);
+      if (hm) {                          // 前一 token 按住 ≥N ticks 再松（蓄力）
+        if (prev) {
+          const at = Math.max(prev.pressAt + Math.max(320, Number(hm[1]) * TICK), t);
+          for (const a of prev.acts) rel(a, at);
+          t = at + 40; prev = null;
+        }
+        continue;
+      }
+      endHold = low.endsWith('>');
+      const tok = low.replace(/^~/, '').replace(/>$/, '').replace(/\d+s$/, '');
+      const dirActs = DIR_ACTS[tok];
+      const acts = dirActs || (/^[abcxyz]$/.test(tok) ? [tok] : null);
+      if (!acts) continue;               // s(START) / 未知 token：跳过
+      const isBtn = !dirActs;
+      if (prev && !prev.isBtn) {
+        const same = !isBtn && acts.length === prev.acts.length && acts.every((a) => prev.acts.includes(a));
+        if (same) {
+          // 连续相同方向 = 双击（前冲/疾退）：第一击按下-松开，第二击重按
+          for (const a of prev.acts) rel(a, t + 80);
+          for (const a of acts) press(a, t + 120);
+          t += 170;
+        } else if (!isBtn) {
+          // 方向→方向：滑动（旧方向里不在新集合的松开，重叠的保持，d→df 时 down 不松）
+          for (const a of prev.acts) if (!acts.includes(a)) rel(a, t + 40);
+          t += 50;
+        }
+        // 方向→按钮：方向保持按住，按钮直接落在保持期里（波动拳 d df f y 的语义）
+      } else if (prev && prev.isBtn) {
+        t = Math.max(t, prev.pressAt + 85);
+      }
+      for (const a of acts) press(a, t);
+      if (isBtn) {
+        for (const a of acts) rel(a, t + 70);
+        prev = { acts, isBtn, pressAt: t };
+        t += 90;
+      } else {
+        prev = { acts, isBtn, pressAt: t };
+        t += 50;
+      }
+    }
+    const tail = endHold ? 420 : (prev && !prev.isBtn ? 80 : 60);
+    for (const a of [...held.keys()]) rel(a, t + tail);
+    ev.sort((x, y) => x.at - y.at || (x.type === 'keydown' ? -1 : 1));
+    return { events: ev, total: (ev.length ? ev[ev.length - 1].at : t) + 80 };
+  }
+  window.__tfCompileCommand = compileCommand;   // 调试/探针用
+  async function fireCommandTokens(tokens) {
+    const plan = compileCommand(tokens);
+    for (const e of plan.events) {
+      setTimeout(() => {
+        const tok = settings.keys.p1[e.act];
+        const code = tok && INI2CODE[tok];
+        if (code) injectKey(e.type, code);
+      }, e.at);
+    }
+    await new Promise((r) => setTimeout(r, plan.total));
+  }
   function renderSkills() {
     const root = document.getElementById('skills');
+    const id = p1SlotChars()[0] || curP1;
+    const manual = (PACKS.mapping && PACKS.mapping.moves && PACKS.mapping.moves[id] || []);
+    const gs = genericMovesFor(id);
+    const fromCache = MOVES_CACHE.has(id);
+    if (id && !manual.length && !gs.length && !fromCache) preloadMoves(id);
     root.innerHTML = '';
-    const moves = movesFor(p1SlotChars()[0] || curP1);
+    const moves = manual.length ? manual : (gs.length ? gs : (fromCache ? MOVES_CACHE.get(id) : null));
+    if (!moves) {
+      // 指令清单还在本机解析中（读 def/cmd/cns 文本）——先占位，装载完自动重渲染
+      const b = document.createElement('button');
+      b.textContent = '读取招式…';
+      b.disabled = true;
+      root.appendChild(b);
+      applyPad();
+      return;
+    }
+    if (!moves.length) {
+      // 解析成功但没有任何被状态引用的指令（AI 打法包）——不显示废钮
+      applyPad();
+      return;
+    }
     const pages = Math.max(1, Math.ceil(moves.length / 5));
     const page = Math.min(Number(root.dataset.page || 0), pages - 1);
     for (const mv of moves.slice(page * 5, page * 5 + 5)) {
       const b = document.createElement('button');
+      b.dataset.sname = mv.name;
+      if (mv.desc) b.title = mv.desc;
       b.innerHTML = esc(mv.name) + '<b>' +
-        esc(mv.seq.map((a) => tokenLabel(settings.keys.p1[a] || '')).join('→')) + '</b>';
-      b.addEventListener('click', () => { if (engineStarted) fireSeq(mv.seq); });
+        (mv.cmd
+          ? esc(mv.cmd.join(' '))
+          : esc((mv.seq || []).map((a) => tokenLabel(settings.keys.p1[a] || '')).join('→'))) + '</b>';
+      b.addEventListener('click', () => {
+        if (!engineStarted) return;
+        if (mv.cd && (SKILL_CD_UNTIL.get(mv.name) || 0) > Date.now()) return;   // 冷却中
+        mv.cmd ? fireCommandTokens(mv.cmd) : fireSeq(mv.seq);
+        skillPop(mv);                                                    // 泛技能浮字（技能名+描述）
+        if (mv.cd) SKILL_CD_UNTIL.set(mv.name, Date.now() + mv.cd * 1000);
+      });
       root.appendChild(b);
     }
+    // 冷却状态：渲染重建按钮后，冷却中的技能保持禁用+倒计时（全局扫秒）
+    const nowCd = Date.now();
+    for (const b of root.querySelectorAll('button[data-sname]')) {
+      if ((SKILL_CD_UNTIL.get(b.dataset.sname) || 0) > nowCd) { b.dataset.orig = b.innerHTML; b.disabled = true; }
+    }
+    if (!skillCdTimer) skillCdTimer = setInterval(() => {
+      const now2 = Date.now();
+      for (const b of document.querySelectorAll('#skills button[data-sname]')) {
+        const left = (SKILL_CD_UNTIL.get(b.dataset.sname) || 0) - now2;
+        if (left > 0) {
+          if (!b.disabled) { b.dataset.orig = b.innerHTML; b.disabled = true; }
+          b.innerHTML = esc(b.dataset.sname) + '<b>' + (left / 1000).toFixed(1) + 's</b>';
+        } else if (b.disabled && b.dataset.orig) {
+          b.disabled = false; b.innerHTML = b.dataset.orig;
+        }
+      }
+    }, 150);
     // 多于 5 个技能 → 「切换」按钮翻页（技能组 1/2…）
     if (pages > 1) {
       const t = document.createElement('button');
@@ -4123,7 +4386,9 @@
       const row = document.createElement('div');
       row.className = 'moverow';
       row.innerHTML = '<span>' + esc(m.name) + '</span>' +
-        '<span class="keys">' + m.seq.map((a) => esc(tokenLabel(settings.keys.p1[a] || '?'))).join(' → ') + '</span>';
+        '<span class="keys">' + (m.cmd
+          ? esc(m.cmd.join(' '))
+          : (m.seq || []).map((a) => esc(tokenLabel(settings.keys.p1[a] || '?'))).join(' → ')) + '</span>';
       mv.appendChild(row);
     }
     document.getElementById('bm-hint').textContent = MODE === 'practice'
@@ -4247,6 +4512,11 @@
     }
     agentSay('p1', 'intro');
     agentSay('p2', 'intro');
+    // 生存模式：资产集配置的开场白（Boss 登场白）优先，覆盖 agent 默认开场
+    if (MODE === 'survival') {
+      const sintro = survNarr('intro');
+      if (sintro) setTimeout(() => showSpeech('p2', sintro), 600);
+    }
     // 过程中随机触发发言（低频，不影响战斗）
     clearInterval(battleIntro._t);
     battleIntro._t = setInterval(() => {
@@ -4327,17 +4597,28 @@
       }
       if (winner === 1) {
         agentSay('p1', 'win');
-        showResult('生存第 ' + stage + ' 关通过！下一关更强…', 1);
+        // 局数通关：rounds 为数字且已打满 → 显示全通关，不再续关
+        const cs = survCfg();
+        const cleared = cs && typeof cs.rounds === 'number' && stage >= cs.rounds;
+        const wmsg = survNarr('win') || ('生存第 ' + stage + ' 关通过！下一关更强…');
+        if (cleared) {
+          showResult('已通关全部 ' + cs.rounds + ' 关！' + (wmsg || '末世生存挑战完成。'), 1);
+          setTimeout(() => { location.href = location.pathname + (q.get('conn') === '1' ? '?conn=1' : ''); }, 6000);
+          return;
+        }
+        showResult(wmsg + ' 下一关更强…', 1);
         const p = new URLSearchParams();
         p.set('mode', 'survival'); p.set('stage', String(stage + 1));
-        p.set('ai', String(Math.min(8, curAI + 1)));
+        const aiCfg = cs ? (cs.aiCfg || {}) : {};
+        p.set('ai', String(survAi(stage + 1, aiCfg)));
         p1SlotChars().forEach((c, i) => p.set('p1' + (i ? String.fromCharCode(97 + i) : ''), c));
         if (CONN.sessionId && q.get('conn') === '1') { p.set('conn', '1'); p.set('session', CONN.sessionId); }
         setTimeout(() => { location.href = location.pathname + '?' + p.toString() + '&auto=1'; }, 3000);
         return;
       }
       agentSay('p2', 'win');
-      showResult('生存中止于第 ' + stage + ' 关 · 历史最佳 ' + best + ' 关 · 即将回主界面', 2);
+      const lmsg = survNarr('lose') || ('生存中止于第 ' + stage + ' 关');
+      showResult(lmsg + ' · 历史最佳 ' + best + ' 关 · 即将回主界面', 2);
       setTimeout(() => { location.href = location.pathname + (q.get('conn') === '1' ? '?conn=1' : ''); }, 6000);
       return;
     }
@@ -4717,7 +4998,7 @@
     bootEl.classList.remove('done');
     matchSettled = false;
     dummy.mode = 'idle';
-    const aiVal = MODE === 'practice' ? 0 : (MODE === 'survival' ? Number(q.get('ai') || curAI) : curAI);
+    const aiVal = MODE === 'practice' ? 0 : (MODE === 'survival' ? survAiNow() : curAI);
     startEngine(rs.p1, MODE === 'practice' ? rs.p2 : rs.p2, aiVal).catch(fail);
     setTimeout(() => hudEl.classList.add('fade'), 8000);
     window.addEventListener('mousemove', (e) => {
