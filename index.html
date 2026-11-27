@@ -4434,8 +4434,8 @@
         }
       }
     }, 150);
-    // 多于 5 个技能 → 「切换」按钮翻页（技能组 1/2…）
-    if (pages > 1) {
+    // 「切换」按钮常驻（单页也显示，页数会随角色/冷却后重渲染变化）
+    {
       const t = document.createElement('button');
       t.innerHTML = '🔁 切换<b>技能组 ' + (page + 1) + '/' + pages + '</b>';
       t.addEventListener('click', () => {
@@ -4720,7 +4720,13 @@
       return;
     }
     // 联动会话：胜负回写
-    if (!CONN.sessionId || !CONN.roster) { showResult(winner === 1 ? 'P1 胜！' : winner === 2 ? 'P2 胜！' : '平局/对局中止', winner); return; }
+    if (!CONN.sessionId || !CONN.roster) {
+      showResult(winner === 1 ? 'P1 胜！' : winner === 2 ? 'P2 胜！' : '平局/对局中止', winner);
+      // quickmatch 一场一进程：引擎随后 os.Exit。普通模式也要有出口，否则结算后死页
+      //（2026-11-27 PC 实测：暂停退出/打完都停死页黑屏）。6s 后回该模式的选人屏。
+      setTimeout(() => { location.href = location.pathname + '?mode=' + encodeURIComponent(MODE); }, 6000);
+      return;
+    }
     const p1 = CONN.roster.storyChars.find((c) => c.side === 'p1');
     const p2 = CONN.roster.storyChars.find((c) => c.side === 'p2');
     if (!p1 || !p2) { showResult('对局结束', winner); return; }
@@ -5065,6 +5071,18 @@
     }
 
     const go = new Go();
+    // wasm_exec.js 的 runtime.wasmExit 只调 this.exit(code)（默认仅 console.warn），
+    // 不 resolve _exitPromise —— 引擎在后续回调（音频/rAF resume）里 os.Exit 时
+    // go.run() 的 promise 永远挂起，自愈链收不到通知。包一层：已退出就 resolve。
+    const origGoExit = go.exit;
+    go.exit = (code) => {
+      if (go.exited) {
+        try { if (code !== 0) console.warn('exit code:', code); } catch (e) { /* 退出路径别再抛 */ }
+        try { go._resolveExitPromise(); } catch (e) { /* 可能已 resolve */ }
+        return;
+      }
+      origGoExit(code);
+    };
     // 引擎 os.Exit 后，oto 的音频回调还会继续踩调度器 → 「Go program has already
     // exited」uncaught 刷屏。实例级包一层（vendor 的 wasm_exec.js 不动）：已退出就静默。
     const origResume = go._resume.bind(go);
@@ -5287,7 +5305,7 @@
         } else stallTicks = 0;
         stallLast = f;
       }
-      if (lowCount >= 3) {
+      if (lowCount >= 3 && !matchSettled) {   // 结算提示与 fps 警告共用 warnEl，结算优先
         warnEl.textContent = '帧率偏低（约 ' + avg.toFixed(0) + ' 帧 / 秒），把浏览器窗口保持在前台、或换个轻一点的角色';
         warnEl.classList.add('on');
         clearTimeout(warnTimer);
