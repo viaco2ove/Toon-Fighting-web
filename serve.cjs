@@ -794,6 +794,7 @@ const ENGINE = {
   startedAt: 0, exited: true, exitCode: null, error: '', stderrTail: '',
   head: null,   // { line, at }  最新一条 TF_HEAD
   result: null, // { value, at } 最新一次对局结算
+  fight: null,  // { at }        开战信号 TF_FIGHT（combatfx.lua roundState>=1 时报一次）
 };
 let resultWatcherFile = '';
 let inputBridge = null; // 常驻 PowerShell：stdin 一行一个 keybd_event 调用
@@ -827,7 +828,7 @@ function engineStatus() {
     exe: ENGINE.exe, cwd: ENGINE.cwd, argv: ENGINE.argv,
     startedAt: ENGINE.startedAt, exitCode: ENGINE.exitCode,
     error: ENGINE.error, stderrTail: ENGINE.stderrTail.slice(-800),
-    head: ENGINE.head, result: ENGINE.result,
+    head: ENGINE.head, result: ENGINE.result, fight: ENGINE.fight,
   };
 }
 
@@ -917,7 +918,7 @@ function engineStart(input) {
   Object.assign(ENGINE, {
     proc, pid: proc.pid, exe, cwd, argv, status: 'starting',
     startedAt: Date.now(), exited: false, exitCode: null, error: '', stderrTail: '',
-    head: null, result: null,
+    head: null, result: null, fight: null,
   });
   let outBuf = '';
   const onLine = (line) => {
@@ -927,6 +928,10 @@ function engineStart(input) {
     if (j !== -1) ENGINE.head = { line: line.slice(j + 8).trim(), at: Date.now() };
     const i2 = line.indexOf('TF_RESULT:');
     if (i2 !== -1) ENGINE.result = { value: Number(line.slice(i2 + 10).trim()) || 0, at: Date.now() };
+    // 开战信号（combatfx.lua 在 roundState>=1 回合画面立起时报一次）——
+    // 前端用它撤加载遮罩 + 起倒数，替代「TF_HEAD 首条输出」的过早门槛
+    const ff = line.indexOf('TF_FIGHT:');
+    if (ff !== -1 && !ENGINE.fight) ENGINE.fight = { at: Date.now() };
   };
   proc.stdout.on('data', (d) => {
     outBuf += d.toString();

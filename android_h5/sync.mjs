@@ -12,8 +12,10 @@ const www = path.join(here, 'www');
 // 站点必需文件（仓库根）。ff-decode.js 是浏览器端 SFF/AIR 解码器（选人屏
 // 实体头像/立绘/站立动画的离线兜底），漏掉它手机上就只剩文字占位头像。
 // assets/ui/johnny-walk.png 是战斗载入条「强尼走路」的 6 帧序列图（漏了=加载条里强尼消失）。
+// assets/ui/sasuke-run.png 是 2026-11-28 新载入条的「Q版佐助疾跑」6 帧序列图；
+// assets/ui/load-bg.jpg 是新载入条的 img_12 海岛海战背景整图（漏了=遮罩只剩纯色）。
 const rootFiles = ['index.html', 'vfs.js', 'ff-decode.js', 'wasm_exec.js', 'ikemen.wasm',
-  'assets/ui/johnny-walk.png'];
+  'assets/ui/johnny-walk.png', 'assets/ui/sasuke-run.png', 'assets/ui/load-bg.jpg'];
 // ikemen-fs 内排除的目录/文件（不需要进 APK 的开发产物）
 const vfsExclude = new Set(['.bak']);
 

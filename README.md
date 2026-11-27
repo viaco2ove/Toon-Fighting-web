@@ -16,7 +16,10 @@ WebAssembly，在浏览器里直接用真实 MUGEN 角色资产跑对局的网�
 node serve.cjs          # 默认 8100 端口
 # 浏览器打开 http://localhost:8100/
 ```
-
+```bash
+# 联动后端 --conn，指定 8200（端口放 --conn 前面）默认8100
+node serve.cjs 8200 --conn
+```
 Node ≥ 18 即可，无需安装依赖。建议用独立的 Chrome / Edge 窗口游玩（WebGL 硬件加速），
 不要用 IDE 内嵌浏览器（软件渲染会掉帧，且窗口失焦时浏览器会把帧循环降到 1fps）。
 

@@ -1,26 +1,94 @@
 --;===========================================================
---; COMBAT FX —— 战斗反馈桥：命中/伤害信号输出给前端（[toon] 缺陷E）
+--; COMBAT FX —— 战斗反馈桥：命中/伤害/命令桥/开战信号
 --;===========================================================
---; 做法沿用 headavatar.lua 的「print 通道」：
---;   引擎侧每 2 帧采样双方 life()，掉血即视为被击中，输出
---;     TF_HIT:v=<受害者pn>,d=<掉血量>,x=<游戏坐标x>,y=<游戏坐标y>
---;   前端（index.html 的 hookEngineConsole）解析后在受害者位置画
---;   击中火花 + 伤害数字——这就是「伤害机制」的可视化层；
---;   技能的圆/扇形范围指示与 buff 徽章由前端按技能语义绘制。
---; 坐标口径与 headavatar 完全一致：screenPosX/screenPosY 补偿相机缩放
---; 后的「游戏分辨率像素」（左上原点），前端用 contain-fit 换算 CSS 像素。
---; 性能：采样本身便宜；只在 life 下降时输出，站桩/移动/回血完全静默。
---; 回合重置 life 回满（上升）不会误报；KO 一击的大额掉血会如实输出。
+--; 1) 命中信号：每 2 帧采样双方 life()，掉血即输出
+--;      TF_HIT:v=<受害者pn>,d=<掉血量>,x=<游戏坐标x>,y=<游戏坐标y>
+--;    前端画击中火花 + 伤害数字；坐标口径与 headavatar 一致（已补偿相机缩放）。
+--; 2) 命令桥（2026-11-27 技能机制 v3）：前端把技能的真实效果写进
+--;      save/tf-cmd.ini  （[Cmd] seq=<n> healPct=<pct> name=... durSec=...）
+--;    这里每 2 帧读一次（loadText 走 VFS，浏览器覆盖层写入立即可见），
+--;    seq 变化即执行：回血 = player(1) 上下文里 setLife(life + lifeMax*pct/100)
+--;    （引擎只给 setLife，没有 lifeAdd；只有活着才生效），然后输出
+--;      TF_HEAL:v=1,amt=<真实回血量>
+--;    前端据此画绿色治疗数字。攻击力/持续时间的可视化（徽章）由前端自管。
+--; 3) 开战信号（2026-11-28 修「二阶段黑屏」）：
+--;    **引擎开始出帧 ≠ 战斗画面已经画出来**。原先前端用
+--;    「帧数 > 20 且帧率 ≥ 12fps」撤加载遮罩并开始倒数，
+--;    那时引擎还在 pre-intro（stage/角色仍在解码）→ canvas 全黑 →
+--;    用户看到「倒数完了还是黑屏，再开打」。
+--;    这里改成引擎自己报告：
+--;      roundState() >= 1  → 回合画面已经立起来了（stage + 角色 + ROUND 1 公告）
+--;    此时输出一次 TF_FIGHT:1，前端才撤遮罩 + 起倒数 → 倒数期间画面是活的。
+--;    顺带输出 TF_TL: 时间线（帧数/roundState/introState/stageTime/角色数），
+--;    探针用它和 canvas 亮度采样对齐，定位黑屏窗口。
+--; 性能：采样便宜；只在 life 下降 / seq 变化 / 阶段切换时输出，其余完全静默。
 
 combatfx = {}
 
 combatfx.tick = 0
 combatfx.last = {} -- pn -> 上一次采样的 life
+combatfx.cmdSeq = -1
+combatfx.fight = false -- 是否已经报过「战斗画面已就绪」
+combatfx.tlTick = 0 -- TF_TL 时间线的帧计数
 
 local function combatfx_pos()
 	local x = screenPosX() + gameWidth() / 2 * (1 - 1 / cameraZoom())
 	local y = screenPosY() + cameraPosY() * (1 - 1 / cameraZoom())
 	return x, y
+end
+
+local function combatfx_cmd()
+	local ok, txt = pcall(loadText, 'save/tf-cmd.ini')
+	if not ok or txt == nil then return end
+	local seq = tonumber(string.match(txt, 'seq%s*=%s*(-?%d+)'))
+	if seq == nil or seq <= combatfx.cmdSeq then return end
+	combatfx.cmdSeq = seq
+	local pct = tonumber(string.match(txt, 'healPct%s*=%s*([%d.]+)'))
+	if pct ~= nil and pct > 0 then
+		if player(1) then
+			local lm = lifeMax()
+			local before = life()
+			local add = math.floor(lm * pct / 100 + 0.5)
+			if add > 0 then
+				local after = math.min(lm, before + add)
+				setLife(after)
+				print('TF_HEAL:v=1,amt=' .. tostring(after - before))
+			end
+		end
+		player(1)
+	end
+end
+
+-- 开战信号 + 时间线
+local function combatfx_stage()
+	-- roundState: 0=pre-intro / 1=回合画面已立起 / 2=战斗中 / 3=回合结束 / 4=结算
+	local rs = roundState()
+	local is = introState()
+	local st = 0
+	pcall(function() st = stageTime() end)
+	local ch = 0
+	for pn = 1, 4 do
+		if player(pn) then
+			ch = ch + 1
+		end
+	end
+	player(1)
+
+	combatfx.tlTick = combatfx.tlTick + 1
+	if combatfx.tlTick >= 6 then
+		combatfx.tlTick = 0
+		print("TF_TL:f=" .. tostring(getFrameCount()) ..
+			",rs=" .. tostring(rs) ..
+			",is=" .. tostring(is) ..
+			",st=" .. tostring(st) ..
+			",ch=" .. tostring(ch))
+	end
+
+	-- 回合画面立起来 = 可以撤加载遮罩了
+	if not combatfx.fight and rs >= 1 then
+		combatfx.fight = true
+		print('TF_FIGHT:1')
+	end
 end
 
 local function combatfx_emit()
@@ -51,6 +119,8 @@ local function combatfx_emit()
 	if #parts > 0 then
 		print('TF_HIT:' .. table.concat(parts, '|'))
 	end
+	combatfx_stage()
+	combatfx_cmd()
 end
 
 hook.add('loop', 'combatfx', combatfx_emit)

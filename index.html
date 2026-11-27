@@ -443,7 +443,7 @@
   #tools button{cursor:pointer;font-family:inherit;font-size:12px;padding:8px 16px;border-radius:8px;
     background:rgba(6,8,12,.72);border:1px solid #3a4558;color:#cbd5e1;backdrop-filter:blur(4px);font-weight:800}
   #tools button:hover{border-color:var(--gold);color:var(--gold)}
-  #warn{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:31;display:none;
+  #warn{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:47;display:none;
     padding:7px 14px;border-radius:6px;font-size:12px;background:rgba(255,59,48,.14);
     border:1px solid rgba(255,59,48,.5);color:#ffb4ad}
   #warn.on{display:block}
@@ -621,32 +621,20 @@
     background:rgba(255,194,51,.12);border:1px solid rgba(255,194,51,.5);color:#ffd98a}
   #focusTip.on{display:block}
 
-  /* 首局载入角色/场景时的等待遮罩（2026-11-27 按 加载中.md/img_8 设计稿重做）：
-     霓虹雨夜背景 + 中部横条一行式「加载中。。。+ 条纹进度 + 强尼走路」。
+  /* 首局载入角色/场景时的等待遮罩（2026-11-28 按 加载中.md/img_12 设计稿重做）：
+     img_12 海岛海战背景整图铺满 + 中部横条一行式「加载中。。。+ 条纹进度 + Q版佐助疾跑」。
      所有动画只用 opacity/transform（合成器线程接管），wasm 独占主线程时照样播 ——
-     强尼走路=6 帧序列条 translateX steps(6)，条纹进度=宽幅伪元素 translateX，雨幕=平铺伪元素 translateY。 */
+     佐助疾跑=6 帧序列条 translateX steps(6)，条纹进度=宽幅伪元素 translateX。 */
   #ready{position:fixed;inset:0;z-index:45;display:none;flex-direction:column;
     align-items:center;justify-content:center;transition:opacity .4s;
-    background:
-      radial-gradient(58% 42% at 18% 30%, rgba(168,64,224,.34), transparent 60%),
-      radial-gradient(52% 40% at 82% 22%, rgba(64,108,224,.30), transparent 62%),
-      radial-gradient(44% 36% at 62% 74%, rgba(224,72,168,.26), transparent 64%),
-      radial-gradient(40% 34% at 30% 80%, rgba(56,188,212,.22), transparent 62%),
-      radial-gradient(30% 26% at 46% 46%, rgba(232,96,208,.20), transparent 60%),
-      linear-gradient(180deg,#0b0d18 0%,#171226 48%,#0d0c16 100%)}
+    background:url('assets/ui/load-bg.jpg') center/cover no-repeat, #16324a}
   #ready.on{display:flex}
-  /* 雨幕：细白斜线平铺，translateY 循环 */
-  #ready .rain{position:absolute;left:0;right:0;top:-40%;bottom:-40%;pointer-events:none;opacity:.45;
-    background:repeating-linear-gradient(102deg, rgba(255,255,255,.10) 0 1px, transparent 1px 9px,
-      rgba(255,255,255,.06) 9px 10px, transparent 10px 26px);
-    animation:ldRain .9s linear infinite}
-  @keyframes ldRain{to{transform:translateY(120px)}}
-  /* 中部横条 */
-  #ready .band{position:relative;width:min(92vw,880px);padding:20px 30px;display:flex;align-items:center;gap:20px;
-    background:rgba(9,11,16,.78);border-top:1px solid rgba(140,150,180,.22);border-bottom:1px solid rgba(140,150,180,.22);
-    box-shadow:0 10px 44px rgba(0,0,0,.45)}
+  /* 中部横条（img_12 设计：半透明暗横带横贯画面，文字+进度+角色都在这一行） */
+  #ready .band{position:relative;width:100%;padding:26px 4vw;display:flex;align-items:center;gap:22px;
+    background:rgba(10,16,24,.72);border-top:1px solid rgba(150,170,200,.25);border-bottom:1px solid rgba(150,170,200,.25);
+    box-shadow:0 12px 48px rgba(0,0,0,.5)}
   #ready .band::before,#ready .band::after{content:'';position:absolute;left:0;right:0;height:1px;
-    background:linear-gradient(90deg,transparent,rgba(168,120,255,.55),transparent)}
+    background:linear-gradient(90deg,transparent,rgba(120,190,255,.5),transparent)}
   #ready .band::before{top:-1px}
   #ready .band::after{bottom:-1px}
   #ready .tx{font-size:30px;font-weight:900;letter-spacing:.14em;color:#f2f5fb;
@@ -663,15 +651,19 @@
     animation:ldBar 1s linear infinite}
   @keyframes ldBar{to{transform:translateX(350%)}}
   #ready .sync{font-size:13px;color:#cfd6e4;letter-spacing:.1em;white-space:nowrap}
-  /* 强尼：6 帧序列条（assets/ui/johnny-walk.png 504x139，单帧 84x139 → 显示 46x76），
-     repeat-x + translateX 整条宽 steps(6) = 无缝循环，且走 transform 走合成器线程 */
-  #ready .johnny{position:relative;width:46px;height:76px;overflow:hidden;flex:none;
+  /* 佐助疾跑：6 帧序列条（assets/ui/sasuke-run.png 606x112，单帧 101x112 → 显示 64x71），
+     repeat-x + translateX 整条宽 steps(6) = 无缝循环，transform 走合成器线程；
+     疾跑方向向右，配合「加载中。。。」一行里往前跑 */
+  #ready .sasuke{position:relative;width:64px;height:71px;overflow:hidden;flex:none;
     filter:drop-shadow(0 6px 8px rgba(0,0,0,.5))}
-  #ready .johnny i{position:absolute;top:0;bottom:0;left:0;width:276px;
-    background:url('assets/ui/johnny-walk.png') left center/276px 76px repeat-x;
-    animation:ldWalk .84s steps(6) infinite}
-  @keyframes ldWalk{to{transform:translateX(-276px)}}
-  #ready .sub{margin-top:14px;font-size:12px;color:rgba(210,218,232,.55);letter-spacing:.04em}
+  #ready .sasuke i{position:absolute;top:0;bottom:0;left:0;width:606px;
+    background:url('assets/ui/sasuke-run.png') left center/606px 112px repeat-x;
+    background-size:606px 71px;
+    animation:ldRun .72s steps(6) infinite}
+  @keyframes ldRun{to{transform:translateX(-606px)}}
+  #ready .sub{position:absolute;bottom:3.2vh;left:0;right:0;text-align:center;
+    font-size:12px;color:rgba(240,246,255,.78);letter-spacing:.04em;
+    text-shadow:0 1px 6px rgba(0,0,0,.7)}
 
   /* ---------- 虚拟手柄（触屏 / Android App） ---------- */
   #pad{position:fixed;inset:0;z-index:35;pointer-events:none;display:none;
@@ -1222,12 +1214,11 @@
 <div id="focusTip">点一下画面，把键盘焦点交给游戏</div>
 
 <div id="ready">
-  <div class="rain"></div>
   <div class="band">
     <div class="tx">加载中<i>.</i><i>.</i><i>.</i></div>
     <div class="bar"><i></i></div>
     <div class="sync">同步中</div>
-    <div class="johnny"><i></i></div>
+    <div class="sasuke"><i></i></div>
   </div>
   <div class="sub">首次要等引擎把 sff / snd 拉下来，之后会快很多</div>
 </div>
@@ -1822,6 +1813,13 @@
     el.className = 'packstat' + (kind ? ' ' + kind : '');
   }
 
+  // 按 packId 找资产集：兼容 dir（登记目录名）/ id（pack.json id）/ dirName（map_design 目录名，
+  // 旧版 bindPackToSession 写过这种——2026-11-28 用户实报「切换故事资产集没变」的根源之一）
+  function findPackById(pid) {
+    if (!pid) return null;
+    return (PACKS.list || []).find((x) => x.dir === pid || x.id === pid || x.dirName === pid) || null;
+  }
+
   // 登记后同步「已绑定到哪个会话」的状态行（不清掉别的提示）
   function refreshPackStat() {
     if (!PACKS.cur) {
@@ -1833,7 +1831,10 @@
     const miss = missingPackChars();
     const lines = [];
     const isUser = PACKS.cur.source === 'user';
-    if (PACKS.bound && PACKS.bound.packId === PACKS.cur.dir) {
+    const boundPack = PACKS.bound ? findPackById(PACKS.bound.packId) : null;
+    if (PACKS.bound && boundPack && boundPack.dir === PACKS.cur.dir) {
+      lines.push('已绑定到会话「' + PACKS.bound.storyName + '」· packId=' + PACKS.cur.dir);
+    } else if (PACKS.bound && !boundPack && PACKS.bound.packId === PACKS.cur.dir) {
       lines.push('已绑定到会话「' + PACKS.bound.storyName + '」· packId=' + PACKS.bound.packId);
     } else if (PACKS.bound) {
       lines.push('会话「' + PACKS.bound.storyName + '」绑的是 packId=' + PACKS.bound.packId + '，当前用的是「' + PACKS.cur.name + '」。');
@@ -2496,13 +2497,14 @@
       connApi('/api/conn/session-data/' + encodeURIComponent(sid) + '/tf_fight_bind'),
     ]);
 
-    // 会话侧已绑的资产集 → 切到那个资产集（tf_fight_bind.packId）
+    // 会话侧已绑的资产集（tf_fight_bind）：只记录，**不在这切**——
+    // 2026-11-28 用户实报「切换故事绑定的资产集没变」：故事变了就该跟着换资产集。
+    // 真正的切换决策放在下方「角色/故事名解析完」之后：pack.stories 声明匹配优先，
+    // 其次才尊重会话侧旧绑定（含旧版写 dirName 的兼容）。
     const sessionBind = bindR && bindR.ok ? bindR.value : null;
-    if (sessionBind && sessionBind.packId) {
-      const p = PACKS.list.find((x) => x.dir === sessionBind.packId || x.id === sessionBind.packId);
-      if (p && (!PACKS.cur || PACKS.cur.dir !== p.dir)) await usePack(p.dir);
-      PACKS.bound = { storyName: sessionBind.storyName || CONN.storyName, packId: sessionBind.packId };
-    }
+    PACKS.bound = (sessionBind && sessionBind.packId)
+      ? { storyName: sessionBind.storyName || CONN.storyName, packId: sessionBind.packId }
+      : null;
 
     // 角色来源：后端世界角色表 > 会话消息提取
     let chars = [];
@@ -2544,10 +2546,20 @@
     }
     renderHomeStory();
 
-    // 资产集跟随故事：pack 声明了这个故事就自动选用
-    if (!PACKS.cur && PACKS.list.length) {
-      const hit = PACKS.list.find((p) => (p.stories || []).includes(CONN.storyName));
-      if (hit) await usePack(hit.dir);
+    // 资产集跟随故事（2026-11-28 重构，修「切换故事绑定的资产集没变」）：
+    // ① pack.stories 声明了这个故事 → 切到那个资产集，并把会话绑定刷新成它
+    //   （顺手自愈旧版把 map_design 目录名写进 tf_fight_bind 的历史遗留）
+    // ② 没有声明匹配 → 尊重会话侧旧绑定（findPackById 兼容 dir/id/dirName 三种格式）
+    // ③ 都没有 → 保持当前资产集不动，状态行如实展示
+    if (PACKS.list.length) {
+      const storyPack = PACKS.list.find((p) => (p.stories || []).includes(CONN.storyName));
+      if (storyPack) {
+        if (!PACKS.cur || PACKS.cur.dir !== storyPack.dir) await usePack(storyPack.dir);
+        if (!PACKS.bound || PACKS.bound.packId !== storyPack.dir) await bindPackToSession(storyPack.dir);
+      } else if (PACKS.bound && PACKS.bound.packId) {
+        const p = findPackById(PACKS.bound.packId);
+        if (p && (!PACKS.cur || PACKS.cur.dir !== p.dir)) await usePack(p.dir);
+      }
     }
 
     // 挂起的资产集绑定（先选文件夹、后选会话）：选完会话立刻补写 tf_fight_bind
@@ -4033,8 +4045,9 @@
     if (arr[i] === key) { arr[i] = null; renderSelect(); selToast('已取消，可重新选择'); return; }
     if (arr.some((x, k) => k !== i && x === key)) { selToast('该角色已在本队其他出场位，先取消再选'); return; }
     arr[i] = key;
-    // 我方：选完自动跳下一个空出场位
-    if (s === 1 && i < teamSize - 1 && !arr[i + 1]) activeSlot = 'p1-' + (i + 1);
+    // 选完自动跳下一个空出场位（双方一致——2026-11-28 用户实报：
+    // 以前只有我方会跳，对方每次点击都覆写第 0 位，选 3 人结果只剩 1 人）
+    if (i < teamSize - 1 && !arr[i + 1]) activeSlot = SIDE[s] + '-' + (i + 1);
     const e = poolByKey(key);
     renderSelect();
     selToast('已选择：' + (e ? e.r + ' · ' + e.id : key));
@@ -4384,6 +4397,7 @@
     return gs.map((g) => ({
       name: g.name, desc: g.desc || '', fx: g.fx || '', cd: Number(g.cd) || 0,
       cmd: String(g.cmd || '').split(/\s+/).filter(Boolean),
+      atk: g.atk || null,      // v3 战斗机制参数：{kind, rangeM, hits, speed, healPct, atkUp, durSec}
     })).filter((m) => m.cmd.length);
   }
   function movesFor(id) {
@@ -4596,6 +4610,16 @@
         ctx.fillStyle = p.color;
         ctx.fillText(p.txt, p.x, p.y);
         ctx.textAlign = 'left';
+      } else if (p.kind === 'orb') {
+        // 属性球体（v3 远程）：核心亮白 + 属性晕 + 边缘环
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, Math.max(0.1, p.r));
+        g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, p.color); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.r), 0, 7); ctx.fill();
+        ctx.globalAlpha = a * 0.9;
+        ctx.strokeStyle = p.color; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.r * 0.72), 0, 7); ctx.stroke();
+        ctx.globalAlpha = a;
       }
       if (p.kind !== 'mist') ctx.globalAlpha = 1;
       } catch (e) { /* 单个粒子画崩不能拖垮整帧（负半径/非法路径） */ }
@@ -4832,16 +4856,72 @@
     skillFx(mv.fx, { x: pr.left + pr.width / 2, y: pr.top + pr.height * 0.45 });
     setTimeout(() => d.remove(), 1500);
   }
-  // ---------------- 战斗反馈层：命中/伤害/范围/buff（缺陷E，机制参考 toonflow-field-survival） ----------------
-  // 信号源：external/script/combatfx.lua 每 2 帧采样 life()，掉血即输出 TF_HIT:...
-  // 引擎 canvas 是 wasm 画的、HTML 盖不进去——全部画在 #skfx 覆盖层/DOM 上：
-  //   TF_HIT      → 受害者位置 击中火花 + 伤害数字（属性色随 P1 最近技能）
-  //   技能释放    → 按语义画 圆形/扇形地面范围指示/弹道/护体环（field-survival 手法）
-  //   buff 类技能 → 头顶悬浮头像挂绿色徽章，真实时间戳到期清除（buffUntilMs 口径）
+  // ---------------- 战斗反馈层：命中/伤害/范围/buff（缺陷E → 技能机制 v3） ----------------
+  // 信号源：external/script/combatfx.lua
+  //   TF_HIT  掉血即输出（受害者坐标）→ 击中火花 + 伤害数字
+  //   TF_HEAL 命令桥执行回血后输出**真实回血量** → 绿色治疗数字
+  // 命令桥：技能的真实效果（回血%）由前端写 save/tf-cmd.ini（seq 单调递增），
+  //   Lua 每 2 帧 loadText 轮询，seq 变化即 setLife(life+lifeMax*pct/100) 并回报 TF_HEAL。
+  // 技能机制（char.json genericSkills[].atk；无 atk 数据时回退 classifyMove 启发式）：
+  //   melee   近程：范围 rangeM 米，特效从**胸前**发出、打到哪里就到哪里（终点=范围线）
+  //   proj    远程：orb 属性球体从胸前飞向对手
+  //   dash    冲锋：真注入冲锋指令+连击按键（引擎真实判定），前端画轨迹+连击计数
+  //   retreat 撤离：真注入后撤指令 + 真回血（命令桥）+ 攻上徽章（真实时间戳到期）
   window.__tfHitCount = 0;
+  const PX_PER_M = 55;                         // 游戏像素/米（本池角色 ~95px ≈ 1.7m，320×240 口径）
+  const CHEST_LIFT = 46;                       // 胸口高度：轴点上方 46 游戏像素
   const TF_BUFF_MS = 6000;                     // buff 默认时长（技能未配 cd 时）
   const LAST_SKILL = { attr: '', at: 0 };      // P1 最近释放的属性（伤害数字着色用）
   const BUFFS = { 1: null, 2: null };          // side -> {name, until, el}
+  const COMBO = { n: 0, until: 0, expect: 0 }; // dash 连击窗口（真实命中计数）
+  let TF_CMD_SEQ = 0;
+  // 命令桥写入：save/tf-cmd.ini（引擎 Lua loadText 轮询，seq 变化即执行）
+  function engineCmdFile(obj) {
+    try {
+      const fsx = globalThis.fs;
+      if (!fsx || !fsx.constants || !engineStarted) return;
+      const lines = ['[Cmd]', 'seq=' + (++TF_CMD_SEQ)];
+      for (const k of Object.keys(obj)) if (obj[k] !== undefined && obj[k] !== null) lines.push(k + '=' + obj[k]);
+      const bytes = new TextEncoder().encode(lines.join('\n') + '\n');
+      fsx.open('save/tf-cmd.ini', fsx.constants.O_WRONLY | fsx.constants.O_CREAT | fsx.constants.O_TRUNC, 0o644, (e, fd) => {
+        if (e || fd == null) return;
+        fsx.write(fd, bytes, 0, bytes.length, null, () => { fsx.close(fd, () => {}); });
+      });
+    } catch (e) { /* 引擎未起/无 fs：只走视觉层 */ }
+  }
+  window.__tfHealLog = [];
+  // ---------------- 开战信号（TF_FIGHT）----------------
+  // 修「二阶段黑屏」：原先撤加载遮罩用的是「引擎帧数 > 20 且帧率 ≥ 12fps」，
+  // 但那只是「引擎开始吐帧」——stage/角色还在解码，canvas 仍是全黑，
+  // 于是用户看到「倒数完了还是黑屏，再开打」。
+  // 引擎侧（combatfx.lua）改成在 roundState() >= 1（回合画面已立起）时
+  // 报一次 TF_FIGHT:1；前端收到才撤遮罩 + 起倒数 → 倒数期间画面是活的。
+  let FIGHT_READY = false;
+  window.__tfFightLog = [];
+  function onTfFight(payload) {
+    window.__tfFightLog.push({ at: Date.now(), v: String(payload).trim() });
+    if (FIGHT_READY) return;
+    FIGHT_READY = true;
+    window.__tfFightReady = true;
+    revealBattle();
+  }
+  function onTfHeal(payload) {
+    const m = /^v=(\d+),amt=(-?\d+)/.exec(String(payload).trim());
+    if (!m) return;
+    const side = Number(m[1]), amt = Number(m[2]);
+    window.__tfHealLog.push({ v: side, amt, at: Date.now() });
+    if (window.__tfHealLog.length > 8) window.__tfHealLog.shift();
+    if (amt <= 0) return;
+    const p = headPos[side];
+    if (!p) return;
+    const sc = headScale();
+    skfxCtx();
+    P({ kind: 'dmg', x: sc.ox + p.x * sc.sx, y: sc.oy + p.y * sc.sy - 110 * sc.sy, vy: -44,
+      txt: '+' + amt, color: '#7dff9e', life: 1.0, max: 1.0 });
+    skBurst(sc.ox + p.x * sc.sx, sc.oy + p.y * sc.sy - 40 * sc.sy, '#7dff9e', 8, 80, 220);
+    if (!SKFX.timer) SKFX.last = performance.now();
+    skfxEnsure();
+  }
   function onTfHit(payload) {
     window.__tfHitCount++;
     for (const part of String(payload).split('|')) {
@@ -4856,6 +4936,12 @@
       // 属性色：P1 的攻击用最近释放技能的属性（5s 内有效），AI 出招拿不到属性 → 白色
       const attr = attacker === 1 && Date.now() - LAST_SKILL.at < 5000 ? LAST_SKILL.attr : '';
       showHitFx(x, y, dmg, attr ? attrColor(attr) : '#eef2f8');
+      // dash 连击窗口内的真命中 → 连击计数（冲锋三连击判定的前端体现）
+      if (attacker === 1 && Date.now() < COMBO.until) {
+        COMBO.n++;
+        P({ kind: 'dmg', x: x + rnd(-6, 6), y: y - 132, vy: -40,
+          txt: '×' + COMBO.n + ' 连击', color: '#ffd34d', life: 0.8, max: 0.8 });
+      }
     }
   }
   window.__tfDmgLog = [];
@@ -4907,61 +4993,132 @@
     if (/升挑|上撩|对空|升龙|升焰|挑斩/.test(s)) return 'cone';
     return 'melee';
   }
-  // P1 释放技能 → 机制可视化。AI 侧没有「释放」信号，只有 TF_HIT 命中反馈。
+  // 技能类型：atk.kind 优先（v3 数据），否则 classifyMove 启发式兜底（cone 归入 melee，用扇形画）
+  function moveKind(mv) {
+    const a = mv.atk || {};
+    if (a.kind) return a.kind;
+    const s = classifyMove(mv);
+    return s === 'cone' ? 'melee' : s;
+  }
+  // P1 释放技能 → 机制可视化 + 真实效果注入。AI 侧没有「释放」信号，只有 TF_HIT 反馈。
   function combatCast(mv) {
-    const shape = classifyMove(mv);
-    (window.__tfShapeLog = window.__tfShapeLog || []).push({ s: shape, n: mv.name, at: Date.now() });
+    const kind = moveKind(mv);
+    const atk = mv.atk || {};
+    (window.__tfShapeLog = window.__tfShapeLog || []).push({ s: kind, n: mv.name, at: Date.now() });
     if (window.__tfShapeLog.length > 8) window.__tfShapeLog.shift();
     LAST_SKILL.attr = mv.fx || 'normal';
     LAST_SKILL.at = Date.now();
-    // buff 徽章不依赖坐标（挂在头显 DOM 上）——先挂，再做需要坐标的 FX
-    if (shape === 'buff') applyBuff(1, mv.name, (mv.cd || 0) > 0 ? mv.cd * 1000 : TF_BUFF_MS);
+    const toks = Array.isArray(mv.cmd) ? mv.cmd : String(mv.cmd || '').split(/\s+/).filter(Boolean);
+    // —— 不依赖坐标的部分先做：徽章 / 真回血命令桥 / 真冲锋连击注入 ——
+    if (kind === 'buff') applyBuff(1, mv.name, (mv.cd || 0) > 0 ? mv.cd * 1000 : TF_BUFF_MS);
+    if (kind === 'retreat') {
+      applyBuff(1, '攻+' + (atk.atkUp || 5), (atk.durSec || 5) * 1000);
+      engineCmdFile({ healPct: atk.healPct || 1, name: mv.name });   // 命令桥 → Lua setLife 真回血 → TF_HEAL
+    }
+    if (kind === 'dash') {
+      // 真冲锋（2026-11-28 修「技能没有按要求」）：**整个人冲过去**不能依赖角色 cmd
+      // 是否接线了冲刺指令（98Ryo 系很多没有 FF 冲刺）——直接注入键盘：
+      // 双击前方向（MUGEN 通用冲刺判定）+ 持续按住推进，推进途中按 hits 次攻击键。
+      const hits = Math.max(1, atk.hits || 3);
+      COMBO.n = 0; COMBO.until = Date.now() + 2800; COMBO.expect = hits;
+      const p1h = headPos[1], p2h = headPos[2];
+      const fwdAct = (p1h && p2h && p2h.x < p1h.x) ? 'left' : 'right';
+      const fwdCode = INI2CODE[settings.keys.p1[fwdAct]];
+      const atkCode = INI2CODE[settings.keys.p1.a] || 'KeyZ';
+      if (fwdCode) {
+        injectKey('keydown', fwdCode);
+        setTimeout(() => injectKey('keyup', fwdCode), 80);          // 第一次点前
+        setTimeout(() => injectKey('keydown', fwdCode), 140);       // 第二次点前 = 冲刺/奔跑
+        for (let i = 0; i < hits; i++) {
+          setTimeout(() => { injectKey('keydown', atkCode); setTimeout(() => injectKey('keyup', atkCode), 70); }, 340 + i * 240);
+        }
+        setTimeout(() => injectKey('keyup', fwdCode), 340 + hits * 240 + 150);
+      } else {
+        fireCommandTokens(toks.length ? toks : ['f', 'f']).catch(() => {});
+      }
+    } else if (kind === 'retreat') {
+      // 真后撤（同上不依赖 cmd 接线）：双击后方向 = MUGEN 通用后撤步，整个人往后撤离
+      const p1h = headPos[1], p2h = headPos[2];
+      const backAct = (p1h && p2h && p2h.x < p1h.x) ? 'right' : 'left';
+      const backCode = INI2CODE[settings.keys.p1[backAct]];
+      if (backCode) {
+        injectKey('keydown', backCode);
+        setTimeout(() => injectKey('keyup', backCode), 70);
+        setTimeout(() => injectKey('keydown', backCode), 130);      // 双击后 = 后撤
+        setTimeout(() => injectKey('keyup', backCode), 640);
+      } else {
+        fireCommandTokens(toks.length ? toks : ['b', 'b']).catch(() => {});
+      }
+    }
     const p1 = headPos[1], p2 = headPos[2];
     if (!p1 || !p2) return;                    // 没有坐标包（引擎未出帧）→ 只走浮字
     const sc = headScale();
     const ax = sc.ox + p1.x * sc.sx, ay = sc.oy + p1.y * sc.sy;   // 轴点 ≈ 脚下
     const bx = sc.ox + p2.x * sc.sx, by = sc.oy + p2.y * sc.sy;
+    const chestY = ay - CHEST_LIFT * sc.sy;       // 胸口（起手点）
+    const chest2Y = by - CHEST_LIFT * sc.sy;
+    const dir = bx >= ax ? 1 : -1;
     const C = attrColor(mv.fx || 'normal');
     const FILL = 'rgba(255,143,200,0.14)', STROKE = 'rgba(255,143,200,0.38)';  // field-survival 粉
     skfxCtx();
-    const dist = Math.max(30, Math.abs(bx - ax));
-    if (shape === 'melee' || shape === 'dash') {
-      // 近程圆范围（半径 90 游戏像素）；dash 前探到「与对手距离的 60%」处 + 冲刺速度线
-      const cx = shape === 'dash' ? ax + (bx >= ax ? 1 : -1) * Math.min(90 * sc.sx, dist * 0.6) : ax;
-      P({ kind: 'rangeC', x: cx, y: ay, r: 90 * sc.sx, color: C, fill: FILL, stroke: STROKE, life: 0.7, max: 0.7 });
-      if (shape === 'dash') {
-        for (let i = 0; i < 10; i++) {
-          P({ kind: 'streak', x: ax + rnd(-14, 14), y: ay - rnd(8, 90) * sc.sy,
-            vx: (bx >= ax ? 1 : -1) * rnd(700, 1300), vy: rnd(-40, 40), color: C, w: rnd(2, 3.5), life: rnd(0.25, 0.45), max: 0.45 });
-        }
+    if (kind === 'melee' || kind === 'cone') {
+      // 近程：范围 rangeM 米——地面范围圈 + 胸前斩击光带打到**范围终点**（范围到哪里特效到哪里）
+      const rangePx = Math.max(36, (atk.rangeM || 2) * PX_PER_M) * sc.sx;
+      if (kind === 'cone') {
+        const base = dir >= 0 ? 0 : Math.PI;
+        P({ kind: 'rangeW', x: ax, y: ay, r: rangePx, a0: base - Math.PI / 6, a1: base + Math.PI / 6,
+          color: C, fill: FILL, stroke: STROKE, life: 0.7, max: 0.7 });
+      } else {
+        P({ kind: 'rangeC', x: ax, y: ay, r: rangePx, color: C, fill: FILL, stroke: STROKE, life: 0.7, max: 0.7 });
       }
-    } else if (shape === 'cone') {
-      // 扇形：field-survival 的 CONE_HALF_ANGLE_DEG=30，朝对手一侧张开
-      const base = bx >= ax ? 0 : Math.PI;
-      P({ kind: 'rangeW', x: ax, y: ay, r: 120 * sc.sx, a0: base - Math.PI / 6, a1: base + Math.PI / 6,
-        color: C, fill: FILL, stroke: STROKE, life: 0.7, max: 0.7 });
-    } else if (shape === 'proj') {
-      // 远程：弹体从 P1 飞到 P2（0.34s）+ 到达爆点
-      const y0 = ay - 52 * sc.sy, y1 = by - 52 * sc.sy;
-      P({ kind: 'glow', x: ax, y: y0, r: 24, color: C, life: 0.34, max: 0.34,
-        update(p, dt2) { const k = Math.max(0, Math.min(1, 1 - p.life / p.max)); p.x = ax + (bx - ax) * k; p.y = y0 + (y1 - y0) * k; } });
-      P({ kind: 'glow', x: bx, y: y1, r: 58, color: C, life: 0.5, max: 0.5 });
-      skBurst(bx, y1, C, 12, 110, 360);
-    } else if (shape === 'buff') {
-      // buff：护体环（徽章已在上面挂好）
+      const endX = ax + dir * rangePx;
+      P({ kind: 'beam', x: Math.min(ax, endX), y: chestY, x2: Math.max(ax, endX), h: 14,
+        color: C, life: 0.26, max: 0.26 });
+      P({ kind: 'glow', x: endX, y: chestY, r: 44, color: C, life: 0.3, max: 0.3 });
+      skBurst(endX, chestY, C, 10, 100, 330);
+    } else if (kind === 'proj') {
+      // 远程：属性球体（核心白 + 属性晕 + 边缘环 + 拖尾火花），胸前 → 对方胸前
+      const dur = 0.34 / Math.max(0.5, atk.speed || 1);
+      P({ kind: 'orb', x: ax, y: chestY, r: 15, color: C, life: dur, max: dur,
+        update(p, dt2) {
+          const k = Math.max(0, Math.min(1, 1 - p.life / p.max));
+          p.x = ax + (bx - ax) * k; p.y = chestY + (chest2Y - chestY) * k;
+          if (Math.random() < 0.55) P({ kind: 'spark', x: p.x, y: p.y, vx: rnd(-50, 50), vy: rnd(-50, 50),
+            color: p.color, r: 2.5, life: 0.25, max: 0.25 });
+        } });
+      P({ kind: 'glow', x: bx, y: chest2Y, r: 54, color: C, life: 0.42, max: 0.42 });
+      skBurst(bx, chest2Y, C, 12, 110, 340);
+    } else if (kind === 'dash') {
+      // 冲锋轨迹（真实判定由注入承担，命中见连击计数）
+      for (let i = 0; i < 12; i++) {
+        P({ kind: 'streak', x: ax + dir * i * 16 * sc.sx, y: ay - rnd(8, 80) * sc.sy,
+          vx: dir * rnd(700, 1300), vy: rnd(-30, 30), color: C, w: rnd(2, 3.5), life: rnd(0.3, 0.5), max: 0.5 });
+      }
+    } else if (kind === 'retreat') {
+      // 撤离轨迹（往后拖）+ 护体绿环；回血数字等 TF_HEAL 真实值
+      for (let i = 0; i < 8; i++) {
+        P({ kind: 'streak', x: ax - dir * i * 14 * sc.sx, y: ay - rnd(8, 70) * sc.sy,
+          vx: -dir * rnd(500, 900), vy: rnd(-30, 30), color: C, w: rnd(2, 3), life: rnd(0.25, 0.4), max: 0.4 });
+      }
+      P({ kind: 'shield', x: ax, y: ay, r: 58 * sc.sx, color: C,
+        fill: 'rgba(120,255,170,0.10)', stroke: 'rgba(120,255,170,0.42)', life: 0.9, max: 0.9 });
+    } else if (kind === 'buff') {
       P({ kind: 'shield', x: ax, y: ay, r: 64 * sc.sx, color: C,
         fill: 'rgba(120,255,170,0.10)', stroke: 'rgba(120,255,170,0.42)', life: 1.0, max: 1.0 });
     }
     if (!SKFX.timer) SKFX.last = performance.now();
     skfxEnsure();
   }
-  // 探针观察钩子：命中数/伤害日志/buff 状态/技能归类（只读）
+  // 探针观察钩子：命中数/伤害/回血/连击/buff/技能类型（只读）
   window.__tfCombat = () => ({
     hits: window.__tfHitCount,
     dmg: (window.__tfDmgLog || []).slice(-4),
+    heals: (window.__tfHealLog || []).slice(-4),
+    combo: { n: COMBO.n, expect: COMBO.expect, left: Math.max(0, Math.round(COMBO.until - Date.now())) },
     buff1: BUFFS[1] ? Math.round(BUFFS[1].until - Date.now()) : 0,
+    buff1Name: BUFFS[1] ? BUFFS[1].name : '',
     pos: !!(headPos[1] && headPos[2]),
-    shapes: (window.__tfShapeLog || []).slice(-4).map((x) => x.s),
+    shapes: (window.__tfShapeLog || []).slice(-6).map((x) => x.s),
   });
   async function fireSeq(seq) {
     for (const act of seq) {
@@ -5072,9 +5229,11 @@
       applyPad();
       return;
     }
-    const pages = Math.max(1, Math.ceil(moves.length / 5));
+    // 每页 4 个（2026-11-28 用户实报：5 个一页=第 5 个加「切换」钮会挤出屏幕，超过 4 个就要分页）
+    const SKILLS_PER_PAGE = 4;
+    const pages = Math.max(1, Math.ceil(moves.length / SKILLS_PER_PAGE));
     const page = Math.min(Number(root.dataset.page || 0), pages - 1);
-    for (const mv of moves.slice(page * 5, page * 5 + 5)) {
+    for (const mv of moves.slice(page * SKILLS_PER_PAGE, page * SKILLS_PER_PAGE + SKILLS_PER_PAGE)) {
       const b = document.createElement('button');
       b.dataset.sname = mv.name;
       if (mv.fx) b.style.setProperty('--fxc', attrColor(mv.fx));   // 键序文字按属性着色
@@ -5288,6 +5447,14 @@
       agentSay(Math.random() < 0.5 ? 'p1' : 'p2', 'random');
     }, 22000);
   }
+  // 撤加载遮罩 + 开场倒数（唯一入口，TF_FIGHT / 原生 fight 信号 / 兜底门槛都汇到这里）
+  // 时序即用户要求：加载界面收起 → 3-2-1 倒数 → 倒数完直接开打，中间不再有黑屏。
+  function revealBattle() {
+    if (revealBattle._done) return;
+    revealBattle._done = true;
+    readyEl.classList.remove('on');
+    battleIntro();
+  }
   // 开场 3-2-1：数字由 **CSS 动画**驱动（每个数字一个 <i>，animation-delay 依次 0/.65/1.3/1.95s）。
 // 原因：引擎加载期 wasm 长时间独占主线程，JS 的 setTimeout/setInterval 回调会被整体拖长
 // （2026-11-27 真机实报「黑屏倒数绝对不止 3 秒」，实测 6.5s）；CSS transform/opacity 动画
@@ -5384,6 +5551,16 @@
     window.__tfMatchSettled = winner; // 供自动化验证探针读取
     clearInterval(battleIntro._t);
     if (battleIntro._cd) { battleIntro._cd(); battleIntro._cd = null; }   // 结算时收掉残留倒数
+    // 结算收尾（2026-11-28 用户实报「一局完了悬浮头像没删除并且黑屏」）：
+    // 悬浮头像/buff 徽章立刻摘掉；引擎 os.Exit 后到 reload 之间是黑屏期，
+    // 用 #ready 的「加载中」界面顶上（佐助疾跑载入条），回选人屏/下一关由既有定时器接管。
+    try {
+      headavEl.classList.remove('on');
+      headavEl.innerHTML = '';
+      headNodes = {};
+      BUFFS[1] = null; BUFFS[2] = null;
+      readyEl.classList.add('on');
+    } catch (e) { /* 收尾失败不影响结算流程 */ }
     // 生存模式链：胜 → reload 下一关（换对手、AI 递增）；负 → 回主界面
     if (MODE === 'survival') {
       const stage = Number(q.get('stage') || 1);
@@ -5465,6 +5642,10 @@
         if (j !== -1) onHeadPos(line.slice(j + 8).trim());
         const k = line.indexOf('TF_HIT:');
         if (k !== -1) onTfHit(line.slice(k + 7).trim());
+        const h = line.indexOf('TF_HEAL:');
+        if (h !== -1) onTfHeal(line.slice(h + 8).trim());
+        const f = line.indexOf('TF_FIGHT:');
+        if (f !== -1) onTfFight(line.slice(f + 8).trim());
       } catch { /* 信号解析失败不影响游戏 */ }
       return orig(...args);
     };
@@ -5647,17 +5828,20 @@
       engineStarted = false;
       return;
     }
-    let revealed = false, lastHead = '', lastResultAt = 0;
+    let lastHead = '', lastResultAt = 0, firstHeadAt = 0;
     const poll = setInterval(async () => {
       let j;
       try { j = await (await fetch('/api/engine/status')).json(); } catch { return; }
       if (j.head && j.head.line) {
         if (j.head.line !== lastHead) { lastHead = j.head.line; onHeadPos(j.head.line); }
-        if (!revealed) {
-          revealed = true;
-          readyEl.classList.remove('on');
-          battleIntro();
-        }
+        if (!firstHeadAt) firstHeadAt = Date.now();
+      }
+      // 主门槛：TF_FIGHT（回合画面已立起）。TF_HEAD 首条输出在 pre-intro 就有，
+      // 那时 stage 还在解码、canvas 全黑（「倒数完还是黑屏」的根因）。
+      // 兜底：旧包没有新 combatfx.lua 时，首条 TF_HEAD 后 15s 仍未收到 TF_FIGHT 就按老样子撤。
+      if (!revealBattle._done) {
+        if (j.fight) revealBattle();
+        else if (firstHeadAt && Date.now() - firstHeadAt > 25000) revealBattle();
       }
       if (j.result && j.result.at !== lastResultAt) {
         lastResultAt = j.result.at;
@@ -5755,8 +5939,12 @@
     bootEl.classList.add('done');
     selEl.classList.remove('on');
     homeEl.classList.remove('on');
+    // 重置开战信号：上一场的 TF_FIGHT 不能算这一场（换人重打 / 生存续关都会再进 startEngine）
+    FIGHT_READY = false;
+    window.__tfFightReady = false;
+    revealBattle._done = false;
     readyEl.classList.add('on');
-    // 载入期的等待反馈由 #ready 的新载入条承担（加载中。。。+条纹进度+强尼走路，
+    // 载入期的等待反馈由 #ready 的新载入条承担（加载中。。。+条纹进度+佐助疾跑，
     // 全部合成器线程动画）。这里不再叠 runCountdown('load') 的「载入中…」，避免双重提示。
     canvas.classList.add('on');
     hudEl.textContent = '';
@@ -5817,19 +6005,44 @@
       .then(() => engineGone('引擎已退出'))
       .catch((e) => engineGone('引擎异常：' + (e && e.message || e)));
 
-    // 首帧出来之前一直盖着 ready 遮罩。
-    // 门槛 = 出过 20 帧 **且** 最近 1s 至少 12 帧（引擎已过加载/解码期、进入稳定出帧）——
-    // 原来只看「15 帧」：大包加载期帧率个位数，倒计时和开场白会在卡顿中开始（真机实报）。
-    let cdLastF = 0, cdLastT = Date.now();
+    // 首帧出来之前一直盖着 ready 遮罩（修「二阶段黑屏」，2026-11-28）：
+    // 主门槛 = 引擎 TF_FIGHT:1（combatfx.lua 在 roundState()>=1 回合画面立起时报一次），
+    // onTfFight 收到后调 revealBattle()。**引擎开始吐帧 ≠ 画面画出来了**——
+    // 旧的「20 帧 + 12fps」门槛在 pre-intro（stage 还在解码、canvas 全黑）就撤了遮罩，
+    // 于是「倒数完了还是黑屏，再开打」。实测 TF_FIGHT 比旧门槛晚约 10s（PC）/ 25s（真机）。
+    // 兜底（旧资产包没有新 combatfx.lua / Lua 桥失效）：帧率稳定后**直接采样引擎 canvas
+    // 中心亮度**——画面真画出来（stage 可见）中心一定是亮的，全黑说明还在解码期；
+    // 连续 3 次亮采样才撤。再加 steady+40s 硬上限，readPixels 失效（lum=-1/-2）时也不会挂死。
+    let cdLastF = 0, cdLastT = Date.now(), firstSteadyAt = 0, brightRun = 0;
+    const canvasBright = () => {
+      try {
+        const cv = document.querySelector('canvas');
+        if (!cv) return -1;
+        const gl = cv.getContext('webgl2') || cv.getContext('webgl');
+        if (!gl) return -1;
+        const w = 16, h = 16;
+        const px = new Uint8Array(w * h * 4);
+        gl.readPixels((cv.width - w) >> 1, (cv.height - h) >> 1, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        let s2 = 0;
+        for (let i = 0; i < px.length; i += 4) s2 += (px[i] + px[i + 1] + px[i + 2]) / 3;
+        return s2 / (px.length / 4);
+      } catch (e) { return -1; }
+    };
     const wait = setInterval(() => {
+      if (FIGHT_READY) { clearInterval(wait); return; }   // revealBattle 已由 onTfFight 触发
       const f = window.__ikemenEngineFrames || 0;
       const now = Date.now();
       const rate = (f - cdLastF) / Math.max(0.25, (now - cdLastT) / 1000);
       cdLastF = f; cdLastT = now;
       if (f > 20 && rate >= 12) {
-        clearInterval(wait);
-        readyEl.classList.remove('on');
-        battleIntro();
+        if (!firstSteadyAt) firstSteadyAt = now;
+        const lum = canvasBright();
+        if (lum > 25) brightRun++; else brightRun = 0;
+        if (brightRun >= 3 || now - firstSteadyAt > 40000) {
+          clearInterval(wait);
+          if (brightRun < 3) console.warn('[tf] TF_FIGHT 未到且亮度采样失效，40s 硬上限兜底撤遮罩');
+          revealBattle();
+        }
       }
     }, 500);
   }
