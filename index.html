@@ -554,12 +554,31 @@
     border-radius:7px;border:1px solid var(--line);background:#121722;color:var(--txt)}
   #bmenu .stfoot button:hover{border-color:#3b4557}
 
-  /* 开场倒计时 */
+  /* 开场倒计时：数字用 CSS 动画驱动（合成器线程），wasm 阻塞主线程时也能继续走完，
+     避免真机实报「黑屏倒数绝对不止 3 秒」。JS 只负责最后收尾（animationend）。 */
   #countdown{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;
     pointer-events:none;background:rgba(4,5,8,.35)}
   #countdown.on{display:flex}
   #countdown .num{font-size:120px;font-weight:900;color:var(--gold);letter-spacing:.05em;
-    text-shadow:0 0 40px rgba(255,194,51,.6);animation:cdPop .7s ease-out}
+    text-shadow:0 0 40px rgba(255,194,51,.6)}
+  /* 每个数字一个盒子，各占 650ms：3 → 2 → 1 → 开打。
+     只用 opacity / transform —— 这两个属性在 Chromium 里可被合成器接管，
+     引擎 wasm 独占主线程时动画照样按墙钟走完（visibility/display 不可合成，会卡住）。 */
+  #countdown .num{position:relative;width:min(90vw,420px);height:120px}
+  #countdown .num i{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    opacity:0;font-style:normal;animation:cdSlot .65s linear}
+  #countdown .num i.s3{animation-delay:0s}
+  #countdown .num i.s2{animation-delay:.65s}
+  #countdown .num i.s1{animation-delay:1.3s}
+  #countdown .num i.go{animation-delay:1.95s}
+  /* 载入期：不玩假倒计时，直接写「载入中…」（否则会看到一个不动的数字 = 用户说的黑屏倒数） */
+  #countdown .num i.ld{opacity:1;font-size:38px;letter-spacing:.12em;
+    color:#cfd6e4;text-shadow:0 0 24px rgba(120,150,200,.45);animation:cdPulse 1.4s ease-in-out infinite}
+  @keyframes cdPulse{0%,100%{opacity:.55}50%{opacity:1}}
+  @keyframes cdSlot{0%{opacity:0;transform:scale(1.55)}
+    22%{opacity:1;transform:scale(1)}
+    80%{opacity:1;transform:scale(1)}
+    100%{opacity:0;transform:scale(.92)}}
   @keyframes cdPop{from{transform:scale(1.6);opacity:0}to{transform:scale(1);opacity:1}}
 
   /* 按键回显：先用它确认浏览器到底收没收到键盘 */
@@ -585,6 +604,12 @@
     box-shadow:0 4px 12px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;
     font-size:17px;font-weight:900;color:#e7ecf3;position:relative}
   #headav .ha .pic img{width:100%;height:100%;object-fit:cover;border-radius:50%;image-rendering:pixelated}
+  /* 缺陷E：buff 头顶徽章（field-survival 的 applyBuff 口径：真实时间戳到期自动摘） */
+  #headav .ha .buffb{position:absolute;left:50%;bottom:calc(100% - 4px);transform:translateX(-50%);
+    display:none;padding:2px 8px;border-radius:9px;background:rgba(22,62,40,.9);
+    border:1px solid rgba(110,230,150,.75);color:#b8ffc9;font-size:10.5px;font-weight:800;
+    letter-spacing:.02em;white-space:nowrap;box-shadow:0 0 10px rgba(90,220,140,.35);z-index:2}
+  #headav .ha .buffb.on{display:block}
   @keyframes headBob{0%,100%{margin-top:0}50%{margin-top:-7px}}
   @media (max-width:480px){
     #headav .ha .pic{width:38px;height:38px;font-size:14px}
@@ -596,15 +621,57 @@
     background:rgba(255,194,51,.12);border:1px solid rgba(255,194,51,.5);color:#ffd98a}
   #focusTip.on{display:block}
 
-  /* 首局载入角色/场景时的等待遮罩 */
+  /* 首局载入角色/场景时的等待遮罩（2026-11-27 按 加载中.md/img_8 设计稿重做）：
+     霓虹雨夜背景 + 中部横条一行式「加载中。。。+ 条纹进度 + 强尼走路」。
+     所有动画只用 opacity/transform（合成器线程接管），wasm 独占主线程时照样播 ——
+     强尼走路=6 帧序列条 translateX steps(6)，条纹进度=宽幅伪元素 translateX，雨幕=平铺伪元素 translateY。 */
   #ready{position:fixed;inset:0;z-index:45;display:none;flex-direction:column;
-    align-items:center;justify-content:center;gap:16px;background:rgba(5,6,9,.92);transition:opacity .4s}
+    align-items:center;justify-content:center;transition:opacity .4s;
+    background:
+      radial-gradient(58% 42% at 18% 30%, rgba(168,64,224,.34), transparent 60%),
+      radial-gradient(52% 40% at 82% 22%, rgba(64,108,224,.30), transparent 62%),
+      radial-gradient(44% 36% at 62% 74%, rgba(224,72,168,.26), transparent 64%),
+      radial-gradient(40% 34% at 30% 80%, rgba(56,188,212,.22), transparent 62%),
+      radial-gradient(30% 26% at 46% 46%, rgba(232,96,208,.20), transparent 60%),
+      linear-gradient(180deg,#0b0d18 0%,#171226 48%,#0d0c16 100%)}
   #ready.on{display:flex}
-  #ready .sp{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,195,51,.22);
-    border-top-color:var(--gold);animation:spin 1s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  #ready .tx{font-size:15px;letter-spacing:.08em}
-  #ready .sub{font-size:12px;color:var(--dim)}
+  /* 雨幕：细白斜线平铺，translateY 循环 */
+  #ready .rain{position:absolute;left:0;right:0;top:-40%;bottom:-40%;pointer-events:none;opacity:.45;
+    background:repeating-linear-gradient(102deg, rgba(255,255,255,.10) 0 1px, transparent 1px 9px,
+      rgba(255,255,255,.06) 9px 10px, transparent 10px 26px);
+    animation:ldRain .9s linear infinite}
+  @keyframes ldRain{to{transform:translateY(120px)}}
+  /* 中部横条 */
+  #ready .band{position:relative;width:min(92vw,880px);padding:20px 30px;display:flex;align-items:center;gap:20px;
+    background:rgba(9,11,16,.78);border-top:1px solid rgba(140,150,180,.22);border-bottom:1px solid rgba(140,150,180,.22);
+    box-shadow:0 10px 44px rgba(0,0,0,.45)}
+  #ready .band::before,#ready .band::after{content:'';position:absolute;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(168,120,255,.55),transparent)}
+  #ready .band::before{top:-1px}
+  #ready .band::after{bottom:-1px}
+  #ready .tx{font-size:30px;font-weight:900;letter-spacing:.14em;color:#f2f5fb;
+    text-shadow:0 0 18px rgba(120,150,255,.35);white-space:nowrap}
+  #ready .tx i{font-style:normal;animation:ldDot 1.35s infinite}
+  #ready .tx i:nth-child(2){animation-delay:.22s}
+  #ready .tx i:nth-child(3){animation-delay:.44s}
+  @keyframes ldDot{0%,60%,100%{opacity:.15}30%{opacity:1}}
+  /* 条纹进度（载入期拿不到真实 %，用不确定条纹） */
+  #ready .bar{flex:1;max-width:240px;height:10px;border-radius:6px;overflow:hidden;
+    background:rgba(255,255,255,.10);position:relative}
+  #ready .bar i{position:absolute;top:0;bottom:0;left:-40%;width:40%;
+    background:repeating-linear-gradient(115deg, rgba(255,196,60,.9) 0 10px, rgba(255,196,60,.35) 10px 20px);
+    animation:ldBar 1s linear infinite}
+  @keyframes ldBar{to{transform:translateX(350%)}}
+  #ready .sync{font-size:13px;color:#cfd6e4;letter-spacing:.1em;white-space:nowrap}
+  /* 强尼：6 帧序列条（assets/ui/johnny-walk.png 504x139，单帧 84x139 → 显示 46x76），
+     repeat-x + translateX 整条宽 steps(6) = 无缝循环，且走 transform 走合成器线程 */
+  #ready .johnny{position:relative;width:46px;height:76px;overflow:hidden;flex:none;
+    filter:drop-shadow(0 6px 8px rgba(0,0,0,.5))}
+  #ready .johnny i{position:absolute;top:0;bottom:0;left:0;width:276px;
+    background:url('assets/ui/johnny-walk.png') left center/276px 76px repeat-x;
+    animation:ldWalk .84s steps(6) infinite}
+  @keyframes ldWalk{to{transform:translateX(-276px)}}
+  #ready .sub{margin-top:14px;font-size:12px;color:rgba(210,218,232,.55);letter-spacing:.04em}
 
   /* ---------- 虚拟手柄（触屏 / Android App） ---------- */
   #pad{position:fixed;inset:0;z-index:35;pointer-events:none;display:none;
@@ -1132,7 +1199,7 @@
   <button id="btn-change">换人重打</button>
 </div>
 <div id="skills"></div>
-<div id="countdown"><div class="num" id="cd-num">3</div></div>
+<div id="countdown"><div class="num" id="cd-num"><i class="s3">3</i><i class="s2">2</i><i class="s1">1</i><i class="go">开打！</i></div></div>
 <div id="bmenu">
   <div class="box">
     <h2 id="bm-title">菜 单</h2>
@@ -1155,8 +1222,13 @@
 <div id="focusTip">点一下画面，把键盘焦点交给游戏</div>
 
 <div id="ready">
-  <div class="sp"></div>
-  <div class="tx">正在载入角色与场景</div>
+  <div class="rain"></div>
+  <div class="band">
+    <div class="tx">加载中<i>.</i><i>.</i><i>.</i></div>
+    <div class="bar"><i></i></div>
+    <div class="sync">同步中</div>
+    <div class="johnny"><i></i></div>
+  </div>
   <div class="sub">首次要等引擎把 sff / snd 拉下来，之后会快很多</div>
 </div>
 
@@ -2020,7 +2092,7 @@
     async getSession(sessionId) {
       const s = (CONN.sessions || []).find((x) => (x.sessionId || x.id) === sessionId);
       if (!s) return null;
-      await pickSession(sessionId);
+      await pickSession(sessionId, { roster: false });   // MCP 桥：后台读取，不弹绑定面板
       return {
         sessionId: CONN.sessionId || sessionId,
         storyName: CONN.storyName || '',
@@ -2042,7 +2114,7 @@
         if (!p) return { ok: false, error: '没有这个资产集：' + packId };
         await usePack(p.dir || p.id);
       }
-      await pickSession(sessionId);
+      await pickSession(sessionId, { roster: false });   // MCP 桥：绑定后不弹绑定面板
       const bound = await bindPackToSession(packId || (PACKS.cur ? PACKS.cur.dir : null));
       return {
         ok: true,
@@ -2149,7 +2221,7 @@
     catch { return ''; }
   }
 
-  async function openStory() {
+  async function openStory(opts) {
     storyEl.classList.add('on');
     showListView();
     if (!CONN.on) {
@@ -2167,12 +2239,21 @@
     storyStatusEl.textContent = '联动服务已连接 · ' + r.sessions.length + ' 个会话' + (r.cached ? '（缓存）' : '');
     storyStatusEl.className = 'hint ok';
     renderSessions(r.sessions);
-    // 会话优先级：URL ?session= > 上次选中的会话（刷新后自动恢复）
-    const preset = q.get('session');
-    if (preset && r.sessions.some((s) => s.sessionId === preset)) { pickSession(preset); return; }
+    // 会话优先级：URL ?session= > 当前会话（绑定入口）> 上次选中的会话（刷新后自动恢复）
+    const preset = q.get('session') || ((opts && opts.roster) ? CONN.sessionId : null);
+    // 默认停在**列表视图**（不自动进绑定视图）；只有「角色实体绑定」入口（opts.roster）
+    // 才直接进当前故事的绑定视图。选故事 = 选定了 → 关面板回主界面。
+    const wantRoster = !!(opts && opts.roster) && !!CONN.sessionId;
+    if (preset && r.sessions.some((s) => s.sessionId === preset)) {
+      await pickSession(preset, { roster: wantRoster, keepOpen: true });
+      // 绑定入口：pickSession 已经切到绑定视图，这里**不能**再 showListView() 覆盖回去
+      if (!wantRoster) showListView();
+      return;
+    }
     const last = loadLastSession();
     if (last && last.sessionId && r.sessions.some((s) => s.sessionId === last.sessionId)) {
-      pickSession(last.sessionId);
+      await pickSession(last.sessionId, { roster: false, keepOpen: true });
+      showListView();
     }
   }
 
@@ -2206,7 +2287,7 @@
           (cur ? ' <span class="cur">● 当前</span>' : '') + '</div>' +
         '<div class="d">' + esc(desc) + '</div></div>' +
         '<div class="meta">' + (nRole ? '角色 ' + esc(String(nRole)) + '<br>' : '') + esc(fmtTime(s.updateTime)) + '</div>';
-      b.addEventListener('click', () => pickSession(s.sessionId));
+      b.addEventListener('click', () => pickSession(s.sessionId, { roster: false }));
       sessListEl.appendChild(b);
     }
   }
@@ -2399,7 +2480,7 @@
   }
 
   // 选中一个会话 → 拉角色 → 随机分配 → 持久化 → 角色实体绑定视图
-  async function pickSession(sid) {
+  async function pickSession(sid, opts) {
     const s = (CONN.sessions || []).find((x) => x.sessionId === sid);
     CONN.sessionId = sid;
     CONN.storyName = (s && (s.title || s.worldName)) || '';
@@ -2453,7 +2534,14 @@
       + ' · 共 ' + chars.length + ' 个角色';
     storyStatusEl.className = 'hint ok';
     renderRosterEditor();
-    showRosterView();
+    // 落点：只有「绑定」入口（opts.roster）才进绑定视图；选故事/打完一局回到主界面
+    //（2026-11-27 用户实报：选故事、打完一局都落进「角色资产绑定」是错的）。
+    if (opts && opts.roster) showRosterView();
+    else {
+      // 选完故事 = 选定了 → 关面板回主界面（主界面显示当前故事与绑定状态）
+      if (!(opts && opts.keepOpen)) storyEl.classList.remove('on');
+      showListView();
+    }
     renderHomeStory();
 
     // 资产集跟随故事：pack 声明了这个故事就自动选用
@@ -2594,7 +2682,8 @@
 
   document.getElementById('home-story').addEventListener('click', openStory);
   document.getElementById('home-story-link').addEventListener('click', openStory);
-  document.getElementById('home-bind').addEventListener('click', openStory);
+  // 「角色实体绑定」卡：直接进当前故事的绑定视图（没有会话时退回列表）
+  document.getElementById('home-bind').addEventListener('click', () => openStory({ roster: true }));
   document.getElementById('sr-back').addEventListener('click', showListView);
   document.getElementById('sr-save').addEventListener('click', () => saveRoster());
   storyEl.addEventListener('click', (e) => { if (e.target === storyEl) storyEl.classList.remove('on'); });
@@ -3583,8 +3672,8 @@
     selEl.classList.remove('on');
     homeEl.classList.add('on');
   });
-  document.getElementById('menu-story').addEventListener('click', openStory);
-  document.getElementById('menu-bind').addEventListener('click', openStory);
+  document.getElementById('menu-story').addEventListener('click', () => openStory());
+  document.getElementById('menu-bind').addEventListener('click', () => openStory({ roster: true }));
   document.getElementById('menu-direct').addEventListener('click', () => beginMatch(MODE));
   document.getElementById('menu-settings').addEventListener('click', openSettings);
   for (const b of document.querySelectorAll('#home .modebtn[data-mode]')) {
@@ -4323,7 +4412,7 @@
   // ---------------- Canvas 属性粒子引擎（对标效果图：光带/法阵/火焰/落雷/暗涡） ----------------
   // 粒子 kind：spark(发光点+拖尾) arc(弧线光带) streak(横向速度线) ring/ringE(圆环/地面椭圆)
   //   bolt(闪电折线) crystal(冰晶片) flame(火苗) mist(雾团) shard(碎石) drop(液滴) glow(大光晕)
-  const SKFX = { cv: null, ctx: null, parts: [], raf: 0, last: 0 };
+  const SKFX = { cv: null, ctx: null, parts: [], raf: 0, timer: 0, last: 0, lastFrameAt: 0 };
   function skfxCtx() {
     if (!SKFX.cv) {
       SKFX.cv = document.createElement('canvas');
@@ -4331,13 +4420,45 @@
       document.body.appendChild(SKFX.cv);
       SKFX.ctx = SKFX.cv.getContext('2d');
     }
-    SKFX.cv.width = innerWidth;
-    SKFX.cv.height = innerHeight;
+    // 只有尺寸真的变了才重设 width/height（赋值会清空画布，战斗中反复清空会闪断帧）
+    const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight);
+    if (SKFX.cv.width !== w || SKFX.cv.height !== h) {
+      SKFX.cv.width = w;
+      SKFX.cv.height = h;
+    }
     SKFX.cv.classList.add('on');
     return SKFX.ctx;
   }
-  function skfxTick(ts) {
+  // 特效循环：不用 requestAnimationFrame（窗口被遮挡/WebView 节流时 rAF 会停摆，
+  // 画布会停在最后一帧=用户看到的「特效残留」，后续粒子也不再更新=「只有飘字」）。
+  // 改用 setInterval 驱动，dt 由 performance.now() 算，低帧率也能按钟表时长播完。
+  function skfxEnsure() {
+    if (!SKFX.cv) skfxCtx();
+    if (SKFX.timer) return;
+    SKFX.last = performance.now();
+    SKFX.timer = setInterval(skfxStep, 16);
+  }
+  function skfxStop() {
+    if (SKFX.timer) { clearInterval(SKFX.timer); SKFX.timer = 0; }
+    SKFX.raf = 0;
+    if (SKFX.cv) {
+      SKFX.cv.classList.remove('on');
+      try { SKFX.ctx.clearRect(0, 0, SKFX.cv.width, SKFX.cv.height); } catch (e) { /* 忽略 */ }
+    }
+  }
+  function skfxStep() {
+    SKFX.steps = (SKFX.steps || 0) + 1;
+    // 注意：不要因为页面不可见就跳过绘制/推进。
+    // 窗口被遮挡或 WebView 被节流时，rAF 会停摆 → 画布停在最后一帧 = 用户看到的「特效残留不消失」。
+    // 这里只依赖 setInterval + performance.now()，粒子永远按墙钟衰减到 0。
+    try { skfxDraw(performance.now()); }
+    catch (e) { window.__skfxErr = String(e && e.stack || e); console.warn('skfx draw error', e); }
+    if (!SKFX.parts.length) skfxStop();
+  }
+  function skfxDraw(ts) {
     const ctx = SKFX.ctx;
+    if (!ctx || !SKFX.cv) return;
+    SKFX.lastFrameAt = performance.now();
     // dt 钳 0.25：低帧率设备上特效仍按钟表时长播完（60fps 下 dt≈0.017 不受影响）
     const dt = Math.min(0.25, (ts - (SKFX.last || ts)) / 1000);
     SKFX.last = ts;
@@ -4345,12 +4466,14 @@
     ctx.globalCompositeOperation = 'lighter';
     for (const p of SKFX.parts) {
       p.life -= dt;
-      if (p.update) p.update(p, dt);
+      if (p.update) { try { p.update(p, dt); } catch (e) { p.life = 0; } }
       const a = Math.max(0, Math.min(1, p.life / p.max)) * (p.a || 1);
       if (a <= 0) continue;
+      if (typeof p.r === 'number' && p.r < 0) p.r = 0;   // 负半径会让 arc/ellipse 抛异常
       ctx.globalAlpha = a;
       ctx.fillStyle = p.color;
       ctx.strokeStyle = p.color;
+      try {
       if (p.kind === 'spark') {
         ctx.lineWidth = p.w || 2;
         ctx.beginPath(); ctx.moveTo(p.x - p.vx * 0.03, p.y - p.vy * 0.03);
@@ -4373,10 +4496,11 @@
         ctx.lineWidth = p.w || 2;
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.055, p.y - p.vy * 0.055); ctx.stroke();
       } else if (p.kind === 'ring' || p.kind === 'ringE') {
-        const k = 1 - p.life / p.max;
+        const k = Math.max(0, Math.min(1, 1 - p.life / p.max));
         ctx.lineWidth = (p.w || 3) * a;
         ctx.beginPath();
-        ctx.ellipse(p.x, p.y, p.r * (0.2 + k * 1.5), p.r * (p.e || 1) * (0.2 + k * 1.5), 0, 0, 7);
+        const rx = Math.max(0.1, p.r * (0.2 + k * 1.5)), ry = Math.max(0.1, p.r * (p.e || 1) * (0.2 + k * 1.5));
+        ctx.ellipse(p.x, p.y, rx, ry, 0, 0, 7);
         ctx.stroke();
       } else if (p.kind === 'bolt') {
         ctx.lineWidth = p.w || 2.5;
@@ -4422,19 +4546,53 @@
         ctx.globalAlpha = a;
       } else if (p.kind === 'drop') {
         ctx.beginPath(); ctx.ellipse(p.x, p.y, 2.4, 5.5, 0, 0, 7); ctx.fill();
+      } else if (p.kind === 'rangeC' || p.kind === 'rangeW' || p.kind === 'shield') {
+        // 缺陷E：地面范围指示（field-survival 的 RangeIndicator 手法）
+        //   rangeC=圆形 rangeW=扇形（半角 30°） shield=buff 护体环
+        //   alpha = 0.30 + 0.70*lifeRatio；scale(1,0.35) 把圆压扁成地面椭圆
+        const lr = Math.max(0, Math.min(1, p.life / p.max));
+        const a2 = 0.30 + 0.70 * lr;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.scale(1, p.sq || 0.35);
+        ctx.beginPath();
+        if (p.kind === 'rangeW') {
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, Math.max(0.1, p.r), p.a0, p.a1);
+          ctx.closePath();
+        } else {
+          ctx.arc(0, 0, Math.max(0.1, p.r), 0, 7);
+        }
+        ctx.fillStyle = p.fill || 'rgba(255,143,200,0.14)';
+        ctx.globalAlpha = a2 * 0.5;
+        ctx.fill();
+        ctx.strokeStyle = p.stroke || 'rgba(255,143,200,0.38)';
+        ctx.lineWidth = 2.2;
+        ctx.globalAlpha = a2;
+        ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      } else if (p.kind === 'dmg') {
+        // 缺陷E：伤害数字（上飘渐隐，属性色 + 深色描边；dt 在 skfxDraw 作用域内）
+        p.y += (p.vy || -52) * dt;
+        ctx.font = '900 26px "Segoe UI",sans-serif';
+        ctx.textAlign = 'center';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = 'rgba(8,10,14,.62)';
+        ctx.strokeText(p.txt, p.x, p.y);
+        ctx.fillStyle = p.color;
+        ctx.fillText(p.txt, p.x, p.y);
+        ctx.textAlign = 'left';
       }
       if (p.kind !== 'mist') ctx.globalAlpha = 1;
+      } catch (e) { /* 单个粒子画崩不能拖垮整帧（负半径/非法路径） */ }
     }
     SKFX.parts = SKFX.parts.filter((p) => p.life > 0);
-    if (SKFX.parts.length) {
-      SKFX.raf = requestAnimationFrame(skfxTick);
-    } else {
-      SKFX.raf = 0;
-      SKFX.cv.classList.remove('on');
-      ctx.clearRect(0, 0, SKFX.cv.width, SKFX.cv.height);
-    }
   }
   const P = (o) => SKFX.parts.push(o);
+  // 调试钩子：供探针观察粒子数/循环状态（只读）
+  window.__skfx = () => ({ n: SKFX.parts.length, timer: !!SKFX.timer, on: !!(SKFX.cv && SKFX.cv.classList.contains('on')), last: SKFX.last, lfa: Math.round(SKFX.lastFrameAt || 0), steps: SKFX.steps || 0, skipped: SKFX.skipped || 0, hidden: document.hidden, lives: SKFX.parts.slice(0, 6).map(p => +(p.life || 0).toFixed(2)), maxs: SKFX.parts.slice(0, 6).map(p => p.max) });
   const rnd = (a, b) => a + Math.random() * (b - a);
   // 屏幕震动（#stage 抖一下，幅度按属性定）
   function skShake(power) {
@@ -4619,6 +4777,26 @@
     skWaves(x, y, C);
     skBurst(x, y, C, 18, 160, 440);
   };
+  // 特效看门狗：粒子还在但循环死了（异常）时重启，避免「第一次有特效、后面只有飘字」
+  setInterval(() => {
+    if (!SKFX.parts.length) return;
+    if (document.hidden) return;
+    const stale = performance.now() - (SKFX.lastFrameAt || 0);
+    if (!SKFX.timer || stale > 1500) {
+      SKFX.parts.length = 0;
+      skfxStop();
+      console.warn('skfx 看门狗：特效循环停摆，已清屏');
+    }
+  }, 700);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // 页面不可见时定时器/绘制都会节流，粒子会停在最后一帧（看起来就是「特效残留不消失」）
+      SKFX.parts.length = 0;
+      skfxStop();
+      return;
+    }
+    if (SKFX.parts.length) { SKFX.last = performance.now(); skfxEnsure(); }
+  });
   function skillFx(fx, titleC) {
     const a = ATTR_FX[fx] || ATTR_FX.normal;
     const emit = SKFX_EMIT[fx] || SKFX_EMIT.normal;
@@ -4630,7 +4808,8 @@
       P({ kind: 'glow', x: titleC.x, y: titleC.y, r: 64, color: 'rgba(255,244,214,.85)', life: 0.3, max: 0.3 });
       skBurst(titleC.x, titleC.y, a.c, 12, 100, 300);
     }
-    if (!SKFX.raf) { SKFX.last = 0; SKFX.raf = requestAnimationFrame(skfxTick); }
+    if (!SKFX.timer) { SKFX.last = performance.now(); }
+    skfxEnsure();
   }
   function skillPop(mv) {
     const d = document.createElement('div');
@@ -4641,6 +4820,137 @@
     skillFx(mv.fx, { x: pr.left + pr.width / 2, y: pr.top + pr.height * 0.45 });
     setTimeout(() => d.remove(), 1500);
   }
+  // ---------------- 战斗反馈层：命中/伤害/范围/buff（缺陷E，机制参考 toonflow-field-survival） ----------------
+  // 信号源：external/script/combatfx.lua 每 2 帧采样 life()，掉血即输出 TF_HIT:...
+  // 引擎 canvas 是 wasm 画的、HTML 盖不进去——全部画在 #skfx 覆盖层/DOM 上：
+  //   TF_HIT      → 受害者位置 击中火花 + 伤害数字（属性色随 P1 最近技能）
+  //   技能释放    → 按语义画 圆形/扇形地面范围指示/弹道/护体环（field-survival 手法）
+  //   buff 类技能 → 头顶悬浮头像挂绿色徽章，真实时间戳到期清除（buffUntilMs 口径）
+  window.__tfHitCount = 0;
+  const TF_BUFF_MS = 6000;                     // buff 默认时长（技能未配 cd 时）
+  const LAST_SKILL = { attr: '', at: 0 };      // P1 最近释放的属性（伤害数字着色用）
+  const BUFFS = { 1: null, 2: null };          // side -> {name, until, el}
+  function onTfHit(payload) {
+    window.__tfHitCount++;
+    for (const part of String(payload).split('|')) {
+      const m = /^v=(\d+),d=(\d+),x=(-?[\d.]+),y=(-?[\d.]+)/.exec(part.trim());
+      if (!m) continue;
+      const victim = Number(m[1]), dmg = Number(m[2]);
+      if (dmg <= 0) continue;
+      const sc = headScale();
+      const x = sc.ox + parseFloat(m[3]) * sc.sx;
+      const y = sc.oy + parseFloat(m[4]) * sc.sy;
+      const attacker = victim === 1 ? 2 : 1;
+      // 属性色：P1 的攻击用最近释放技能的属性（5s 内有效），AI 出招拿不到属性 → 白色
+      const attr = attacker === 1 && Date.now() - LAST_SKILL.at < 5000 ? LAST_SKILL.attr : '';
+      showHitFx(x, y, dmg, attr ? attrColor(attr) : '#eef2f8');
+    }
+  }
+  window.__tfDmgLog = [];
+  function showHitFx(x, y, dmg, C) {
+    window.__tfDmgLog.push({ dmg, at: Date.now() });
+    if (window.__tfDmgLog.length > 10) window.__tfDmgLog.shift();
+    skfxCtx();
+    P({ kind: 'ringE', x, y, r: 30, w: 3.5, e: 0.4, color: C, life: 0.32, max: 0.32 });
+    P({ kind: 'glow', x, y: y - 46, r: 56, color: C, life: 0.28, max: 0.28 });
+    skBurst(x, y - 44, C, 14, 140, 420, 320);
+    P({ kind: 'dmg', x: x + rnd(-8, 8), y: y - 92, vy: -52, txt: '-' + dmg, color: C, life: 0.95, max: 0.95 });
+    if (!SKFX.timer) SKFX.last = performance.now();
+    skfxEnsure();
+  }
+  // buff 徽章：挂在头顶悬浮头像 .ha 里（field-survival 的绿色头徽），到期自动摘
+  function applyBuff(side, name, durMs) {
+    const node = headNodes[side];
+    const b = { name, until: Date.now() + durMs, el: null };
+    BUFFS[side] = b;
+    if (node) {
+      let el = node.querySelector('.buffb');
+      if (!el) { el = document.createElement('b'); el.className = 'buffb'; node.appendChild(el); }
+      el.textContent = name;
+      el.classList.add('on');
+      b.el = el;
+    }
+  }
+  setInterval(() => {
+    const now = Date.now();
+    for (const side of [1, 2]) {
+      const b = BUFFS[side];
+      if (!b) continue;
+      if (b.el) b.el.textContent = b.name + ' ' + Math.max(0, (b.until - now) / 1000).toFixed(0) + 's';
+      if (now >= b.until) {
+        if (b.el) b.el.classList.remove('on');
+        BUFFS[side] = null;
+      }
+    }
+  }, 250);
+  // 技能语义归类（资产侧以后可配 range 字段直给，这里先按名称/描述识别）
+  //   circle=圆范围 cone=扇形 proj=远程弹道 dash=突进 buff=自身增益（对齐 field-survival 的 AttackShape 词汇）
+  function classifyMove(mv) {
+    const r = String(mv.range || '');
+    if (r === 'circle' || r === 'cone' || r === 'proj' || r === 'dash' || r === 'buff') return r;
+    const s = (mv.name || '') + '|' + (mv.desc || '');
+    if (/蹲防|蓄势|防守|护盾|战吼|鼓舞/.test(s)) return 'buff';
+    if (/护体波|飞行道具|放出|牵制|冲击|回响|回声|回溯|反弹|远程|气功|波动/.test(s)) return 'proj';
+    if (/突进|冲刺|冲锋|逼近|疾进|突袭|跳袭|跳击|扣杀|接近|后撤|疾退|回避|避让|撤离/.test(s)) return 'dash';
+    if (/升挑|上撩|对空|升龙|升焰|挑斩/.test(s)) return 'cone';
+    return 'melee';
+  }
+  // P1 释放技能 → 机制可视化。AI 侧没有「释放」信号，只有 TF_HIT 命中反馈。
+  function combatCast(mv) {
+    const shape = classifyMove(mv);
+    (window.__tfShapeLog = window.__tfShapeLog || []).push({ s: shape, n: mv.name, at: Date.now() });
+    if (window.__tfShapeLog.length > 8) window.__tfShapeLog.shift();
+    LAST_SKILL.attr = mv.fx || 'normal';
+    LAST_SKILL.at = Date.now();
+    // buff 徽章不依赖坐标（挂在头显 DOM 上）——先挂，再做需要坐标的 FX
+    if (shape === 'buff') applyBuff(1, mv.name, (mv.cd || 0) > 0 ? mv.cd * 1000 : TF_BUFF_MS);
+    const p1 = headPos[1], p2 = headPos[2];
+    if (!p1 || !p2) return;                    // 没有坐标包（引擎未出帧）→ 只走浮字
+    const sc = headScale();
+    const ax = sc.ox + p1.x * sc.sx, ay = sc.oy + p1.y * sc.sy;   // 轴点 ≈ 脚下
+    const bx = sc.ox + p2.x * sc.sx, by = sc.oy + p2.y * sc.sy;
+    const C = attrColor(mv.fx || 'normal');
+    const FILL = 'rgba(255,143,200,0.14)', STROKE = 'rgba(255,143,200,0.38)';  // field-survival 粉
+    skfxCtx();
+    const dist = Math.max(30, Math.abs(bx - ax));
+    if (shape === 'melee' || shape === 'dash') {
+      // 近程圆范围（半径 90 游戏像素）；dash 前探到「与对手距离的 60%」处 + 冲刺速度线
+      const cx = shape === 'dash' ? ax + (bx >= ax ? 1 : -1) * Math.min(90 * sc.sx, dist * 0.6) : ax;
+      P({ kind: 'rangeC', x: cx, y: ay, r: 90 * sc.sx, color: C, fill: FILL, stroke: STROKE, life: 0.7, max: 0.7 });
+      if (shape === 'dash') {
+        for (let i = 0; i < 10; i++) {
+          P({ kind: 'streak', x: ax + rnd(-14, 14), y: ay - rnd(8, 90) * sc.sy,
+            vx: (bx >= ax ? 1 : -1) * rnd(700, 1300), vy: rnd(-40, 40), color: C, w: rnd(2, 3.5), life: rnd(0.25, 0.45), max: 0.45 });
+        }
+      }
+    } else if (shape === 'cone') {
+      // 扇形：field-survival 的 CONE_HALF_ANGLE_DEG=30，朝对手一侧张开
+      const base = bx >= ax ? 0 : Math.PI;
+      P({ kind: 'rangeW', x: ax, y: ay, r: 120 * sc.sx, a0: base - Math.PI / 6, a1: base + Math.PI / 6,
+        color: C, fill: FILL, stroke: STROKE, life: 0.7, max: 0.7 });
+    } else if (shape === 'proj') {
+      // 远程：弹体从 P1 飞到 P2（0.34s）+ 到达爆点
+      const y0 = ay - 52 * sc.sy, y1 = by - 52 * sc.sy;
+      P({ kind: 'glow', x: ax, y: y0, r: 24, color: C, life: 0.34, max: 0.34,
+        update(p, dt2) { const k = Math.max(0, Math.min(1, 1 - p.life / p.max)); p.x = ax + (bx - ax) * k; p.y = y0 + (y1 - y0) * k; } });
+      P({ kind: 'glow', x: bx, y: y1, r: 58, color: C, life: 0.5, max: 0.5 });
+      skBurst(bx, y1, C, 12, 110, 360);
+    } else if (shape === 'buff') {
+      // buff：护体环（徽章已在上面挂好）
+      P({ kind: 'shield', x: ax, y: ay, r: 64 * sc.sx, color: C,
+        fill: 'rgba(120,255,170,0.10)', stroke: 'rgba(120,255,170,0.42)', life: 1.0, max: 1.0 });
+    }
+    if (!SKFX.timer) SKFX.last = performance.now();
+    skfxEnsure();
+  }
+  // 探针观察钩子：命中数/伤害日志/buff 状态/技能归类（只读）
+  window.__tfCombat = () => ({
+    hits: window.__tfHitCount,
+    dmg: (window.__tfDmgLog || []).slice(-4),
+    buff1: BUFFS[1] ? Math.round(BUFFS[1].until - Date.now()) : 0,
+    pos: !!(headPos[1] && headPos[2]),
+    shapes: (window.__tfShapeLog || []).slice(-4).map((x) => x.s),
+  });
   async function fireSeq(seq) {
     for (const act of seq) {
       const tok = settings.keys.p1[act];
@@ -4766,6 +5076,7 @@
         if (mv.cd && (SKILL_CD_UNTIL.get(mv.name) || 0) > Date.now()) return;   // 冷却中
         mv.cmd ? fireCommandTokens(mv.cmd) : fireSeq(mv.seq);
         skillPop(mv);                                                    // 泛技能浮字（技能名+描述）
+        combatCast(mv);                                                  // 缺陷E：范围指示/弹道/buff 徽章（战斗机制可视化）
         if (mv.cd) SKILL_CD_UNTIL.set(mv.name, Date.now() + mv.cd * 1000);
       });
       root.appendChild(b);
@@ -4948,18 +5259,9 @@
     } catch { /* 任何异常直接跳过 */ }
   }
   function battleIntro() {
-    if (q.get('auto') === '1') return; // 自动化验证不打断
-    if (settings.battle.countdown === 'on') {
-      const cdEl = document.getElementById('countdown');
-      const numEl = document.getElementById('cd-num');
-      let n = 3;
-      cdEl.classList.add('on');
-      const tick = () => {
-        if (n > 0) { numEl.textContent = n; numEl.style.animation = 'none'; void numEl.offsetWidth; numEl.style.animation = ''; n--; setTimeout(tick, 700); }
-        else { numEl.textContent = '开打！'; setTimeout(() => cdEl.classList.remove('on'), 500); }
-      };
-      tick();
-    }
+    const auto = q.get('auto') === '1';
+    if (settings.battle.countdown === 'on') runCountdown();   // 倒数是视觉反馈，auto 模式也保留（便于真机验证）
+    if (auto) return;                                        // 自动化验证不打断：跳过语音/旁白
     agentSay('p1', 'intro');
     agentSay('p2', 'intro');
     // 生存模式：资产集配置的开场白（Boss 登场白）优先，覆盖 agent 默认开场
@@ -4974,6 +5276,41 @@
       agentSay(Math.random() < 0.5 ? 'p1' : 'p2', 'random');
     }, 22000);
   }
+  // 开场 3-2-1：数字由 **CSS 动画**驱动（每个数字一个 <i>，animation-delay 依次 0/.65/1.3/1.95s）。
+// 原因：引擎加载期 wasm 长时间独占主线程，JS 的 setTimeout/setInterval 回调会被整体拖长
+// （2026-11-27 真机实报「黑屏倒数绝对不止 3 秒」，实测 6.5s）；CSS transform/opacity 动画
+// 走合成器线程，主线程被卡住也照样按墙钟走完，总时长恒定 ≈2.6s。
+  function runCountdown(phase) {
+    const cdEl = document.getElementById('countdown');
+    const numEl = document.getElementById('cd-num');
+    // phase='load'：引擎还在载入 → 显示「载入中」而不是假倒计时（真机实报的「非常缓慢的黑屏倒数」
+    //   就是加载期挂着一个不动的数字）。phase='go'：引擎就绪 → 真正的 3-2-1-开打。
+    if (phase === 'load') {
+      numEl.innerHTML = '<i class="ld">载入中…</i>';
+      cdEl.classList.add('on');
+      (window.__cdSteps = window.__cdSteps || []).push({ t: 'load', at: 0 });
+      battleIntro._cd = () => { cdEl.classList.remove('on'); };
+      return;
+    }
+    numEl.innerHTML = '<i class="s3">3</i><i class="s2">2</i><i class="s1">1</i><i class="go">开打！</i>';
+    cdEl.classList.add('on');
+    const t0 = performance.now();
+    const done = () => {
+      cdEl.classList.remove('on');
+      const el = document.getElementById('cd-num');
+      if (el) el.innerHTML = '<i class="s3">3</i>';
+    };
+    // 收尾：优先用最后一个数字的 animationend（合成器时间轴），setTimeout 只做兜底
+    let timer = setTimeout(done, 4200);
+    const goEl = numEl.querySelector('i.go');
+    if (goEl) {
+      goEl.addEventListener('animationend', () => { clearTimeout(timer); timer = 0; done(); }, { once: true });
+    }
+    battleIntro._cd = () => { clearTimeout(timer); timer = 0; done(); };
+    (window.__cdSteps = window.__cdSteps || []).push({ t: 'start:' + (phase || 'go'), at: Math.round(performance.now() - t0) });
+  }
+  // 调试钩子：探针可单独跑一次倒数，验证 CSS 时间轴（不依赖 wasm 加载）
+  window.__runCountdown = runCountdown;
 
   // ---------------- 对局头像条（双头像）+ 结算回写（M3） ----------------
   const facebarEl = document.getElementById('facebar');
@@ -5034,6 +5371,7 @@
     matchSettled = true;
     window.__tfMatchSettled = winner; // 供自动化验证探针读取
     clearInterval(battleIntro._t);
+    if (battleIntro._cd) { battleIntro._cd(); battleIntro._cd = null; }   // 结算时收掉残留倒数
     // 生存模式链：胜 → reload 下一关（换对手、AI 递增）；负 → 回主界面
     if (MODE === 'survival') {
       const stage = Number(q.get('stage') || 1);
@@ -5095,11 +5433,15 @@
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: CONN.roster }),
     });
-    // quickmatch 一场一进程：结算回写后自动回分配视图（reload），战绩已持久化、可直接开下一场
+    // quickmatch 一场一进程：结算回写后回**选人屏**（保留会话上下文，战绩已持久化、可直接开下一场）。
+    // 2026-11-27 修：原来回 ?conn=1&session= → openStory 直接落「角色资产绑定」视图，用户感知为
+    //「打完一局卡死/跳错界面」。
     setTimeout(() => {
-      location.href = location.pathname + '?conn=1&session=' + encodeURIComponent(CONN.sessionId);
+      location.href = location.pathname + '?mode=' + encodeURIComponent(MODE) + '&conn=1&session=' + encodeURIComponent(CONN.sessionId);
     }, 6000);
   }
+  // 调试钩子：探针可注入一次结算（真机回归「打完一局不黑屏」用）
+  window.__tfInjectResult = (w) => onMatchResult(w);
   (function hookEngineConsole() {
     const orig = console.log.bind(console);
     console.log = function (...args) {
@@ -5109,6 +5451,8 @@
         if (i !== -1) onMatchResult(Number(line.slice(i + 10).trim()));
         const j = line.indexOf('TF_HEAD:');
         if (j !== -1) onHeadPos(line.slice(j + 8).trim());
+        const k = line.indexOf('TF_HIT:');
+        if (k !== -1) onTfHit(line.slice(k + 7).trim());
       } catch { /* 信号解析失败不影响游戏 */ }
       return orig(...args);
     };
@@ -5126,7 +5470,8 @@
   let headNodes = {};
 
   function onHeadPos(payload) {
-    if (!settings.battle.headAvatar) return;
+    // 注意：这里不按 headAvatar 开关提前 return——坐标包还要喂战斗反馈层
+    // （范围指示/击中火花都靠它定位）；头显关闭只由 layoutHeadAvatars 收起 DOM。
     for (const part of String(payload).split('|')) {
       const g = /^g=([\d.]+),(\d+),(\d+)$/.exec(part.trim());
       if (g) {
@@ -5399,6 +5744,8 @@
     selEl.classList.remove('on');
     homeEl.classList.remove('on');
     readyEl.classList.add('on');
+    // 载入期的等待反馈由 #ready 的新载入条承担（加载中。。。+条纹进度+强尼走路，
+    // 全部合成器线程动画）。这里不再叠 runCountdown('load') 的「载入中…」，避免双重提示。
     canvas.classList.add('on');
     hudEl.textContent = '';
     const K = settings.keys.p1;
@@ -5458,9 +5805,16 @@
       .then(() => engineGone('引擎已退出'))
       .catch((e) => engineGone('引擎异常：' + (e && e.message || e)));
 
-    // 首帧出来之前一直盖着 ready 遮罩
+    // 首帧出来之前一直盖着 ready 遮罩。
+    // 门槛 = 出过 20 帧 **且** 最近 1s 至少 12 帧（引擎已过加载/解码期、进入稳定出帧）——
+    // 原来只看「15 帧」：大包加载期帧率个位数，倒计时和开场白会在卡顿中开始（真机实报）。
+    let cdLastF = 0, cdLastT = Date.now();
     const wait = setInterval(() => {
-      if ((window.__ikemenEngineFrames || 0) > 15) {
+      const f = window.__ikemenEngineFrames || 0;
+      const now = Date.now();
+      const rate = (f - cdLastF) / Math.max(0.25, (now - cdLastT) / 1000);
+      cdLastF = f; cdLastT = now;
+      if (f > 20 && rate >= 12) {
         clearInterval(wait);
         readyEl.classList.remove('on');
         battleIntro();
@@ -5552,8 +5906,10 @@
       await restoreLastSession();
       // ?mode= 直达对应模式
       if (q.get('mode') && MODES[q.get('mode')]) openSelect(MODE);
-      // ?conn=1：联动模式自动打开故事面板（serve.cjs -- 配合启动）
-      if (q.get('conn') === '1') openStory();
+      // ?conn=1：联动模式自动打开故事面板（serve.cjs -- 配合启动）。
+      // 带 ?mode=（打完一局/换人重打回选人屏）时只恢复会话上下文、不弹面板——
+      // 否则故事面板盖在选人屏上（2026-11-27 用户实报「跳到角色资产绑定界面」）。
+      if (q.get('conn') === '1' && !(q.get('mode') && MODES[q.get('mode')])) openStory();
     } catch (e) { fail(e); }
   }
 
