@@ -640,6 +640,8 @@ main.pauseMenuActive = false
 require('external.script.debug')
 --; [toon] 实体头顶悬浮头像：每帧输出双方屏幕坐标给前端摆头像 DOM
 require('external.script.headavatar')
+--; [toon] 战斗反馈桥：命中/伤害信号（TF_HIT）给前端画击中火花+伤害数字
+require('external.script.combatfx')
 
 loadDebugFont(gameOption('Debug.Font'), gameOption('Debug.FontScale'))
 
