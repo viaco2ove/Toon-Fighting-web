@@ -20,11 +20,14 @@ import { fileURLToPath } from 'node:url';
 
 // ---------- 参数 ----------
 const args = process.argv.slice(2);
+// --device 没传时 indexOf 返回 -1，直接 +1 会用到 args[0]（如 --skip-build）
+// 当设备号，导致 adb 报 "device '--skip-build' not found"。这里显式判一下。
+const deviceIdx = args.indexOf('--device');
 const opt = {
   build: !args.includes('--skip-build'),
   launch: !args.includes('--skip-launch'),
   test: !args.includes('--skip-test'),
-  device: (args[args.indexOf('--device') + 1] || ''),
+  device: (deviceIdx >= 0 && args[deviceIdx + 1]) ? args[deviceIdx + 1] : '',
 };
 if (args.includes('--help') || args.includes('-h')) {
   console.log('用法: node deploy.mjs [--skip-build] [--skip-launch] [--skip-test] [--device <serial>]');

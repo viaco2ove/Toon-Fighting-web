@@ -103,7 +103,7 @@ function classifyAction(id) {
 // \s 会匹配 \r\n，把换行符一起吃掉 → 原位替换时行数对不上、字节错位。
 // animType 是字母（H/U/D/F/B 等），不是数字；漏掉会整行不被扫描，
 // 导致翻转帧永远保持原精灵 → 融合角色每几个动作就闪回白模。
-const FRAME_RE = /^([ \t]*)(\d+)[ \t]*,[ \t]*(\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*(?:,[ \t]*([A-Za-z0-9]+))?[ \t]*$/;
+const FRAME_RE = /^([ \t]*)(\d+)[ \t]*,[ \t]*(\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*,[ \t]*(-?\d+)[ \t]*(?:,[ \t]*([A-Za-z0-9]*)[ \t]*)*$/;
 
 // helper / 特效（group ≥ 7000）：cns 里用 helper / id=7500 直接引用，**不能重映射**
 const HELPER_GROUP_MIN = 7000;
@@ -143,7 +143,7 @@ function scanFrames(body) {
       end: m.index + m[0].length,
       raw: m[0],
       lead: m[1], g: +m[2], n: +m[3], ox: m[4], oy: m[5], t: +m[6],
-      animType: m[7],
+      animType: m[7] || undefined,   // 空尾段（"9, , "）按无翻转帧处理，避免重写时留下尾逗号
     });
   }
   return out;

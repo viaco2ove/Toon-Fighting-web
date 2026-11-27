@@ -242,7 +242,7 @@ for (const [key, spec] of needMerge) {
   if (!ai) { stats.fail++; continue; }
   const merged = MODE === 'binary'
     ? mergeBinary(body, ai, ALPHA, BODY_ALPHA, true)
-    : mergeAlpha(body, ai, ALPHA);
+    : mergeAlpha(body, ai, ALPHA, BODY_ALPHA);
   if (!merged) {
     // 原精灵全透明（白模包里的废区精灵）→ 没有可融合的东西，保持原样
     stats.fail++; stats.blank = (stats.blank || 0) + 1; continue;

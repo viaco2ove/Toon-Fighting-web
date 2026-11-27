@@ -1033,6 +1033,9 @@
     padding:14px 0;border-radius:11px;border:1px solid #4d3d12;background:linear-gradient(180deg,#1d1708,#120e05);
     color:var(--gold);transition:.16s}
   #story .stfoot button:hover{box-shadow:0 6px 18px rgba(255,194,51,.15)}
+  #story .stfoot button.ghost{color:var(--cyan);border-color:#1d3a4a;
+    background:linear-gradient(180deg,#0a1a22,#071218);text-indent:.24em}
+  #story .stfoot button.ghost:hover{box-shadow:0 6px 18px rgba(79,195,247,.15)}
 
   /* 失焦/切后台遮罩 */
   #cover{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
@@ -1450,7 +1453,7 @@
   <div class="stage">
     <div class="head">
       <a id="story-close">← 返回主界面</a>
-      <a id="sr-back" style="display:none">← 会话列表</a>
+      <a id="sr-back" style="display:none">← 返回主界面</a>
       <h1 id="story-title-el">选择故事</h1>
     </div>
     <div class="hint" id="story-status">检测联动服务…</div>
@@ -1459,6 +1462,7 @@
       <div class="hint" id="story-sub"></div>
       <div id="charrows"></div>
       <div class="stfoot">
+        <button id="sr-restore" class="ghost">恢 复</button>
         <button id="sr-save">保 存</button>
       </div>
     </div>
@@ -2751,8 +2755,34 @@
   document.getElementById('home-story-link').addEventListener('click', openStory);
   // 「角色实体绑定」卡：直接进当前故事的绑定视图（没有会话时退回列表）
   document.getElementById('home-bind').addEventListener('click', () => openStory({ roster: true }));
-  document.getElementById('sr-back').addEventListener('click', showListView);
+  // 绑定视图返回 = **回到上一个界面**（2026-11-29 用户实报：绑定视图唯一入口是
+  // 主界面的「点击进入」，返回却跑去会话列表是错的）→ 关面板回主界面
+  document.getElementById('sr-back').addEventListener('click', () => {
+    storyEl.classList.remove('on');
+    renderHomeStory();
+  });
   document.getElementById('sr-save').addEventListener('click', () => saveRoster());
+  // 「恢复」：从资产集重新读取角色资产绑定（roster.json defCharacterAssets → char.json → 随机），
+  // 弹窗确认后才执行；战绩（win/lose）保留，不自动写服务器——确认无误再点保存。
+  document.getElementById('sr-restore').addEventListener('click', () => {
+    if (!CONN.roster || !CONN.sessionId) return;
+    const n = CONN.roster.storyChars.length;
+    const ok = confirm('从资产集重新读取角色资产绑定？\n当前 ' + n + ' 个角色的实体绑定会被重置为资产集默认（含随机），\n战绩保留。确认前不会写服务器，重读后需点【保存】生效。');
+    if (!ok) return;
+    const charsForRestore = CONN.roster.storyChars.map((c) => ({
+      name: c.name, roleType: c.roleType, avatarPath: c.avatarPath || '', description: c.description || '',
+    }));
+    const oldWin = new Map(CONN.roster.storyChars.map((c) => [c.name, { win: c.win, lose: c.lose }]));
+    const nextR = composeRoster(charsForRestore, null);
+    for (const c of nextR.storyChars) {
+      const w = oldWin.get(c.name);
+      if (w) { c.win = Number(w.win || 0); c.lose = Number(w.lose || 0); }
+    }
+    CONN.roster = nextR;
+    renderRosterEditor();
+    storyStatusEl.textContent = '已从资产集重新读取绑定（未保存）——确认无误后点【保 存】生效。';
+    storyStatusEl.className = 'hint warn';
+  });
   storyEl.addEventListener('click', (e) => { if (e.target === storyEl) storyEl.classList.remove('on'); });
   document.getElementById('story-close').addEventListener('click', () => storyEl.classList.remove('on'));
 
@@ -4959,20 +4989,30 @@
   const BUFFS = { 1: null, 2: null };          // side -> {name, until, el}
   const COMBO = { n: 0, until: 0, expect: 0 }; // dash 连击窗口（真实命中计数）
   let TF_CMD_SEQ = 0;
+  let TF_CMD_QUEUE = Promise.resolve();   // 命令串行队列（见 engineCmdFile）
   // 命令桥写入：save/tf-cmd.ini（引擎 Lua loadText 轮询，seq 变化即执行）
   function engineCmdFile(obj) {
-    try {
-      const fsx = globalThis.fs;
-      if (!fsx || !fsx.constants || !engineStarted) return;
-      const lines = ['[Cmd]', 'seq=' + (++TF_CMD_SEQ)];
-      for (const k of Object.keys(obj)) if (obj[k] !== undefined && obj[k] !== null) lines.push(k + '=' + obj[k]);
-      const bytes = new TextEncoder().encode(lines.join('\n') + '\n');
-      fsx.open('save/tf-cmd.ini', fsx.constants.O_WRONLY | fsx.constants.O_CREAT | fsx.constants.O_TRUNC, 0o644, (e, fd) => {
-        if (e || fd == null) return;
-        fsx.write(fd, bytes, 0, bytes.length, null, () => { fsx.close(fd, () => {}); });
-      });
-    } catch (e) { /* 引擎未起/无 fs：只走视觉层 */ }
+    // 命令写入串行队列（2026-11-29 修「冲锋 3 击只落地 1 击」）：
+    // 连发的两条命令并发 open+O_TRUNC 同一个文件会互相覆盖——Lua 每 2 帧轮询只见到
+    // 最后一条完整 seq，中间的 seq 被标记已消费 = 命令静默丢失。
+    // 队列 + 写完间隔 180ms（必须 > Lua 2 帧轮询周期，低帧率 ≈100ms+，否则相邻命令被同一次轮询合并丢掉）。
+    TF_CMD_QUEUE = TF_CMD_QUEUE.then(() => new Promise((res) => {
+      try {
+        const fsx = globalThis.fs;
+        if (!fsx || !fsx.constants || !engineStarted) { res(); return; }
+        const lines = ['[Cmd]', 'seq=' + (++TF_CMD_SEQ)];
+        for (const k of Object.keys(obj)) if (obj[k] !== undefined && obj[k] !== null) lines.push(k + '=' + obj[k]);
+        const bytes = new TextEncoder().encode(lines.join('\n') + '\n');
+        fsx.open('save/tf-cmd.ini', fsx.constants.O_WRONLY | fsx.constants.O_CREAT | fsx.constants.O_TRUNC, 0o644, (e, fd) => {
+          if (e || fd == null) { res(); return; }
+          fsx.write(fd, bytes, 0, bytes.length, null, () => {
+            fsx.close(fd, () => { setTimeout(res, 180); });
+          });
+        });
+      } catch (e) { res(); }
+    }));
   }
+  window.__tfCmd = (obj) => engineCmdFile(obj);   // 探针调试钩子：直接写命令桥（回血假人等）
   window.__tfHealLog = [];
   // ---------------- 开战信号（TF_FIGHT）----------------
   // 修「二阶段黑屏」：原先撤加载遮罩用的是「引擎帧数 > 20 且帧率 ≥ 12fps」，
@@ -5190,42 +5230,58 @@
       engineCmdFile({ healPct: atk.healPct || 1, name: mv.name });   // 命令桥 → Lua setLife 真回血 → TF_HEAL
     }
     if (kind === 'dash') {
-      // 真冲锋（2026-11-28 修「技能没有按要求」）：**整个人冲过去**不能依赖角色 cmd
-      // 是否接线了冲刺指令（98Ryo 系很多没有 FF 冲刺）——直接注入键盘：
-      // 双击前方向（MUGEN 通用冲刺判定）+ 持续按住推进，推进途中按 hits 次攻击键。
+      // 真冲锋 v3（2026-11-29 用户复测「3 击放空率极高」）：之前是固定时刻判定，
+      // 人物实际没走到对手身边 → 判定圈外全放空。改为**追击式**：
+      // 双击前方向（有 FF 指令的角色会起跑）+ 保持按住，每 80ms 查距离，
+      // 贴身（≤1.5 米）或 3.5s 超时才松开 → 然后才开始 3 连击（每击攻击键+桥伤，贴身后必中）。
       const hits = Math.max(1, atk.hits || 3);
-      COMBO.n = 0; COMBO.until = Date.now() + 2800; COMBO.expect = hits;
+      COMBO.n = 0; COMBO.until = Date.now() + 7500; COMBO.expect = hits;
       const p1h = headPos[1], p2h = headPos[2];
       const fwdAct = (p1h && p2h && p2h.x < p1h.x) ? 'left' : 'right';
       const fwdCode = INI2CODE[settings.keys.p1[fwdAct]];
       const atkCode = INI2CODE[settings.keys.p1.a] || 'KeyZ';
-      if (fwdCode) {
-        // 先冲后打：按住前方向 ~560ms 完成「整个人冲过去」，松开方向再按 hits 次攻击键
-        //（攻击会打断行走位移，边冲边打实测位移=0，2026-11-28 探针实测）
-        injectKey('keydown', fwdCode);
-        setTimeout(() => injectKey('keyup', fwdCode), 80);          // 第一次点前
-        setTimeout(() => injectKey('keydown', fwdCode), 140);       // 第二次点前 = 冲刺/奔跑
-        setTimeout(() => injectKey('keyup', fwdCode), 1050);        // 冲刺段结束（98Ryo 系步速慢，实测 820ms≈20px）
-        const dashDmgPct = Math.max(1, atk.dmgPct || 6);
-        for (let i = 0; i < hits; i++) {
-          // 每一击：真实伤害判定（冲到对手身前后距离 < 2.5 米，每击都扣血——命令桥 → setLife → TF_HIT）
-          setTimeout(() => {
-            injectKey('keydown', atkCode); setTimeout(() => injectKey('keyup', atkCode), 70);
+      const dashDmgPct = Math.max(1, atk.dmgPct || 6);
+      (async () => {
+        try {
+          let chaseMs = -1;   // IIFE 顶层：击回调也要读（块内 const 会 ReferenceError）
+          if (fwdCode) {
+            injectKey('keydown', fwdCode);
+            setTimeout(() => injectKey('keyup', fwdCode), 80);     // 第一次点前
+            setTimeout(() => injectKey('keydown', fwdCode), 150);  // 第二次点前 = 冲刺/奔跑，随后一直按住
+            const t0 = Date.now();
+            while (Date.now() - t0 < 3500) {
+              await new Promise((r) => setTimeout(r, 80));
+              const q1 = headPos[1], q2 = headPos[2];
+              if (q1 && q2 && Math.abs(q2.x - q1.x) <= 1.5 * PX_PER_M) break;
+            }
+            injectKey('keyup', fwdCode);
+            chaseMs = Date.now() - t0;
+            (window.__tfDashLog = window.__tfDashLog || []).push({ ev: 'chaseDone', chased: chaseMs, dist: (() => { const q1 = headPos[1], q2 = headPos[2]; return q1 && q2 ? Math.round(Math.abs(q2.x - q1.x)) : -1; })() });
+          } else {
+            await fireCommandTokens(toks.length ? toks : ['f', 'f']);
+          }
+          // 3 连击：每击 = 攻击键 + 桥伤（贴身后必中；中途被打飞则该击跳过）
+          for (let i = 0; i < hits; i++) {
+            injectKey('keydown', atkCode);
+            setTimeout(() => injectKey('keyup', atkCode), 70);
             const q1 = headPos[1], q2 = headPos[2];
-            if (!q1 || !q2) return;
-            const sc2 = headScale();
-            const dist = Math.abs(q2.x - q1.x);
-            if (dist <= 2.5 * PX_PER_M) {
+            const dist = (q1 && q2) ? Math.abs(q2.x - q1.x) : -1;
+            const fire = q1 && q2 && dist <= 3 * PX_PER_M;
+            (window.__tfDashLog = window.__tfDashLog || []).push({ ev: 'hit' + i, dist: Math.round(dist), fire, hold: chaseMs });
+            if (fire) {
+              console.log('TF_DASHFIRE:i=' + i + ',dist=' + Math.round(dist) + ',dmg=' + dashDmgPct);
               engineCmdFile({ dmgPct: dashDmgPct, victim: 2, name: mv.name });
+              const sc2 = headScale();
               const cx2 = sc2.ox + q2.x * sc2.sx, cy2 = sc2.oy + q2.y * sc2.sy - CHEST_LIFT * sc2.sy;
               P({ kind: 'ringE', x: cx2, y: cy2, r: 26 * sc2.sx, w: 3.5, e: 0.4, color: C, life: 0.3, max: 0.3 });
               skBurst(cx2, cy2, C, 10, 120, 380);
             }
-          }, 1120 + i * 240);
+            await new Promise((r) => setTimeout(r, 260));
+          }
+        } catch (e) {
+          (window.__tfDashLog = window.__tfDashLog || []).push({ ev: 'err', msg: String((e && e.stack) || e).slice(0, 220) });
         }
-      } else {
-        fireCommandTokens(toks.length ? toks : ['f', 'f']).catch(() => {});
-      }
+      })();
     } else if (kind === 'retreat') {
       // 真后撤（同上不依赖 cmd 接线）：双击后方向 = MUGEN 通用后撤步，整个人往后撤离
       const p1h = headPos[1], p2h = headPos[2];

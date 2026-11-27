@@ -413,7 +413,7 @@ node .cache/scripts/probe-shot.mjs .cache/shots-mergefix shot.png "http://localh
 | `templates/merge-binary.cjs` | **二值虚化模式**（`mergeBinary`）：原帧可调不透明度，bodyAlpha<1 → Bayer 不抖动 |
 | `templates/merge-sprite.cjs` | 兼容 shim（`mergeSprites`）：按 bodyAlpha 自动选模式。新代码别用它              |
 | `templates/air-some.cjs` | air 解析 + 类别映射（**`ACTION_CATEGORY` 表必须按包核对**）                     |
-| `templates/sff-append.cjs` | SFF v1 追加器                                                                   |
+| `templates/sff-append.cjs` | SFF v1 追加器                                                                   |a
 | `templates/sprite-pack.cjs` | PNG 编解码 + 量化（依赖）                                                       |
 
 另有 `templates/diag-two-modes.cjs`（在技能根目录的 `templates/`）——
