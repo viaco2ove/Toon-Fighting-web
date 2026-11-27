@@ -621,15 +621,18 @@
     background:rgba(255,194,51,.12);border:1px solid rgba(255,194,51,.5);color:#ffd98a}
   #focusTip.on{display:block}
 
-  /* 首局载入角色/场景时的等待遮罩（2026-11-28 按 加载中.md/img_12 设计稿重做）：
-     img_12 海岛海战背景整图铺满 + 中部横条一行式「加载中。。。+ 条纹进度 + Q版佐助疾跑」。
+  /* 载入遮罩（2026-11-28 按 加载中.md 双稿定稿）：
+     默认形态 = img_8 霓虹雨夜背景 + 「加载中。。。+ 条纹进度 + 强尼走路」（进战斗加载）；
+     .stage2 形态 = img_12 海岛海战背景 + 佐助疾跑（**仅**一局完了→下一局/回选人的二阶段过渡）。
      所有动画只用 opacity/transform（合成器线程接管），wasm 独占主线程时照样播 ——
-     佐助疾跑=6 帧序列条 translateX steps(6)，条纹进度=宽幅伪元素 translateX。 */
+     强尼/佐助=序列条 translateX steps(6)，条纹进度=宽幅伪元素 translateX。 */
   #ready{position:fixed;inset:0;z-index:45;display:none;flex-direction:column;
     align-items:center;justify-content:center;transition:opacity .4s;
-    background:url('assets/ui/load-bg.jpg') center/cover no-repeat, #16324a}
+    background:url('assets/ui/load-bg-neon.jpg') center/cover no-repeat, #171226}
+  /* 二阶段过渡形态（结算→回选人/下一局）：img_12 海岛海战 */
+  #ready.stage2{background:url('assets/ui/load-bg.jpg') center/cover no-repeat, #16324a}
   #ready.on{display:flex}
-  /* 中部横条（img_12 设计：半透明暗横带横贯画面，文字+进度+角色都在这一行） */
+  /* 中部横条（一行式：加载中。。。+ 条纹进度 + 角色） */
   #ready .band{position:relative;width:100%;padding:26px 4vw;display:flex;align-items:center;gap:22px;
     background:rgba(10,16,24,.72);border-top:1px solid rgba(150,170,200,.25);border-bottom:1px solid rgba(150,170,200,.25);
     box-shadow:0 12px 48px rgba(0,0,0,.5)}
@@ -651,16 +654,25 @@
     animation:ldBar 1s linear infinite}
   @keyframes ldBar{to{transform:translateX(350%)}}
   #ready .sync{font-size:13px;color:#cfd6e4;letter-spacing:.1em;white-space:nowrap}
-  /* 佐助疾跑：6 帧序列条（assets/ui/sasuke-run.png 606x112，单帧 101x112 → 显示 64x71），
-     repeat-x + translateX 整条宽 steps(6) = 无缝循环，transform 走合成器线程；
-     疾跑方向向右，配合「加载中。。。」一行里往前跑 */
-  #ready .sasuke{position:relative;width:64px;height:71px;overflow:hidden;flex:none;
+  /* 强尼：6 帧序列条（assets/ui/johnny-walk.png 504x139，单帧 84x139 → 显示 46x76），
+     repeat-x + translateX 整条宽 steps(6) = 无缝循环，transform 走合成器线程。
+     默认形态（进战斗加载）显示强尼 */
+  #ready .johnny{position:relative;width:46px;height:76px;overflow:hidden;flex:none;
+    filter:drop-shadow(0 6px 8px rgba(0,0,0,.5))}
+  #ready .johnny i{position:absolute;top:0;bottom:0;left:0;width:276px;
+    background:url('assets/ui/johnny-walk.png') left center/276px 76px repeat-x;
+    animation:ldWalk .84s steps(6) infinite}
+  @keyframes ldWalk{to{transform:translateX(-276px)}}
+  /* 佐助疾跑：6 帧序列条（assets/ui/sasuke-run.png 606x112，单帧 101x112 → 显示 64x71）。
+     只在 .stage2（一局完了→下一局/回选人过渡）出现 */
+  #ready .sasuke{display:none;position:relative;width:64px;height:71px;overflow:hidden;flex:none;
     filter:drop-shadow(0 6px 8px rgba(0,0,0,.5))}
   #ready .sasuke i{position:absolute;top:0;bottom:0;left:0;width:606px;
-    background:url('assets/ui/sasuke-run.png') left center/606px 112px repeat-x;
-    background-size:606px 71px;
+    background:url('assets/ui/sasuke-run.png') left center/606px 71px repeat-x;
     animation:ldRun .72s steps(6) infinite}
   @keyframes ldRun{to{transform:translateX(-606px)}}
+  #ready.stage2 .johnny{display:none}
+  #ready.stage2 .sasuke{display:block}
   #ready .sub{position:absolute;bottom:3.2vh;left:0;right:0;text-align:center;
     font-size:12px;color:rgba(240,246,255,.78);letter-spacing:.04em;
     text-shadow:0 1px 6px rgba(0,0,0,.7)}
@@ -1218,6 +1230,7 @@
     <div class="tx">加载中<i>.</i><i>.</i><i>.</i></div>
     <div class="bar"><i></i></div>
     <div class="sync">同步中</div>
+    <div class="johnny"><i></i></div>
     <div class="sasuke"><i></i></div>
   </div>
   <div class="sub">首次要等引擎把 sff / snd 拉下来，之后会快很多</div>
@@ -1762,6 +1775,28 @@
     return btoa(s);
   }
   async function usePack(dir) {
+    // dir=null → 清空资产集（2026-11-28 用户实报「切换故事依然绑定 moshi」）：
+    // 当前故事没有声明专属资产集、会话也没有绑定时，不能沿用上一个故事的包——
+    // 清空 PACKS.cur / 角色池 / 挂载，选人池退回兜底角色，状态行如实说明。
+    if (!dir) {
+      PACKS.cur = null;
+      PACKS.mapping = null;
+      PACKS.roster = null;
+      PACKS.packDefs = {};
+      PACKS.bound = null;
+      PACK_CHARS.length = 0;
+      try { localStorage.removeItem(PACK_KEY); } catch { /* 私密模式 */ }
+      if (PACKS.mounted && typeof globalThis.ikemenVfsUnmount === 'function') {
+        try { globalThis.ikemenVfsUnmount('pack:' + PACKS.mounted); } catch { /* 已撤 */ }
+      }
+      PACKS.mounted = '';
+      animCache.clear();
+      if (selEl.classList.contains('on')) renderSelect();
+      renderPackLine();
+      refreshPackStat();
+      buildCharGrid();
+      return true;
+    }
     const p = PACKS.list.find((x) => x.dir === dir);
     if (!p) return false;
     PACKS.cur = p;
@@ -1823,9 +1858,12 @@
   // 登记后同步「已绑定到哪个会话」的状态行（不清掉别的提示）
   function refreshPackStat() {
     if (!PACKS.cur) {
-      setPackStat(PACKS.list.length
-        ? '点击「选择资产集文件夹」登记本地资产集，登记后自动绑定到当前故事会话。'
-        : '还没有可用的资产集。点击「选择资产集文件夹」选一个含 pack.json 的目录。');
+      const storyHint = CONN.storyName
+        ? '当前故事「' + CONN.storyName + '」没有声明专属资产集（pack.json 的 stories），暂用兜底角色池。'
+        : '';
+      setPackStat(storyHint + (PACKS.list.length
+        ? '已登记 ' + PACKS.list.length + ' 个资产集，可点卡片手动切换。'
+        : '点击「选择资产集文件夹」登记本地资产集，登记后自动绑定到当前故事会话。'));
       return;
     }
     const miss = missingPackChars();
@@ -1921,13 +1959,16 @@
     const dir = (r.pack && r.pack.dir) || (data.pack.id || data.dirName);
     await usePack(dir);
     buildCharGrid();
-    const bound = await bindPackToSession(dir);
+    const bound = await bindPackToSession(dir, true);   // 用户亲手登记的文件夹 → 手动绑定
     if (!bound) refreshPackStat();
     return true;
   }
 
-  // 把资产集写进当前会话的 tf_fight_bind；没有会话则挂起，选完会话后补写
-  async function bindPackToSession(packId) {
+  // 把资产集写进当前会话的 tf_fight_bind；没有会话则挂起，选完会话后补写。
+  // manual=true = 用户亲手选的（选文件夹登记/资产集卡片点击）——跨故事保留；
+  // false = 流程自动写的（故事匹配自愈/MCP）——故事切换时会被清掉（2026-11-28 用户实报
+  // 「切换故事依然绑定 moshi」：自动粘住的错位绑定必须让位给「包跟随故事」）。
+  async function bindPackToSession(packId, manual) {
     const pid = packId || (PACKS.cur ? PACKS.cur.dir : null);
     if (!pid) return false;
     if (!CONN.sessionId) {
@@ -1938,6 +1979,7 @@
     const value = {
       storyName: CONN.storyName,
       sessionId: CONN.sessionId,
+      manual: !!manual,
       worldId: CONN.worldId,
       packId: pid,
     };
@@ -1995,8 +2037,8 @@
         await usePack(p.dir);
         buildCharGrid();
         dlg.classList.remove('on');
-        // 切换资产集后同步绑定状态（与当前会话的 packId 对齐）
-        await bindPackToSession(p.dir);
+        // 切换资产集后同步绑定状态（与当前会话的 packId 对齐）；用户亲手点的卡片 → 手动绑定
+        await bindPackToSession(p.dir, true);
       });
       list.appendChild(b);
     }
@@ -2116,7 +2158,7 @@
         await usePack(p.dir || p.id);
       }
       await pickSession(sessionId, { roster: false });   // MCP 桥：绑定后不弹绑定面板
-      const bound = await bindPackToSession(packId || (PACKS.cur ? PACKS.cur.dir : null));
+      const bound = await bindPackToSession(packId || (PACKS.cur ? PACKS.cur.dir : null), !!packId);
       return {
         ok: true,
         sessionId: CONN.sessionId || sessionId,
@@ -2556,9 +2598,20 @@
       if (storyPack) {
         if (!PACKS.cur || PACKS.cur.dir !== storyPack.dir) await usePack(storyPack.dir);
         if (!PACKS.bound || PACKS.bound.packId !== storyPack.dir) await bindPackToSession(storyPack.dir);
-      } else if (PACKS.bound && PACKS.bound.packId) {
+      } else if (PACKS.bound && PACKS.bound.packId && PACKS.bound.manual) {
+        // 用户亲手绑定的 → 跨故事保留
         const p = findPackById(PACKS.bound.packId);
         if (p && (!PACKS.cur || PACKS.cur.dir !== p.dir)) await usePack(p.dir);
+      } else {
+        // 没有包声明这个故事，旧绑定也不是手动写的 → 清空资产集，
+        // 并把会话里自动粘住的错位绑定一并清掉（不沿用上一个故事的包）
+        if (PACKS.cur) await usePack(null);
+        if (PACKS.bound && PACKS.bound.packId) {
+          connApi('/api/conn/session-data/' + encodeURIComponent(CONN.sessionId) + '/tf_fight_bind', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: {} }),
+          }).catch(() => { /* 清绑定失败不影响界面 */ });
+        }
       }
     }
 
@@ -5026,13 +5079,15 @@
       const fwdCode = INI2CODE[settings.keys.p1[fwdAct]];
       const atkCode = INI2CODE[settings.keys.p1.a] || 'KeyZ';
       if (fwdCode) {
+        // 先冲后打：按住前方向 ~560ms 完成「整个人冲过去」，松开方向再按 hits 次攻击键
+        //（攻击会打断行走位移，边冲边打实测位移=0，2026-11-28 探针实测）
         injectKey('keydown', fwdCode);
         setTimeout(() => injectKey('keyup', fwdCode), 80);          // 第一次点前
         setTimeout(() => injectKey('keydown', fwdCode), 140);       // 第二次点前 = 冲刺/奔跑
+        setTimeout(() => injectKey('keyup', fwdCode), 1050);        // 冲刺段结束（98Ryo 系步速慢，实测 820ms≈20px）
         for (let i = 0; i < hits; i++) {
-          setTimeout(() => { injectKey('keydown', atkCode); setTimeout(() => injectKey('keyup', atkCode), 70); }, 340 + i * 240);
+          setTimeout(() => { injectKey('keydown', atkCode); setTimeout(() => injectKey('keyup', atkCode), 70); }, 1120 + i * 240);
         }
-        setTimeout(() => injectKey('keyup', fwdCode), 340 + hits * 240 + 150);
       } else {
         fireCommandTokens(toks.length ? toks : ['f', 'f']).catch(() => {});
       }
@@ -5118,6 +5173,8 @@
     buff1: BUFFS[1] ? Math.round(BUFFS[1].until - Date.now()) : 0,
     buff1Name: BUFFS[1] ? BUFFS[1].name : '',
     pos: !!(headPos[1] && headPos[2]),
+    p1x: headPos[1] ? Math.round(headPos[1].x) : null,
+    p2x: headPos[2] ? Math.round(headPos[2].x) : null,
     shapes: (window.__tfShapeLog || []).slice(-6).map((x) => x.s),
   });
   async function fireSeq(seq) {
@@ -5451,6 +5508,9 @@
   // 时序即用户要求：加载界面收起 → 3-2-1 倒数 → 倒数完直接开打，中间不再有黑屏。
   function revealBattle() {
     if (revealBattle._done) return;
+    // 结算后不再揭幕：结算收尾刚把 .stage2 加载条顶上来（替代黑屏），
+    // 亮度兜底/TF_FIGHT 若在这之后才到，不能把结算过渡遮罩掀掉
+    if (matchSettled) return;
     revealBattle._done = true;
     readyEl.classList.remove('on');
     battleIntro();
@@ -5559,6 +5619,8 @@
       headavEl.innerHTML = '';
       headNodes = {};
       BUFFS[1] = null; BUFFS[2] = null;
+      // 二阶段过渡形态（img_12 + 佐助疾跑）：一局完了 → 下一局/回选人的过渡期专用
+      readyEl.classList.add('stage2');
       readyEl.classList.add('on');
     } catch (e) { /* 收尾失败不影响结算流程 */ }
     // 生存模式链：胜 → reload 下一关（换对手、AI 递增）；负 → 回主界面
@@ -5665,6 +5727,9 @@
   function onHeadPos(payload) {
     // 注意：这里不按 headAvatar 开关提前 return——坐标包还要喂战斗反馈层
     // （范围指示/击中火花都靠它定位）；头显关闭只由 layoutHeadAvatars 收起 DOM。
+    // 结算后引擎在 os.Exit 前还会继续吐 TF_HEAD——别把刚摘掉的悬浮头像再挂回来
+    //（2026-11-28 用户实报「一局完了悬浮头像没有删除」）。
+    if (matchSettled) return;
     for (const part of String(payload).split('|')) {
       const g = /^g=([\d.]+),(\d+),(\d+)$/.exec(part.trim());
       if (g) {
@@ -5943,6 +6008,7 @@
     FIGHT_READY = false;
     window.__tfFightReady = false;
     revealBattle._done = false;
+    readyEl.classList.remove('stage2');   // 进战斗加载 = 默认形态（img_8 + 强尼），二阶段佐助只在结算过渡用
     readyEl.classList.add('on');
     // 载入期的等待反馈由 #ready 的新载入条承担（加载中。。。+条纹进度+佐助疾跑，
     // 全部合成器线程动画）。这里不再叠 runCountdown('load') 的「载入中…」，避免双重提示。
@@ -6029,7 +6095,8 @@
       } catch (e) { return -1; }
     };
     const wait = setInterval(() => {
-      if (FIGHT_READY) { clearInterval(wait); return; }   // revealBattle 已由 onTfFight 触发
+      // 结算（或已由 TF_FIGHT 揭幕）→ 立刻收摊，不再做亮度兜底揭幕
+      if (FIGHT_READY || matchSettled) { clearInterval(wait); return; }
       const f = window.__ikemenEngineFrames || 0;
       const now = Date.now();
       const rate = (f - cdLastF) / Math.max(0.25, (now - cdLastT) / 1000);
