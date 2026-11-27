@@ -69,3 +69,9 @@ readActPalette，实测验证）。
 
 ## 自研
 http://localhost:8100/ff-studio/src/viewer.html
+
+## 快速验证
+虚化
+http://localhost:8105/?auto=1&p1=ChenYanV2&p2=ChenYanV2&ai=0
+碎片
+http://localhost:8105/?auto=1&p1=ChenYanV2B&p2=ChenYanV2B&ai=0

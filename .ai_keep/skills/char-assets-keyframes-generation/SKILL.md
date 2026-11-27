@@ -12,8 +12,19 @@ description: 为白模角色资产生成/落盘「AI 整帧关键帧」资产（
 给 \workshops\toon-fighting-web\map_design\末世选择，从解析神明开始成神
 这个故事的（toonflow ai game）全部角色 生成
 融合关键帧 的格斗角色资产 xxxKFM
-不透明度 原20%,ai帧 95%,一半角色Bayer碎片模式（原20%,ai帧 95%），一半角色Bayer虚化模式（原20%,ai帧 95%）
+不透明度 原50%,ai帧 95%,一半角色Bayer碎片模式（原50% 彩,ai帧 95% 高清），一半角色SFF v2 二值虚化模式（原50% 彩,ai帧 95% 高清）
 技能5个以上，不能全都是5个
+
+- /char-assets-keyframes-generation merge 
+从
+\ff-studio\white-mold
+选择适当的职业 格斗角色资产
+给 \workshops\toon-fighting-web\map_design\末世选择，从解析神明开始成神
+这个故事的（toonflow ai game）全部角色 生成
+融合关键帧 的格斗角色资产 xxxKFM
+不透明度 原20%,ai帧 95%,一半角色Bayer碎片模式（原20% 灰白,ai帧 95%，像素风），一半角色SFF v2 二值虚化模式（原20% 灰白,ai帧 95%，像素风）
+技能5个以上，不能全都是5个
+
 
 - /char-assets-keyframes-generation merge 融合模式 
 不透明度 原20%,ai帧 95%  重新生成
@@ -192,6 +203,7 @@ node .cache\scripts\mk-keyframes.mjs
 | **融合关键帧**（merge） | 原精灵 **+** AI 图（叠加） | 799 张合成 | +5.9MB | [keyframeMode/merge/SKILL.md](keyframeMode/merge/SKILL.md) |
 | **全替关键帧**（all） | 只有 AI 图 | 10 + 白模全留 | +0.3MB | [keyframeMode/all/SKILL.md](keyframeMode/all/SKILL.md) |
 | 不使用（none） | 只有原精灵 | — | — | — |
+| **融合 v2**（SFF v2 真半透明） | AI 95% 高清（PNG RGBA 无量化+lanczos）叠原精灵；body-only 真半透明或 Bayer 点阵 | 全精灵 PNG RGBA | 更小 | [keyframeMode/merge/SKILL.md](keyframeMode/merge/SKILL.md)「SFF v2 真半透明管线」|
 
 三种模式的共同技术前提（各子技能的 SKILL.md 有完整细节）：
 
@@ -232,6 +244,24 @@ node ../../templates/diag-engine-drop.cjs <包>/<id>.sff   # 「引擎丢弃 M�
 
 详见 [keyframeMode/merge/SKILL.md 坑 E](keyframeMode/merge/SKILL.md)。
 
+### 故事角色全部 KFM 化（批量管线，2026-11-28 沉淀）
+
+「给某故事的 toonflow 全部角色生成 KFM」走五步管线（脚本全在 templates/，路径自包含）：
+
+| 步骤 | 脚本 | 说明 |
+|---|---|---|
+| ① 拉角色+参考图 | [templates/fetch-avatars.mjs](templates/fetch-avatars.mjs) | `node fetch-avatars.mjs <worldId> <refsDir>` —— 登录 .env → getWorld（**玩家主角在 playerRole 字段，不在 settings.roles！**）→ OSS webp → full/head 双参考图 + roles-<worldId>.json |
+| ② 批量生图 | [templates/gen-frames-batch.mjs](templates/gen-frames-batch.mjs) | `node gen-frames-batch.mjs <personas.json> <refsDir>` —— 直连后端 agentRun，10 类×N 角色，已有跳过 |
+| ③ 批量构建 | [templates/build-kfm-batch.mjs](templates/build-kfm-batch.mjs) | `node build-kfm-batch.mjs <personas.json> <packDir>` —— 底座 def 解析 → build-merge-v2.mjs → char.json → shell cp 落盘 → diag 引擎丢弃必须 0 |
+| ④ 技能 | [templates/gen-skills.mjs](templates/gen-skills.mjs) | `node gen-skills.mjs <personas.json> <packDir>/chars` —— 5/6/7 技混合（melee/proj/dash/retreat + 速弹/重压），属性互不重复 |
+| ⑤ 收口 | rebuild-pack-manifest.mjs + index.json | 资产集 manifest + assets/assetpacks/index.json 登记 + mapping/roster/pack/story 四件套 |
+
+personas.json 条目：`{ "角色名": { id, base(white-mold 职业目录), mode(alpha虚化|binary碎片), bodyAlpha(缺省 0.5/0.2), grayscale(1=body 灰白化), skillCount, profession, persona(英文形象提示词), theme:{storm,fx} } }`。
+
+两种模式观感（见 merge 子 SKILL.md「SFF v2 真半透明管线」）：`binary` = Bayer 2×2 原色实心点阵（「碎片」，密度=bodyAlpha，20%→颗粒碎影 / 50%→密点残影）；`alpha` = body 整层真半透明（「虚化」，50%→明确半透明实体 / 20%→影子感）。`grayscale=1` + `RGBSpriteBilinearFilter=0`（buildConfigIni 已注入）=「灰白像素风」。
+
+踩坑速查：`fs.cpSync` recursive 段错误改 shell cp；bash 后台链 `cp && rebuild & sleep && probe` 会竞态（部署必须前台串行）；验证合成精灵按 air 站立帧引用取（别按 group≥6100 取第一个，底座特效段会撞号）。
+
 「融」模式额外注意：MUGEN 帧行一次只能画一个精灵，
 所以「AI 图 + 原精灵一起显示」**必须在构建期烘焙**（合成成一张图）；
 特效帧（group ≥ 7000）不融合。
@@ -244,7 +274,7 @@ node ../../templates/diag-engine-drop.cjs <包>/<id>.sff   # 「引擎丢弃 M�
 | **二值碎片** | `merge-binary.cjs` | 20% | 95% | body-only 像素走 4×4 Bayer 抖动 → 方块小碎片 |
 
 SFF v1 只有**二值**透明（alpha<128 → 索引 0），所以「虚化」在 v1 下只能是
-颜色层面的淡化，不是真 alpha（真 alpha 要 SFF v2 的 RGBA PNG，项目暂无 v2 写出器）。
+颜色层面的淡化，不是真 alpha。真 alpha 走 SFF v2 的 PNG RGBA（format 11），写出器见 [keyframeMode/merge/templates/build-merge-v2.mjs](keyframeMode/merge/templates/build-merge-v2.mjs)——「SFF v2 真半透明管线」，v1 底座整包转 v2 即可，引擎原生支持。
 「碎片」不是刻意设计的美术效果，是二值透明下模拟淡显的必然手段。
 详见 [keyframeMode/merge/SKILL.md 的「两种透明度语义」](keyframeMode/merge/SKILL.md)。
 

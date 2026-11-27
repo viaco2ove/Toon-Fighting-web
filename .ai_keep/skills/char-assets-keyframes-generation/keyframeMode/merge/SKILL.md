@@ -340,6 +340,45 @@ SFF v1 的调色板只有**二值**透明（alpha<128 → 索引 0 透明）。
 能真逐像素 alpha。但项目里**没有 v2 写出器**，且底座包是 v1 ——
 v1 底座 + v2 合成精灵的混编规则要另定，所以本轮不做。
 
+### SFF v2 真半透明管线（2026-11-28 定案，v1 二值透明的终极解法）
+
+SFF v1 只有二值透明（alpha<128 → 索引 0），「原 20%/50% 半透明且无点阵无暗影」物理烘不进 v1 精灵。
+解法：**整包转 SFF v2** —— 引擎原生读 v2（`image.go` format 11/12 = PNG RGBA → `SetRaw(32)` 逐像素 alpha），
+原白模精灵也转 PNG RGBA（不量化=画质提升），pal 段 0 条（RGBA 不走调色板）。
+
+**写出器**：[templates/build-merge-v2.mjs](templates/build-merge-v2.mjs)（本目录）
+跑法：
+```
+node build-merge-v2.mjs <baseCharDir> <framesDir> <outDir> <id> [mode=alpha|binary] [bodyAlpha] [aiAlpha] [grayscale]
+```
+| mode | body-only 观感 | bodyAlpha 惯例 |
+|---|---|---|
+| `alpha` 二值虚化 | body 整层真半透明（50%=明确半透明实体；20%=影子感） | 0.5 |
+| `binary` Bayer 碎片 | 4×4 Bayer **2×2 像素块**判定，保留约 bodyAlpha 密度的**原色实心点**，其余透明（20%=颗粒碎影；50%=密点残影） | 0.2 |
+
+`grayscale=1`：body 层去色成灰白（Rec.601 亮度 ×0.92，whitemold 同规则）——「灰白像素风」口径。
+像素风锐利度由 `[Video] RGBSpriteBilinearFilter=0` 控制（index.html buildConfigIni 已注入，RGBA 纹理最近邻放大；=1 双线性会糊）。
+
+**合成公式（预乘 alpha）**：引擎 shader（sprite.frag.glsl isRgba）不自动预乘——纹理 RGB 必须预乘：
+`aAI=AI.a×0.95、aBody=body.a×bodyAlpha；pre.rgb=AI.rgb×aAI+body.rgb×aBody×(1−aAI)；out.a=aAI+aBody×(1−aAI)`。
+渲染 fast path（TT_none）：screen = tex.rgb + BG×(1−tex.a) —— 预乘后即标准 over。
+
+**批量驱动**：[../../templates/build-kfm-batch.mjs](../../templates/build-kfm-batch.mjs)（def 解析 → v2 构建 → char.json → shell cp → diag 丢弃=0）。
+
+**引擎/工具链事实（换底座不用重查，2026-11-28 实测校准）**：
+- SFF v2 头：36=FirstSpriteHeaderOffset、40=NumberOfSprites、44=FirstPaletteHeaderOffset、48=NumberOfPalettes、52=lofs、60=tofs（用真 v2 文件 dump 校准，别按 48 起猜）
+- v2 精灵目录 28B：…/format(14)/coldepth(15)/ofs(16)/size(20)/palidx(24)/flags(26)；flags bit0=1→ofs+tofs；数据块=[4B packedLen][data]，引擎 readV2 `Seek(offset+4)`
+- v1 目录条目**没有 w/hh 字段**（那是 v2 结构）——尺寸必须用 `spriteRgba` 解码结果的 rgba.w/h，用 sp.w=undefined 会写出全 0 尺寸（引擎静默丢弃）
+- JS 解码器 `server/lib/sff.cjs` 的 `decodeV2` **不支持 format 11**（「PNG 精灵暂不支持」）——自检 PNG 精灵直接读数据区字节（ofs+4 起）用 sharp 解；loadSff 的 v2 目录解析本身可用（roundtrip 校验结构）
+- 验证合成精灵**别按 group≥6100 取第一个**——底座原包可能有 6100+ 特效段（98Kim 顶到 6905，合成段被推到 6906..7872）；按 **air 站立帧实际引用**或 sff 目录尾段取
+- 合成段在 sff 目录**尾部追加**（构建日志「合成精灵 group： X .. Y」）
+- `fs.cpSync` recursive 在 Node 22 段错误 → shell `cp -r`；bash 后台链 `cp && rebuild & sleep && probe` 会竞态——部署必须前台串行
+- AI 缩放必须 **lanczos3**（512→精灵 5 倍缩小，最近邻走样）；sharp raw 输入不支持行跨距，**内容盒裁剪必须逐行紧凑拷贝**（直接 offset+整图宽会越界行错位，AI 人形被稀释到消失——症状「画面只剩白模 20% 淡影」）
+- binary 模式的 inAI 掩码阈值 >128（AI 实心覆盖）：lanczos 半透明边缘带的 body 像素也走抖动，否则碎片感被边缘连续层稀释
+
+**验证**：alpha 分布二值化判据——binary 版合成精灵应只有 a=0 / a≈255（+AI 边缘带少量中间值），
+不该出现大面积 a≈bodyAlpha×255 的连续区；实机 `?auto=1&p1=<id>&p2=<id>&ai=0` 截图放大目检。
+
 #### 关于「碎片」
 
 「碎片」**不是刻意设计的美术效果**，而是二值透明下模拟淡显的必然手段

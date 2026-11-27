@@ -240,8 +240,11 @@ for (const [key, spec] of needMerge) {
   body.ax = sp.ax; body.ay = sp.ay;
   const ai = aiBySprite.get(SPRITE_OF[spec.cat]);
   if (!ai) { stats.fail++; continue; }
+  // 第 9 个参数：Bayer 抖动开关（binary 模式专用）。'0'/'false' = 不抖动（Bayer 虚化模式：
+  // body-only 像素全保留原色、无碎片；重叠区仍按 AI/原相对权重混 RGB）。缺省 = 抖动（碎片）。
+  const DITHER = process.argv[9] === undefined ? true : !(process.argv[9] === '0' || process.argv[9] === 'false');
   const merged = MODE === 'binary'
-    ? mergeBinary(body, ai, ALPHA, BODY_ALPHA, true)
+    ? mergeBinary(body, ai, ALPHA, BODY_ALPHA, DITHER)
     : mergeAlpha(body, ai, ALPHA, BODY_ALPHA);
   if (!merged) {
     // 原精灵全透明（白模包里的废区精灵）→ 没有可融合的东西，保持原样
