@@ -482,17 +482,55 @@
     transition:.12s}
   #skills button:hover{border-color:var(--cyan)}
   #skills button:active{transform:scale(.94);border-color:var(--gold)}
-  #skills button b{display:block;color:var(--gold);font-family:Consolas,monospace;font-weight:700;
+  #skills button b{display:block;color:var(--fxc,var(--gold));font-family:Consolas,monospace;font-weight:700;
     margin-top:2px;font-size:10px}
   /* 泛技能点击浮字（技能名+描述，1.3s 上飘淡出） */
-  .skillpop{position:fixed;left:50%;top:24%;transform:translateX(-50%);z-index:47;pointer-events:none;
+  .skillpop{--fxc:#ffc233;position:fixed;left:50%;top:24%;transform:translateX(-50%);z-index:47;pointer-events:none;
     text-align:center;animation:skillpop 1.3s ease-out forwards}
-  .skillpop b{display:block;font-size:22px;font-weight:900;color:var(--gold);
-    text-shadow:0 0 14px rgba(255,194,51,.75),0 2px 6px rgba(0,0,0,.85);letter-spacing:.08em}
+  .skillpop b{display:block;font-size:22px;font-weight:900;color:var(--fxc);
+    text-shadow:0 0 14px var(--fxc),0 2px 6px rgba(0,0,0,.85);letter-spacing:.08em}
   .skillpop span{display:block;margin-top:4px;font-size:12px;color:#e8ddd2;text-shadow:0 1px 4px rgba(0,0,0,.9)}
   @keyframes skillpop{0%{opacity:0;transform:translateX(-50%) translateY(16px) scale(.92)}
     16%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
     72%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-28px)}}
+  /* 属性色（对齐 toonflow-field-survival 的 effects_type 主色表） */
+  .skillpop.fx-normal{--fxc:#ffffff}
+  .skillpop.fx-fire{--fxc:#ff6020}
+  .skillpop.fx-water{--fxc:#40b8ff}
+  .skillpop.fx-thunder{--fxc:#f8ff66}
+  .skillpop.fx-wind{--fxc:#a0ffdd}
+  .skillpop.fx-earth{--fxc:#c28c50}
+  .skillpop.fx-metal{--fxc:#ffdd77}
+  .skillpop.fx-wood{--fxc:#58dd66}
+  .skillpop.fx-light{--fxc:#fff9c2}
+  .skillpop.fx-dark{--fxc:#b06ae0}
+  .skillpop.fx-poison{--fxc:#88dd33}
+  .skillpop.fx-bleed{--fxc:#dd2233}
+  /* 属性爆发特效（#skfx 全屏层内一个 .sk 锚在释放点：环爆/闪光/粒子/斩波） */
+  #skfx{position:fixed;inset:0;z-index:46;pointer-events:none;overflow:hidden}
+  #skfx .sk{position:absolute;left:0;top:0}
+  #skfx .sk .ring{position:absolute;width:70px;height:70px;border-radius:50%;border:3px solid var(--fxc);
+    opacity:.95;animation:skring .65s ease-out forwards}
+  #skfx .sk .flash{position:absolute;width:230px;height:230px;border-radius:50%;
+    background:radial-gradient(circle,var(--fxc) 0%,transparent 62%);opacity:0;animation:skflash .5s ease-out forwards}
+  #skfx .sk .p{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--fxc);
+    box-shadow:0 0 8px var(--fxc);animation:skpart .7s ease-out forwards}
+  #skfx .sk .sl{position:absolute;left:-40px;top:-1px;width:80px;height:3px;border-radius:2px;
+    background:linear-gradient(90deg,transparent,var(--fxc),transparent);opacity:0;animation:skslash .45s ease-out forwards}
+  #skfx .sk.v-implo .ring{animation:skringR .6s ease-in forwards}
+  #skfx .sk.v-dust .ring{width:120px;height:120px;animation-duration:1s;border-width:4px}
+  #skfx .sk.v-streak .p{width:26px;height:3px;border-radius:2px}
+  #skfx .sk.v-drops .p{width:6px;height:11px;border-radius:40%}
+  @keyframes skring{0%{transform:translate(-50%,-50%) scale(.15);opacity:.95}
+    100%{transform:translate(-50%,-50%) scale(2.1);opacity:0}}
+  @keyframes skringR{0%{transform:translate(-50%,-50%) scale(2.2);opacity:.9}
+    100%{transform:translate(-50%,-50%) scale(.1);opacity:0}}
+  @keyframes skflash{0%{transform:translate(-50%,-50%) scale(.4);opacity:.85}
+    100%{transform:translate(-50%,-50%) scale(1.25);opacity:0}}
+  @keyframes skpart{0%{transform:translate(-50%,-50%) scale(1);opacity:1}
+    100%{transform:translate(calc(-50% + var(--dx,0px)),calc(-50% + var(--dy,-60px))) scale(.4);opacity:0}}
+  @keyframes skslash{0%{transform:translate(-50%,-50%) rotate(45deg) scaleX(.2);opacity:1}
+    100%{transform:translate(-50%,-50%) rotate(45deg) scaleX(1.7);opacity:0}}
 
   /* 战斗菜单（招式 / 练习配置） */
   #bmenu{position:fixed;inset:0;z-index:68;display:none;align-items:center;justify-content:center;
@@ -4190,11 +4228,64 @@
   // 泛技能冷却（按技能名记冷却到期时刻）+ 点击浮字（技能名+描述）
   const SKILL_CD_UNTIL = new Map();
   let skillCdTimer = null;
+  // 属性特效表：fx → 主色 + 爆发形态（词汇对齐 toonflow-field-survival 的 effects_type）
+  const ATTR_FX = {
+    normal: { c: '#ffffff' },
+    fire: { c: '#ff6020', flash: 1 },
+    water: { c: '#40b8ff', flash: 1 },
+    thunder: { c: '#f8ff66', flash: 1, parts: 14 },
+    wind: { c: '#a0ffdd', variant: 'v-streak' },
+    earth: { c: '#c28c50', variant: 'v-dust' },
+    metal: { c: '#ffdd77', slash: 1 },
+    wood: { c: '#58dd66', flash: 1 },
+    light: { c: '#fff9c2', flash: 1 },
+    dark: { c: '#b06ae0', variant: 'v-implo' },
+    poison: { c: '#88dd33', variant: 'v-drops' },
+    bleed: { c: '#dd2233', variant: 'v-drops' },
+  };
+  function attrColor(fx) { return (ATTR_FX[fx] || {}).c || '#ffc233'; }
+  // 爆发锚点：优先 P1 头顶悬浮头像（有坐标包时），否则画布左上区（P1 常驻侧）
+  function skillFxAnchor() {
+    const ha = document.querySelector('#headav.on .ha');
+    if (ha) { const r = ha.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+    const cv = document.getElementById('ikemen-canvas');
+    const r = cv ? cv.getBoundingClientRect() : { left: 0, top: 0, width: innerWidth, height: innerHeight };
+    return { x: r.left + r.width * 0.3, y: r.top + r.height * 0.45 };
+  }
+  function skillFx(fx) {
+    const a = ATTR_FX[fx] || ATTR_FX.normal;
+    const w = document.createElement('div');
+    w.className = 'sk' + (a.variant ? ' ' + a.variant : '');
+    const p = skillFxAnchor();
+    w.style.left = p.x + 'px';
+    w.style.top = p.y + 'px';
+    w.style.setProperty('--fxc', a.c);
+    const add = (cls) => { const el = document.createElement('div'); el.className = cls; w.appendChild(el); };
+    add('ring');
+    if (a.flash) add('flash');
+    if (a.slash) { add('sl'); add('sl s2'); }
+    const n = a.parts || 9;
+    const down = a.variant === 'v-drops';
+    for (let i = 0; i < n; i++) {
+      const el = document.createElement('div'); el.className = 'p';
+      const dx = down ? (Math.random() * 160 - 80) : Math.cos(Math.random() * Math.PI * 2) * (40 + Math.random() * 90);
+      const dy = down ? (60 + Math.random() * 160) : Math.sin(Math.random() * Math.PI * 2) * (40 + Math.random() * 90);
+      el.style.setProperty('--dx', dx.toFixed(0) + 'px');
+      el.style.setProperty('--dy', dy.toFixed(0) + 'px');
+      w.appendChild(el);
+    }
+    const box = document.createElement('div');
+    box.id = 'skfx';
+    box.appendChild(w);
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 1050);
+  }
   function skillPop(mv) {
     const d = document.createElement('div');
     d.className = 'skillpop' + (mv.fx ? ' fx-' + mv.fx : '');
     d.innerHTML = '<b>' + esc(mv.name) + '</b>' + (mv.desc ? '<span>' + esc(mv.desc) + '</span>' : '');
     document.body.appendChild(d);
+    skillFx(mv.fx);
     setTimeout(() => d.remove(), 1400);
   }
   async function fireSeq(seq) {
@@ -4311,6 +4402,7 @@
     for (const mv of moves.slice(page * 5, page * 5 + 5)) {
       const b = document.createElement('button');
       b.dataset.sname = mv.name;
+      if (mv.fx) b.style.setProperty('--fxc', attrColor(mv.fx));   // 键序文字按属性着色
       if (mv.desc) b.title = mv.desc;
       b.innerHTML = esc(mv.name) + '<b>' +
         (mv.cmd
