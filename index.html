@@ -315,6 +315,23 @@
   #rotbtn .gl{font-size:16px;font-weight:900}
   #rotbtn .tx{font-size:8px;letter-spacing:.12em;opacity:.85}
   #rotbtn:active{filter:brightness(1.35)}
+  /* ---------- 战斗界面悬浮球：显隐 虚拟手柄+技能键（可拖动，位置记忆；仅战斗中显示） ---------- */
+  #uitog{position:fixed;right:12px;top:calc(34% + 56px);z-index:96;width:46px;height:46px;border-radius:50%;cursor:pointer;
+    font-family:inherit;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0;
+    background:rgba(10,10,16,.6);border:1px solid rgba(255,255,255,.4);color:#ffe9e0;backdrop-filter:blur(3px);
+    box-shadow:0 4px 14px rgba(0,0,0,.5);touch-action:none;user-select:none;-webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;line-height:1}
+  #uitog.on{display:flex}
+  #uitog .gl{font-size:16px}
+  #uitog .tx{font-size:8px;letter-spacing:.12em;opacity:.85}
+  #uitog.off .gl{opacity:.45;filter:grayscale(1)}
+  #uitog:active{filter:brightness(1.35)}
+  /* 技能特效屏幕震动（#stage 无静态 transform，动画安全） */
+  #stage.skshake{animation:skshake .4s ease-out}
+  @keyframes skshake{0%{transform:translate(0,0)}12%{transform:translate(var(--skmag,8px),calc(var(--skmag,8px)*-.6))}
+    30%{transform:translate(calc(var(--skmag,8px)*-.85),calc(var(--skmag,8px)*.55))}
+    50%{transform:translate(calc(var(--skmag,8px)*.55),calc(var(--skmag,8px)*-.35))}
+    70%{transform:translate(calc(var(--skmag,8px)*-.3),calc(var(--skmag,8px)*.2))}100%{transform:translate(0,0)}}
   @media (max-width:920px){
     #sel-title{font-size:30px}
     #select .stage{left:10px;right:10px;top:72px;bottom:122px;gap:10px;
@@ -484,53 +501,41 @@
   #skills button:active{transform:scale(.94);border-color:var(--gold)}
   #skills button b{display:block;color:var(--fxc,var(--gold));font-family:Consolas,monospace;font-weight:700;
     margin-top:2px;font-size:10px}
-  /* 泛技能点击浮字（技能名+描述，1.3s 上飘淡出） */
-  .skillpop{--fxc:#ffc233;position:fixed;left:50%;top:24%;transform:translateX(-50%);z-index:47;pointer-events:none;
-    text-align:center;animation:skillpop 1.3s ease-out forwards}
-  .skillpop b{display:block;font-size:22px;font-weight:900;color:var(--fxc);
-    text-shadow:0 0 14px var(--fxc),0 2px 6px rgba(0,0,0,.85);letter-spacing:.08em}
-  .skillpop span{display:block;margin-top:4px;font-size:12px;color:#e8ddd2;text-shadow:0 1px 4px rgba(0,0,0,.9)}
-  @keyframes skillpop{0%{opacity:0;transform:translateX(-50%) translateY(16px) scale(.92)}
-    16%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
-    72%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-28px)}}
-  /* 属性色（对齐 toonflow-field-survival 的 effects_type 主色表） */
-  .skillpop.fx-normal{--fxc:#ffffff}
-  .skillpop.fx-fire{--fxc:#ff6020}
-  .skillpop.fx-water{--fxc:#40b8ff}
-  .skillpop.fx-thunder{--fxc:#f8ff66}
-  .skillpop.fx-wind{--fxc:#a0ffdd}
-  .skillpop.fx-earth{--fxc:#c28c50}
-  .skillpop.fx-metal{--fxc:#ffdd77}
-  .skillpop.fx-wood{--fxc:#58dd66}
-  .skillpop.fx-light{--fxc:#fff9c2}
-  .skillpop.fx-dark{--fxc:#b06ae0}
-  .skillpop.fx-poison{--fxc:#88dd33}
-  .skillpop.fx-bleed{--fxc:#dd2233}
-  /* 属性爆发特效（#skfx 全屏层内一个 .sk 锚在释放点：环爆/闪光/粒子/斩波） */
-  #skfx{position:fixed;inset:0;z-index:46;pointer-events:none;overflow:hidden}
-  #skfx .sk{position:absolute;left:0;top:0}
-  #skfx .sk .ring{position:absolute;width:70px;height:70px;border-radius:50%;border:3px solid var(--fxc);
-    opacity:.95;animation:skring .65s ease-out forwards}
-  #skfx .sk .flash{position:absolute;width:230px;height:230px;border-radius:50%;
-    background:radial-gradient(circle,var(--fxc) 0%,transparent 62%);opacity:0;animation:skflash .5s ease-out forwards}
-  #skfx .sk .p{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--fxc);
-    box-shadow:0 0 8px var(--fxc);animation:skpart .7s ease-out forwards}
-  #skfx .sk .sl{position:absolute;left:-40px;top:-1px;width:80px;height:3px;border-radius:2px;
-    background:linear-gradient(90deg,transparent,var(--fxc),transparent);opacity:0;animation:skslash .45s ease-out forwards}
-  #skfx .sk.v-implo .ring{animation:skringR .6s ease-in forwards}
-  #skfx .sk.v-dust .ring{width:120px;height:120px;animation-duration:1s;border-width:4px}
-  #skfx .sk.v-streak .p{width:26px;height:3px;border-radius:2px}
-  #skfx .sk.v-drops .p{width:6px;height:11px;border-radius:40%}
-  @keyframes skring{0%{transform:translate(-50%,-50%) scale(.15);opacity:.95}
-    100%{transform:translate(-50%,-50%) scale(2.1);opacity:0}}
-  @keyframes skringR{0%{transform:translate(-50%,-50%) scale(2.2);opacity:.9}
-    100%{transform:translate(-50%,-50%) scale(.1);opacity:0}}
-  @keyframes skflash{0%{transform:translate(-50%,-50%) scale(.4);opacity:.85}
-    100%{transform:translate(-50%,-50%) scale(1.25);opacity:0}}
-  @keyframes skpart{0%{transform:translate(-50%,-50%) scale(1);opacity:1}
-    100%{transform:translate(calc(-50% + var(--dx,0px)),calc(-50% + var(--dy,-60px))) scale(.4);opacity:0}}
-  @keyframes skslash{0%{transform:translate(-50%,-50%) rotate(45deg) scaleX(.2);opacity:1}
-    100%{transform:translate(-50%,-50%) rotate(45deg) scaleX(1.7);opacity:0}}
+  /* 泛技能点击浮字 → 游戏风技能名艺术字（渐变填充+描边+发光+斜切，属性配色） */
+  .skillpop{--fxc:#ffc233;--sk1:#fff6d8;--sk2:#ffc233;--sk3:#ff8a00;--skg:rgba(255,194,51,.5);
+    position:fixed;left:50%;top:13%;transform:translateX(-50%);z-index:47;pointer-events:none;
+    text-align:center;animation:skillpop 1.5s ease-out forwards;perspective:600px}
+  .skillpop b{display:block;font-size:56px;line-height:1.15;font-weight:900;letter-spacing:.06em;
+    transform:rotate(-2.5deg) skewX(-5deg);transform-style:preserve-3d;
+    background:linear-gradient(178deg,var(--sk1) 12%,var(--sk2) 46%,var(--sk3) 86%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    -webkit-text-stroke:2.5px rgba(28,16,4,.9);paint-order:stroke fill;
+    filter:drop-shadow(0 0 14px var(--skg)) drop-shadow(0 0 34px var(--skg)) drop-shadow(0 5px 2px rgba(0,0,0,.72));
+    animation:sktitle .5s cubic-bezier(.2,1.6,.4,1) both}
+  .skillpop span{display:block;margin-top:6px;font-size:13px;color:#f2e6d4;
+    text-shadow:0 1px 4px rgba(0,0,0,.9),0 0 10px rgba(0,0,0,.6)}
+  @keyframes sktitle{0%{transform:rotate(-2.5deg) skewX(-5deg) scale(2.1) translateZ(60px);opacity:0}
+    55%{transform:rotate(-2.5deg) skewX(-5deg) scale(.94) translateZ(0);opacity:1}
+    100%{transform:rotate(-2.5deg) skewX(-5deg) scale(1) translateZ(0);opacity:1}}
+  @keyframes skillpop{0%{opacity:0;transform:translateX(-50%) translateY(18px)}
+    10%{opacity:1;transform:translateX(-50%) translateY(0)}
+    74%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-24px)}}
+  /* 属性色：主色 --fxc（按钮键序/描线）+ 艺术字渐变三段 --sk1/2/3 + 光晕 --skg */
+  .skillpop.fx-normal{--fxc:#ffffff;--sk1:#ffffff;--sk2:#dfe6ef;--sk3:#8fa0b4;--skg:rgba(220,230,245,.42)}
+  .skillpop.fx-fire{--fxc:#ff6020;--sk1:#fff2a8;--sk2:#ff9d2e;--sk3:#e5310f;--skg:rgba(255,120,40,.55)}
+  .skillpop.fx-water{--fxc:#4fb8ff;--sk1:#ffffff;--sk2:#bfe9ff;--sk3:#3f96e8;--skg:rgba(140,210,255,.55)}
+  .skillpop.fx-thunder{--fxc:#f8ff66;--sk1:#f3faff;--sk2:#9fd4ff;--sk3:#2f6fe0;--skg:rgba(120,190,255,.55)}
+  .skillpop.fx-wind{--fxc:#a0ffdd;--sk1:#f0fff8;--sk2:#a0ffdd;--sk3:#2fae7e;--skg:rgba(140,255,210,.5)}
+  .skillpop.fx-earth{--fxc:#c28c50;--sk1:#f2dfc0;--sk2:#c28c50;--sk3:#7a4d20;--skg:rgba(200,140,80,.5)}
+  .skillpop.fx-metal{--fxc:#ffdd77;--sk1:#fffbe8;--sk2:#ffd96e;--sk3:#c98a12;--skg:rgba(255,210,110,.55)}
+  .skillpop.fx-wood{--fxc:#58dd66;--sk1:#eaffea;--sk2:#8ce896;--sk3:#2f9e46;--skg:rgba(120,230,140,.5)}
+  .skillpop.fx-light{--fxc:#ffd76e;--sk1:#fffbe0;--sk2:#ffd76e;--sk3:#ff9d1e;--skg:rgba(255,200,80,.6)}
+  .skillpop.fx-dark{--fxc:#b06ae0;--sk1:#f0d8ff;--sk2:#b05ce8;--sk3:#4a1260;--skg:rgba(170,80,220,.55)}
+  .skillpop.fx-poison{--fxc:#88dd33;--sk1:#f0ffdc;--sk2:#a8e84e;--sk3:#4e9e12;--skg:rgba(150,230,80,.5)}
+  .skillpop.fx-bleed{--fxc:#dd2233;--sk1:#ffd8d8;--sk2:#e84a58;--sk3:#8e0f1e;--skg:rgba(230,60,70,.5)}
+  /* 属性爆发特效（#skfx 全屏 Canvas 粒子层：光带/法阵/火焰/落雷/暗涡，见 skillFx） */
+  #skfx{position:fixed;inset:0;z-index:45;pointer-events:none;display:none}
+  #skfx.on{display:block}
 
   /* 战斗菜单（招式 / 练习配置） */
   #bmenu{position:fixed;inset:0;z-index:68;display:none;align-items:center;justify-content:center;
@@ -1181,6 +1186,9 @@
 
 <!-- 横竖屏切换悬浮球：点按切换横/竖屏，拖动挪位置（位置记忆）。安卓 App 走 ScreenOrientation 插件锁方向 -->
 <button id="rotbtn" aria-label="切换横竖屏"><span class="gl">⇅</span><span class="tx">竖屏</span></button>
+
+<!-- 战斗界面悬浮球：点按显示/隐藏 虚拟手柄+技能键，拖动挪位置（位置记忆） -->
+<button id="uitog" aria-label="显示或隐藏手柄与技能键"><span class="gl">🎮</span><span class="tx">手柄</span></button>
 
 <div id="settings">
   <div class="wrap">
@@ -2655,7 +2663,7 @@
         speech: (s.battle && ['off', 'text', 'voice'].includes(s.battle.speech)) ? s.battle.speech : 'text',
         countdown: s.battle && s.battle.countdown === 'off' ? 'off' : 'on',
         headAvatar: !(s.battle && s.battle.headAvatar === 'off'),
-        headAvatar: !(s.battle && s.battle.headAvatar === 'off'),
+        padui: !(s.battle && s.battle.padui === false),   // 战斗内 虚拟手柄+技能键 显隐（#uitog 悬浮球切换，boolean）
       },
       keys: {
         p1: Object.assign({}, d.p1, (s.keys && s.keys.p1) || {}),
@@ -3197,8 +3205,9 @@
   function applyPad() {
     const selOn = !engineStarted && selEl.classList.contains('on');
     padEl.classList.toggle('selmode', selOn);
-    padEl.classList.toggle('on', selOn ? selPadOn : (engineStarted && padVisible()));
-    document.getElementById('skills').classList.toggle('on', engineStarted && !!(movesFor(p1SlotChars()[0] || curP1) || []).length);
+    padEl.classList.toggle('on', selOn ? selPadOn : (engineStarted && padVisible() && settings.battle.padui));
+    document.getElementById('skills').classList.toggle('on', engineStarted && settings.battle.padui && !!(movesFor(p1SlotChars()[0] || curP1) || []).length);
+    document.getElementById('uitog').classList.toggle('on', engineStarted);   // 战斗内才显示悬浮球
   }
   function padDispatch(btn, type) {
     const tok = settings.keys.p1[btn.dataset.act];
@@ -4139,6 +4148,65 @@
   renderRot();
   addEventListener('resize', () => { renderRot(); clampRot(); });
 
+  /* ---------- 战斗界面悬浮球：显隐 虚拟手柄+技能键 ----------
+     仅战斗中显示（#uitog.on）。点按 = 切换 settings.battle.padui（手柄+技能键+摇杆一起显隐，
+     存 toonfight:settings-v1 持久）；按住拖 = 挪位置（位置存 toonfight:ui-v1 + resize 钳回视口，
+     模式与 rotbtn 一致）。 */
+  const uitogEl = document.getElementById('uitog');
+  const UITOG_KEY = 'toonfight:ui-v1';
+  let uiDrag = null;
+  function renderUitog() {
+    uitogEl.classList.toggle('off', !settings.battle.padui);
+    uitogEl.lastElementChild.textContent = settings.battle.padui ? '手柄' : '隐藏';
+  }
+  uitogEl.addEventListener('pointerdown', (e) => {
+    uiDrag = { x: e.clientX, y: e.clientY, l: uitogEl.offsetLeft, t: uitogEl.offsetTop, moved: false };
+    try { uitogEl.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  uitogEl.addEventListener('pointermove', (e) => {
+    if (!uiDrag) return;
+    const dx = e.clientX - uiDrag.x, dy = e.clientY - uiDrag.y;
+    if (!uiDrag.moved && Math.hypot(dx, dy) < 7) return;
+    uiDrag.moved = true;
+    uitogEl.style.left = Math.max(2, Math.min(innerWidth - uitogEl.offsetWidth - 2, uiDrag.l + dx)) + 'px';
+    uitogEl.style.top = Math.max(2, Math.min(innerHeight - uitogEl.offsetHeight - 2, uiDrag.t + dy)) + 'px';
+    uitogEl.style.right = 'auto';
+  });
+  uitogEl.addEventListener('pointerup', () => {
+    if (!uiDrag) return;
+    const moved = uiDrag.moved;
+    uiDrag = null;
+    if (moved) {
+      try { localStorage.setItem(UITOG_KEY, JSON.stringify({ l: uitogEl.style.left, t: uitogEl.style.top })); } catch (e) {}
+      return;
+    }
+    settings.battle.padui = !settings.battle.padui;
+    saveSettings();
+    renderUitog();
+    applyPad();
+    selToast(settings.battle.padui ? '手柄与技能键已显示' : '手柄与技能键已隐藏');
+  });
+  uitogEl.addEventListener('pointercancel', () => { uiDrag = null; });
+  function clampUitog() {
+    if (uitogEl.style.right !== 'auto') return;
+    const w = uitogEl.offsetWidth, h = uitogEl.offsetHeight;
+    const l = parseFloat(uitogEl.style.left) || 0;
+    const t = parseFloat(uitogEl.style.top) || 0;
+    const nl = Math.max(2, Math.min(innerWidth - w - 2, l));
+    const nt = Math.max(2, Math.min(innerHeight - h - 2, t));
+    if (nl === l && nt === t) return;
+    uitogEl.style.left = nl + 'px';
+    uitogEl.style.top = nt + 'px';
+    try { localStorage.setItem(UITOG_KEY, JSON.stringify({ l: uitogEl.style.left, t: uitogEl.style.top })); } catch (e) {}
+  }
+  try {
+    const p = JSON.parse(localStorage.getItem(UITOG_KEY) || 'null');
+    if (p && p.l && p.t) { uitogEl.style.right = 'auto'; uitogEl.style.left = p.l; uitogEl.style.top = p.t; }
+  } catch (e) {}
+  clampUitog();
+  renderUitog();
+  addEventListener('resize', clampUitog);
+
   // 右键 = 轻拳：名单格选中 / 出场位取消该位 / 确定按钮上 = 重拳取消确定（不弹浏览器菜单）
   document.addEventListener('contextmenu', (e) => {
     if (engineStarted || !selEl.classList.contains('on')) return;
@@ -4231,17 +4299,17 @@
   // 属性特效表：fx → 主色 + 爆发形态（词汇对齐 toonflow-field-survival 的 effects_type）
   const ATTR_FX = {
     normal: { c: '#ffffff' },
-    fire: { c: '#ff6020', flash: 1 },
-    water: { c: '#40b8ff', flash: 1 },
-    thunder: { c: '#f8ff66', flash: 1, parts: 14 },
-    wind: { c: '#a0ffdd', variant: 'v-streak' },
-    earth: { c: '#c28c50', variant: 'v-dust' },
-    metal: { c: '#ffdd77', slash: 1 },
-    wood: { c: '#58dd66', flash: 1 },
-    light: { c: '#fff9c2', flash: 1 },
-    dark: { c: '#b06ae0', variant: 'v-implo' },
-    poison: { c: '#88dd33', variant: 'v-drops' },
-    bleed: { c: '#dd2233', variant: 'v-drops' },
+    fire: { c: '#ff6020' },
+    water: { c: '#4fb8ff' },
+    thunder: { c: '#f8ff66' },
+    wind: { c: '#a0ffdd' },
+    earth: { c: '#c28c50' },
+    metal: { c: '#ffdd77' },
+    wood: { c: '#58dd66' },
+    light: { c: '#ffd76e' },
+    dark: { c: '#b06ae0' },
+    poison: { c: '#88dd33' },
+    bleed: { c: '#dd2233' },
   };
   function attrColor(fx) { return (ATTR_FX[fx] || {}).c || '#ffc233'; }
   // 爆发锚点：优先 P1 头顶悬浮头像（有坐标包时），否则画布左上区（P1 常驻侧）
@@ -4252,41 +4320,326 @@
     const r = cv ? cv.getBoundingClientRect() : { left: 0, top: 0, width: innerWidth, height: innerHeight };
     return { x: r.left + r.width * 0.3, y: r.top + r.height * 0.45 };
   }
-  function skillFx(fx) {
-    const a = ATTR_FX[fx] || ATTR_FX.normal;
-    const w = document.createElement('div');
-    w.className = 'sk' + (a.variant ? ' ' + a.variant : '');
-    const p = skillFxAnchor();
-    w.style.left = p.x + 'px';
-    w.style.top = p.y + 'px';
-    w.style.setProperty('--fxc', a.c);
-    const add = (cls) => { const el = document.createElement('div'); el.className = cls; w.appendChild(el); };
-    add('ring');
-    if (a.flash) add('flash');
-    if (a.slash) { add('sl'); add('sl s2'); }
-    const n = a.parts || 9;
-    const down = a.variant === 'v-drops';
-    for (let i = 0; i < n; i++) {
-      const el = document.createElement('div'); el.className = 'p';
-      const dx = down ? (Math.random() * 160 - 80) : Math.cos(Math.random() * Math.PI * 2) * (40 + Math.random() * 90);
-      const dy = down ? (60 + Math.random() * 160) : Math.sin(Math.random() * Math.PI * 2) * (40 + Math.random() * 90);
-      el.style.setProperty('--dx', dx.toFixed(0) + 'px');
-      el.style.setProperty('--dy', dy.toFixed(0) + 'px');
-      w.appendChild(el);
+  // ---------------- Canvas 属性粒子引擎（对标效果图：光带/法阵/火焰/落雷/暗涡） ----------------
+  // 粒子 kind：spark(发光点+拖尾) arc(弧线光带) streak(横向速度线) ring/ringE(圆环/地面椭圆)
+  //   bolt(闪电折线) crystal(冰晶片) flame(火苗) mist(雾团) shard(碎石) drop(液滴) glow(大光晕)
+  const SKFX = { cv: null, ctx: null, parts: [], raf: 0, last: 0 };
+  function skfxCtx() {
+    if (!SKFX.cv) {
+      SKFX.cv = document.createElement('canvas');
+      SKFX.cv.id = 'skfx';
+      document.body.appendChild(SKFX.cv);
+      SKFX.ctx = SKFX.cv.getContext('2d');
     }
-    const box = document.createElement('div');
-    box.id = 'skfx';
-    box.appendChild(w);
-    document.body.appendChild(box);
-    setTimeout(() => box.remove(), 1050);
+    SKFX.cv.width = innerWidth;
+    SKFX.cv.height = innerHeight;
+    SKFX.cv.classList.add('on');
+    return SKFX.ctx;
+  }
+  function skfxTick(ts) {
+    const ctx = SKFX.ctx;
+    // dt 钳 0.25：低帧率设备上特效仍按钟表时长播完（60fps 下 dt≈0.017 不受影响）
+    const dt = Math.min(0.25, (ts - (SKFX.last || ts)) / 1000);
+    SKFX.last = ts;
+    ctx.clearRect(0, 0, SKFX.cv.width, SKFX.cv.height);
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of SKFX.parts) {
+      p.life -= dt;
+      if (p.update) p.update(p, dt);
+      const a = Math.max(0, Math.min(1, p.life / p.max)) * (p.a || 1);
+      if (a <= 0) continue;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = p.color;
+      if (p.kind === 'spark') {
+        ctx.lineWidth = p.w || 2;
+        ctx.beginPath(); ctx.moveTo(p.x - p.vx * 0.03, p.y - p.vy * 0.03);
+        ctx.lineTo(p.x, p.y); ctx.stroke();
+        ctx.beginPath(); ctx.arc(p.x, p.y, (p.r || 2) * a, 0, 7); ctx.fill();
+      } else if (p.kind === 'glow') {
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        g.addColorStop(0, p.color); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+      } else if (p.kind === 'arc') {
+        // 弧线光带：沿历史轨迹画渐细线（金色螺旋/斩波感）
+        p.hist.push(p.x, p.y);
+        if (p.hist.length > 16) p.hist.splice(0, 2);
+        ctx.lineWidth = (p.w || 3) * a;
+        ctx.beginPath();
+        for (let i = 0; i < p.hist.length; i += 2) i ? ctx.lineTo(p.hist[i], p.hist[i + 1]) : ctx.moveTo(p.hist[i], p.hist[i + 1]);
+        ctx.stroke();
+      } else if (p.kind === 'streak') {
+        ctx.lineWidth = p.w || 2;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.055, p.y - p.vy * 0.055); ctx.stroke();
+      } else if (p.kind === 'ring' || p.kind === 'ringE') {
+        const k = 1 - p.life / p.max;
+        ctx.lineWidth = (p.w || 3) * a;
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, p.r * (0.2 + k * 1.5), p.r * (p.e || 1) * (0.2 + k * 1.5), 0, 0, 7);
+        ctx.stroke();
+      } else if (p.kind === 'bolt') {
+        ctx.lineWidth = p.w || 2.5;
+        ctx.beginPath();
+        let bx = p.x, by = p.y;
+        ctx.moveTo(bx, by);
+        for (let i = 0; i < p.segs; i++) { bx += p.dx[i]; by += p.dy[i]; ctx.lineTo(bx, by); }
+        ctx.stroke();
+      } else if (p.kind === 'crystal' || p.kind === 'shard') {
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        const s = (p.r || 4) * a;
+        ctx.beginPath();
+        ctx.moveTo(s, 0); ctx.lineTo(0, s * 0.45); ctx.lineTo(-s * 0.7, 0); ctx.lineTo(0, -s * 0.45);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      } else if (p.kind === 'flame') {
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * a);
+        g.addColorStop(0, p.c2 || '#fff2a8'); g.addColorStop(0.55, p.color); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * a, 0, 7); ctx.fill();
+      } else if (p.kind === 'flash') {
+        // 全屏属性色闪光（快速淡出，冲击感）
+        ctx.globalAlpha = a * (p.a || 0.3);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(0, 0, SKFX.cv.width, SKFX.cv.height);
+        ctx.globalAlpha = a;
+      } else if (p.kind === 'beam') {
+        // 主光柱：横向渐变光带，先粗后细
+        const k = 1 - p.life / p.max;
+        const h = (p.h || 30) * (1 - k * 0.55);
+        const g = ctx.createLinearGradient(p.x, 0, p.x2, 0);
+        g.addColorStop(0, p.color); g.addColorStop(0.72, p.c2 || p.color); g.addColorStop(1, 'rgba(255,255,255,.95)');
+        ctx.globalAlpha = a * 0.85;
+        ctx.fillStyle = g;
+        ctx.fillRect(p.x, p.y - h / 2, p.x2 - p.x, h);
+        ctx.globalAlpha = a;
+      } else if (p.kind === 'mist') {
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        g.addColorStop(0, p.color); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.globalAlpha = a * 0.35;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+        ctx.globalAlpha = a;
+      } else if (p.kind === 'drop') {
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, 2.4, 5.5, 0, 0, 7); ctx.fill();
+      }
+      if (p.kind !== 'mist') ctx.globalAlpha = 1;
+    }
+    SKFX.parts = SKFX.parts.filter((p) => p.life > 0);
+    if (SKFX.parts.length) {
+      SKFX.raf = requestAnimationFrame(skfxTick);
+    } else {
+      SKFX.raf = 0;
+      SKFX.cv.classList.remove('on');
+      ctx.clearRect(0, 0, SKFX.cv.width, SKFX.cv.height);
+    }
+  }
+  const P = (o) => SKFX.parts.push(o);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  // 屏幕震动（#stage 抖一下，幅度按属性定）
+  function skShake(power) {
+    const st = document.getElementById('stage');
+    if (!st) return;
+    st.classList.remove('skshake');
+    void st.offsetWidth;
+    st.style.setProperty('--skmag', power + 'px');
+    st.classList.add('skshake');
+    clearTimeout(skShake._t);
+    skShake._t = setTimeout(() => st.classList.remove('skshake'), 450);
+  }
+  // 放射火花爆（n 个，速度 v0~v1）
+  function skBurst(x, y, color, n, v0, v1, grav) {
+    for (let i = 0; i < n; i++) {
+      const an = Math.random() * Math.PI * 2, v = rnd(v0, v1);
+      P({ kind: 'spark', x, y, vx: Math.cos(an) * v, vy: Math.sin(an) * v,
+        update(p, dt) { p.x += p.vx * dt; p.y += p.vy * dt; if (grav) p.vy += grav * dt; else { p.vx *= (1 - 1.6 * dt); p.vy *= (1 - 1.6 * dt); } },
+        color, r: rnd(2.5, 5), life: rnd(0.35, 0.7), max: 0.7 });
+    }
+  }
+  // 多层冲击波（3 环快速扩散）
+  function skWaves(x, y, color, e) {
+    for (let i = 0; i < 3; i++) {
+      P({ kind: e ? 'ringE' : 'ring', x, y, r: 26 + i * 22, w: 5.5 - i, e: e ? 0.34 : 0,
+        color, life: 0.5 + i * 0.08, max: 0.58 });
+    }
+  }
+  // 属性发射器：增强版（大光柱/全屏闪/屏幕震动/多层冲击波/二次爆发）
+  const SKFX_EMIT = {
+    light(x, y, C) {
+      skShake(7);
+      P({ kind: 'flash', color: 'rgba(255,236,190,.9)', life: 0.22, max: 0.22, a: 0.32 });
+      P({ kind: 'glow', x, y, r: 110, color: 'rgba(255,214,110,.9)', life: 0.45, max: 0.45 });
+      // 主金光柱：从 P1 喷到对面（横向渐变，先粗后细）
+      P({ kind: 'beam', x: x + 20, y: y - 6, x2: x + Math.max(260, innerWidth * 0.42), h: 36, color: C, c2: 'rgba(255,170,40,.75)', life: 0.3, max: 0.3 });
+      // 螺旋金光带
+      for (let i = 0; i < 42; i++) {
+        const dir = i % 2 ? 1 : -1;
+        P({ kind: 'arc', x, y, hist: [], w: rnd(3, 6),
+          vx: rnd(340, 760), vy: rnd(-200, 200) * dir,
+          update(p, dt) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 150 * dt; p.vx *= (1 - 0.55 * dt); },
+          color: Math.random() < 0.35 ? '#fff6d8' : C, life: rnd(0.6, 1.0), max: 1.0 });
+      }
+      for (let i = 0; i < 16; i++) P({ kind: 'streak', x: x + rnd(-20, 40), y: y + rnd(-60, 60), vx: rnd(900, 1600), vy: 0, color: C, w: rnd(2, 3.5), life: rnd(0.3, 0.5), max: 0.5 });
+      // 尽头大星爆 + 双冲击波
+      const bx = x + Math.max(240, innerWidth * 0.36);
+      P({ kind: 'glow', x: bx, y, r: 90, color: 'rgba(255,244,200,.95)', life: 0.4, max: 0.4 });
+      skBurst(bx, y, C, 22, 180, 520);
+      skWaves(bx, y, C);
+      skBurst(x + 90, y, '#ffe9b0', 8, 120, 300);   // 二次小爆
+    },
+    water(x, y, C) {
+      skShake(5);
+      const gy = y + 84;
+      P({ kind: 'flash', color: 'rgba(200,238,255,.85)', life: 0.2, max: 0.2, a: 0.2 });
+      // 冰纹法阵：四层 + 大辉光
+      for (let i = 0; i < 4; i++) P({ kind: 'ringE', x, y: gy, r: 40 + i * 32, e: 0.32, w: 3, color: i ? C : 'rgba(235,250,255,.95)', life: 1.0, max: 1.0 });
+      P({ kind: 'glow', x, y: gy, r: 90, color: 'rgba(190,236,255,.55)', life: 0.6, max: 0.6 });
+      // 对面冰晶大爆
+      const bx = x + rnd(230, 290);
+      P({ kind: 'glow', x: bx, y: y - 20, r: 100, color: 'rgba(245,253,255,.95)', life: 0.45, max: 0.45 });
+      skWaves(bx, y - 20, C);
+      for (let i = 0; i < 32; i++) { const an = Math.random() * Math.PI * 2, v = rnd(180, 560); P({ kind: 'crystal', x: bx, y: y - 20, rot: Math.random() * 6, vx: Math.cos(an) * v, vy: Math.sin(an) * v, update(p, dt) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt; p.rot += 4 * dt; }, color: Math.random() < 0.5 ? '#eaf7ff' : C, r: rnd(4, 10), life: rnd(0.55, 0.95), max: 0.95 }); }
+      for (let i = 0; i < 9; i++) P({ kind: 'mist', x: bx + rnd(-70, 70), y: y - 20 + rnd(-40, 50), r: rnd(34, 62), color: 'rgba(200,236,255,.85)', life: rnd(0.6, 1.0), max: 1.0 });
+      skBurst(x + 100, y, '#cfeaff', 8, 110, 280);
+    },
+    fire(x, y, C) {
+      skShake(8);
+      const gy = y + 84;
+      P({ kind: 'flash', color: 'rgba(255,150,50,.9)', life: 0.24, max: 0.24, a: 0.3 });
+      // 地焰带（横排）
+      for (let i = 0; i < 34; i++) P({ kind: 'flame', x: x + rnd(-70, 180), y: gy, r: rnd(13, 30), vx: rnd(-20, 90), vy: rnd(-190, -70), update(p, dt) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= 60 * dt; }, color: Math.random() < 0.5 ? C : '#ff7a1e', c2: '#fff2a8', life: rnd(0.5, 0.85), max: 0.85 });
+      // 火旋涡
+      for (let i = 0; i < 28; i++) {
+        const ph = Math.random() * Math.PI * 2;
+        P({ kind: 'arc', x, y: y - 10, hist: [], w: rnd(3, 6), vx: rnd(300, 640), vy: 0,
+          update(p, dt) { p.t = (p.t || 0) + dt; p.x += p.vx * dt; p.y += Math.sin(p.t * 9 + ph) * 30 * dt + 24 * dt; },
+          color: Math.random() < 0.45 ? '#fff2a8' : C, life: rnd(0.6, 1.0), max: 1.0 });
+      }
+      // 大火爆 + 三层冲击波
+      const bx = x + rnd(220, 280);
+      P({ kind: 'glow', x: bx, y, r: 110, color: 'rgba(255,160,55,.95)', life: 0.45, max: 0.45 });
+      skWaves(bx, y, C);
+      skBurst(bx, y, '#ffb347', 26, 150, 480, 140);
+      skBurst(x + 110, y, '#ffd27a', 10, 120, 320);
+    },
+    thunder(x, y, C) {
+      skShake(10);
+      P({ kind: 'flash', color: 'rgba(235,246,255,.95)', life: 0.18, max: 0.18, a: 0.5 });
+      P({ kind: 'flash', color: 'rgba(160,210,255,.9)', life: 0.3, max: 0.3, a: 0.25 });
+      // 落雷 ×3（粗）
+      for (let i = 0; i < 3; i++) {
+        const tx = x + rnd(-110, 110), segs = 8, dx = [], dy = [];
+        for (let k = 0; k < segs; k++) { dx.push(rnd(-30, 30)); dy.push((y + 70) / segs + rnd(-8, 8)); }
+        P({ kind: 'bolt', x: tx, y: -30, segs, dx, dy, color: '#eaf4ff', w: 5.5, life: rnd(0.26, 0.45), max: 0.45, a: 0.98 });
+      }
+      // 地面径向电弧 ×16
+      for (let i = 0; i < 16; i++) {
+        const an = Math.random() * Math.PI * 2, len = rnd(80, 200), segs = 5, dx = [], dy = [];
+        for (let k = 0; k < segs; k++) { dx.push(Math.cos(an) * (len / segs) + rnd(-10, 10)); dy.push(Math.sin(an) * (len / segs) * 0.4 + rnd(-8, 8)); }
+        P({ kind: 'bolt', x, y: y + 84, segs, dx, dy, color: Math.random() < 0.5 ? C : '#eaf4ff', w: 2.5, life: rnd(0.25, 0.5), max: 0.5 });
+      }
+      P({ kind: 'glow', x, y: y + 20, r: 100, color: 'rgba(160,210,255,.9)', life: 0.4, max: 0.4 });
+      skBurst(x, y + 20, '#f8ff66', 20, 200, 560);
+      skWaves(x, y + 20, '#cfe4ff');
+    },
+    dark(x, y, C) {
+      skShake(9);
+      P({ kind: 'flash', color: 'rgba(150,70,200,.9)', life: 0.26, max: 0.26, a: 0.34 });
+      const bx = x + rnd(200, 260), by = y - 10;
+      // 大漩涡（螺旋内吸）
+      for (let i = 0; i < 40; i++) {
+        const an = Math.random() * Math.PI * 2, r0 = rnd(90, 220);
+        P({ kind: 'arc', x: bx + Math.cos(an) * r0, y: by + Math.sin(an) * r0 * 0.7, hist: [], w: rnd(2.5, 5.5),
+          update(p, dt) { p.t = (p.t || 0) + dt * 5.5; const rr = Math.max(6, r0 - (p.t) * 110); p.x = bx + Math.cos(p.t + an) * rr; p.y = by + Math.sin(p.t + an) * rr * 0.7; },
+          color: Math.random() < 0.3 ? '#e0b0ff' : C, life: rnd(0.65, 1.05), max: 1.05 });
+      }
+      P({ kind: 'glow', x: bx, y: by, r: 110, color: 'rgba(225,160,255,.9)', life: 0.5, max: 0.5 });
+      // 红电 ×8 + 暗雾 + 冲击波
+      for (let i = 0; i < 8; i++) {
+        const an = Math.random() * Math.PI * 2, len = rnd(90, 200), segs = 6, dx = [], dy = [];
+        for (let k = 0; k < segs; k++) { dx.push(Math.cos(an) * (len / segs) + rnd(-14, 14)); dy.push(Math.sin(an) * (len / segs) + rnd(-14, 14)); }
+        P({ kind: 'bolt', x: bx, y: by, segs, dx, dy, color: '#ff4038', w: 2.5, life: rnd(0.25, 0.5), max: 0.5 });
+      }
+      skWaves(bx, by, C);
+      for (let i = 0; i < 8; i++) P({ kind: 'mist', x: bx + rnd(-80, 80), y: by + rnd(-50, 50), r: rnd(36, 66), color: 'rgba(120,40,180,.8)', life: rnd(0.6, 1.0), max: 1.0 });
+      skBurst(bx, by, '#d08aff', 12, 120, 340);
+    },
+    metal(x, y, C) {
+      skShake(6);
+      P({ kind: 'flash', color: 'rgba(255,240,200,.85)', life: 0.2, max: 0.2, a: 0.22 });
+      for (let s = 0; s < 2; s++) {
+        for (let i = 0; i < 14; i++) {
+          P({ kind: 'arc', x, y: y - 10, hist: [], w: rnd(3, 5.5),
+            vx: rnd(420, 820), vy: rnd(-110, 110) * (s ? 1 : -1),
+            update(p, dt) { p.x += p.vx * dt; p.y += p.vy * dt * 2.2; p.vx *= (1 - 0.75 * dt); },
+            color: Math.random() < 0.3 ? '#fffbe8' : C, life: rnd(0.4, 0.7), max: 0.7 });
+        }
+      }
+      const bx = x + rnd(180, 240);
+      P({ kind: 'glow', x: bx, y, r: 80, color: 'rgba(255,225,140,.9)', life: 0.4, max: 0.4 });
+      skBurst(bx, y, C, 24, 220, 620, 320);
+      skWaves(bx, y, C);
+    },
+    wind(x, y, C) {
+      skShake(4);
+      P({ kind: 'glow', x, y, r: 80, color: 'rgba(180,255,225,.7)', life: 0.5, max: 0.5 });
+      for (let i = 0; i < 24; i++) P({ kind: 'streak', x: x + rnd(-50, 80), y: y + rnd(-90, 90), vx: rnd(700, 1500), vy: rnd(-80, 80), update(p, dt) { p.x += p.vx * dt; p.y += p.vy * dt; }, color: Math.random() < 0.4 ? '#ffffff' : C, w: rnd(2, 4), life: rnd(0.35, 0.65), max: 0.65 });
+      skWaves(x, y, C);
+      skBurst(x + 120, y, C, 10, 130, 340);
+    },
+    earth(x, y, C) {
+      skShake(8);
+      const gy = y + 84;
+      P({ kind: 'flash', color: 'rgba(200,150,90,.85)', life: 0.2, max: 0.2, a: 0.2 });
+      P({ kind: 'ringE', x, y: gy, r: 70, e: 0.35, w: 6, color: C, life: 0.9, max: 0.9 });
+      P({ kind: 'glow', x, y: gy, r: 80, color: 'rgba(200,150,90,.55)', life: 0.5, max: 0.5 });
+      for (let i = 0; i < 22; i++) { const an = rnd(-2.8, -0.35), v = rnd(240, 560); P({ kind: 'shard', x, y: gy, rot: Math.random() * 6, vx: Math.cos(an) * v, vy: Math.sin(an) * v, update(p, dt) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 560 * dt; p.rot += 6 * dt; }, color: Math.random() < 0.5 ? C : '#8a6a44', r: rnd(4, 9), life: rnd(0.5, 0.85), max: 0.85 }); }
+      for (let i = 0; i < 8; i++) P({ kind: 'mist', x: x + rnd(-80, 80), y: gy - 12, r: rnd(30, 55), color: 'rgba(190,150,100,.75)', life: rnd(0.6, 0.95), max: 0.95 });
+      skWaves(x, gy, C, true);
+    },
+    wood(x, y, C) {
+      skShake(4);
+      P({ kind: 'glow', x, y, r: 70, color: 'rgba(140,230,150,.6)', life: 0.5, max: 0.5 });
+      for (let i = 0; i < 24; i++) P({ kind: 'crystal', x: x + rnd(-90, 110), y: y + rnd(-90, 30), rot: Math.random() * 6, vx: rnd(-40, 100), vy: rnd(30, 150), update(p, dt) { p.x += p.vx * dt; p.y += p.vy * dt; p.rot += 2.5 * dt; }, color: Math.random() < 0.4 ? '#c8ffb0' : C, r: rnd(3, 7), life: rnd(0.6, 1.05), max: 1.05 });
+      skWaves(x, y, C);
+      skBurst(x, y, C, 10, 110, 300);
+    },
+    poison(x, y, C) {
+      skShake(4);
+      for (let i = 0; i < 26; i++) P({ kind: 'drop', x: x + rnd(-110, 140), y: y + rnd(-70, 0), vx: rnd(-30, 40), vy: rnd(70, 220), update(p, dt) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 340 * dt; }, color: Math.random() < 0.4 ? '#c8ff70' : C, life: rnd(0.5, 0.9), max: 0.9 });
+      for (let i = 0; i < 8; i++) P({ kind: 'mist', x: x + rnd(-70, 70), y: y + rnd(-30, 50), r: rnd(30, 55), color: 'rgba(110,200,60,.75)', life: rnd(0.6, 0.95), max: 0.95 });
+      P({ kind: 'glow', x, y, r: 60, color: 'rgba(140,220,60,.6)', life: 0.45, max: 0.45 });
+    },
+  };
+  SKFX_EMIT.bleed = (x, y) => SKFX_EMIT.poison(x, y, '#dd2233');
+  SKFX_EMIT.normal = (x, y, C) => {
+    skShake(5);
+    P({ kind: 'flash', color: 'rgba(255,255,255,.9)', life: 0.18, max: 0.18, a: 0.25 });
+    P({ kind: 'glow', x, y, r: 70, color: 'rgba(255,255,255,.75)', life: 0.35, max: 0.35 });
+    skWaves(x, y, C);
+    skBurst(x, y, C, 18, 160, 440);
+  };
+  function skillFx(fx, titleC) {
+    const a = ATTR_FX[fx] || ATTR_FX.normal;
+    const emit = SKFX_EMIT[fx] || SKFX_EMIT.normal;
+    const p = skillFxAnchor();
+    skfxCtx();
+    emit(p.x, p.y, a.c);
+    // 技能名艺术字位置同步炸一圈属性火花（字与特效联动）
+    if (titleC) {
+      P({ kind: 'glow', x: titleC.x, y: titleC.y, r: 64, color: 'rgba(255,244,214,.85)', life: 0.3, max: 0.3 });
+      skBurst(titleC.x, titleC.y, a.c, 12, 100, 300);
+    }
+    if (!SKFX.raf) { SKFX.last = 0; SKFX.raf = requestAnimationFrame(skfxTick); }
   }
   function skillPop(mv) {
     const d = document.createElement('div');
     d.className = 'skillpop' + (mv.fx ? ' fx-' + mv.fx : '');
     d.innerHTML = '<b>' + esc(mv.name) + '</b>' + (mv.desc ? '<span>' + esc(mv.desc) + '</span>' : '');
     document.body.appendChild(d);
-    skillFx(mv.fx);
-    setTimeout(() => d.remove(), 1400);
+    const pr = d.getBoundingClientRect();
+    skillFx(mv.fx, { x: pr.left + pr.width / 2, y: pr.top + pr.height * 0.45 });
+    setTimeout(() => d.remove(), 1500);
   }
   async function fireSeq(seq) {
     for (const act of seq) {
