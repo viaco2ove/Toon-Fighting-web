@@ -3307,12 +3307,14 @@
   for (const btn of padEl.querySelectorAll('button[data-act]')) {
     btn.addEventListener('pointerdown', (e) => {
       if (!engineStarted && selEl.classList.contains('on')) {
-        // 选人屏：A/START=轻拳（选中/确定队员） B/C=重拳（取消最后一位/取消确定）
+        // 选人屏：A=轻拳（选中/确定队员） B/C=重拳（取消最后一位/取消确定）
+        // START=开始流程（selectStart：phase3 开打，其余阶段推进确认）
         e.preventDefault();
         btn.classList.add('pressed');
         setTimeout(() => btn.classList.remove('pressed'), 180);
         const act = btn.dataset.act;
-        if (act === 'a' || act === 'start') lightPunch(phase === 2 ? 2 : 1);
+        if (act === 'start') selectStart();
+        else if (act === 'a') lightPunch(phase === 2 ? 2 : 1);
         else if (act === 'b' || act === 'c') heavyPunch();
         else selToast('注入按键 ' + act.toUpperCase());
         return;
@@ -4123,6 +4125,15 @@
     selToast('重拳：取消最后一位（' + (we ? we.r : '随机位') + '）');
   }
 
+  // START 的选人屏语义 = **开始流程**：三段式推进 —— phase1 确定我方 → phase2 确定对方 →
+  // phase3 与【开始】按钮走同一条 beginMatch 开打。
+  // 修复（2026-11-27 用户实报）：此前 START 走 lightPunch(phase===2?2:1)，双方已确定
+  // （phase 3）再按 START 会落到 lightPunch(1) 的「取消确定」分支，把选好的队解散了。
+  function selectStart() {
+    if (phase >= 3) { beginMatch(MODE); return; }
+    lightPunch(phase === 2 ? 2 : 1);
+  }
+
   function resolveSlots() {
     const out = { p1: [], p2: [] };
     for (const side of ['p1', 'p2']) {
@@ -4322,13 +4333,14 @@
     selToast('已取消 ' + (we ? we.r : '随机位'));
   });
 
-  // 键盘：z/Enter=轻拳（A/START） x=重拳（B）
+  // 键盘：z=轻拳（A，选中/确定） Enter=START（开始流程，同手柄 START） x=重拳（B）
   document.addEventListener('keydown', (e) => {
     if (engineStarted || !selEl.classList.contains('on')) return;
     if (e.target.matches && e.target.matches('input,select,textarea')) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (k === 'x') { e.preventDefault(); heavyPunch(); }
-    else if (k === 'z' || k === 'Enter') { e.preventDefault(); lightPunch(phase === 2 ? 2 : 1); }
+    else if (k === 'z') { e.preventDefault(); lightPunch(phase === 2 ? 2 : 1); }
+    else if (k === 'Enter') { e.preventDefault(); selectStart(); }
   });
 
   // ---------------- 招式（快捷技能 + 菜单查看） ----------------
