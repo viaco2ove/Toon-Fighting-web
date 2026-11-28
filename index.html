@@ -2385,7 +2385,9 @@
     for (const m of messages || []) {
       const name = String(m.role || '').trim();
       const roleType = String(m.roleType || 'npc');
-      if (!name || roleType === 'narrator' || roleType === 'system') continue;
+      // 「用户」是 toonflow 账号人设本身（它在自己发言里反复出现），
+      // 不是故事角色 —— 提取进来会污染名册（2026-11-29 真机实测）
+      if (!name || name === '用户' || roleType === 'narrator' || roleType === 'system') continue;
       const e = byName.get(name) || { name, roleType, count: 0 };
       e.count++; e.roleType = roleType;
       byName.set(name, e);
@@ -2454,12 +2456,14 @@
     '江浩': 'JiangHaoKFM', '甄选使': 'ZhenXuanshiKFM',
     '小铃铛': 'XiaoLingdangKFM', '陈阿姨': 'ChenAyiKFM', '赵大川': 'ZhaoDachuanKFM',
   };
-  function migrateSavedCharId(name, savedCharId) {
+  function migrateSavedCharId(name, savedCharId, s) {
     const pool = packCharPool();
     // 故事角色 → 融合包：只要新包可跑就用它（用户显式要求全部绑定对应新包）。
     // 这组包不是旧包的 variantOf，原迁移规则认不出来，必须按名字显式指定。
+    // 2026-11-29：注释承诺的「只自动迁移一次，之后用户手动换的实体会被保留」
+    // 此前并未实现 —— 手动改绑（userSet）后不能再被顶回融合包。
     const fusionId = FUSION_BIND[name];
-    if (fusionId && pool.includes(fusionId)) return fusionId;
+    if (fusionId && pool.includes(fusionId) && !(s && s.userSet)) return fusionId;
     const defId = defaultCharIdFor(name, null);
     if (!defId || !savedCharId || savedCharId === defId) return savedCharId;
     if (!pool.includes(savedCharId) || !pool.includes(defId)) return savedCharId;
@@ -2472,7 +2476,14 @@
     return savedCharId;
   }
 
-  // 组装 roster：有存档合并（保留同名角色的既有分配），没有则按默认绑定分配
+  // 组装 roster：有存档合并（保留同名角色的既有分配），没有则按默认绑定分配。
+  // 2026-11-29 绑定数据混乱三连修（用户实报「资产集和故事绑定数据非常混乱」）：
+  //   ① 实体占用去重 —— 错池时代写进后端的存档里，一个引擎实体被多个故事角色占用
+  //      （某男子→BaishuKFM 与 白术→BaishuKFM 并存），绑定/选人屏出现错位复用；
+  //   ② 用户手动改绑（userSet）跨刷新保留 —— FUSION_BIND 注释承诺的「之后用户手动
+  //      换的实体会被保留」此前并未实现，每次刷新都会把手动改绑顶回融合包；
+  //   ③ 随机分配避开已被占用的实体（此前连全新分配都可能两角色同实体）。
+  //   组装结果与存档不一致时由 pickSession 静默回写一次，历史脏数据自动洗净。
   function composeRoster(chars, saved) {
     const savedMap = new Map((saved && saved.storyChars || []).map((c) => [c.name, c]));
     const packRoster = packRosterByName();
@@ -2482,7 +2493,7 @@
       const fallbackSide = i === 0 ? 'p1' : (i === 1 ? 'p2' : 'bench');
       // 默认绑定：资产集 roster.json 的 defCharacterAssets → char.json → 随机
       const defId = defaultCharIdFor(c.name, null);
-      const savedId = s ? migrateSavedCharId(c.name, s.charId) : null;
+      const savedId = s ? migrateSavedCharId(c.name, s.charId, s) : null;
       const charId = (savedId && packCharPool().includes(savedId)) ? savedId
                    : (defId || randomCharId());
       const meta = charMeta(charId);
@@ -2501,6 +2512,8 @@
         keyframeMode: keyframeModeOf(charId),
         win: s ? Number(s.win || 0) : 0,
         lose: s ? Number(s.lose || 0) : 0,
+        // 用户在绑定视图手动改绑过 → 组装时不再自动纠正（见下方去重）
+        userSet: !!(s && s.userSet),
       };
     });
     // 资产集 roster.json 里声明、但后端世界角色表没有的角色也要进池
@@ -2522,6 +2535,28 @@
         win: 0, lose: 0,
       });
     }
+    // —— 实体占用去重（两轮，2026-11-29）——
+    // 一个引擎实体默认只归一个故事角色。第一轮占位：手动改绑（userSet）>
+    // 名字-实体声明匹配（defCharacterAssets）；userSet 之间允许共用同一实体
+    //（用户显式要求，不纠正）。第二轮：其余角色落位 —— 声明默认（未占用）→
+    // 原绑定（未占用）→ 随机避开已占用。
+    const used = new Set();
+    const decided = new Set();
+    for (const c of out) {
+      const defId = defaultCharIdFor(c.name, null);
+      if (c.userSet || (defId && c.charId === defId)) { used.add(c.charId); decided.add(c.name); }
+    }
+    for (const c of out) {
+      if (decided.has(c.name)) continue;
+      const defId = defaultCharIdFor(c.name, null);
+      const id = (defId && !used.has(defId)) ? defId
+               : (!used.has(c.charId) ? c.charId : randomCharId([...used]));
+      c.charId = id;
+      used.add(id);
+      decided.add(c.name);
+    }
+    // 关键帧模式跟最终实体走（去重换绑后 白模 → 抽 / 融 / 全 是不同的 char.json）
+    for (const c of out) c.keyframeMode = keyframeModeOf(c.charId);
     if (out.length && !out.some((c) => c.side === 'p1')) out[0].side = 'p1';
     if (!out.some((c) => c.side === 'p2') && out.length > 1) {
       const cand = out.find((c) => c.side !== 'p1');
@@ -2544,8 +2579,18 @@
     return { storyChars: out };
   }
 
-  // 选中一个会话 → 拉角色 → 随机分配 → 持久化 → 角色实体绑定视图
-  async function pickSession(sid, opts) {
+  // 选中一个会话 → 拉角色 → 随机分配 → 持久化 → 角色实体绑定视图。
+  // 串行化包装（2026-11-29）：openStory 打开面板时会自动重选「当前会话」（keepOpen），
+  // 用户紧接着点另一张会话卡就会有两个 pickSession 并发 —— CONN/PACKS 是共享状态，
+  // 交错执行时本次名册会拿「上一个故事的包」组装（探针实测：切回末世瞬间出 26 条
+  // 混入赦夜实体的脏数据）。排队串行：后点的会话后执行、最终生效。
+  let pickQueue = Promise.resolve();
+  function pickSession(sid, opts) {
+    const run = pickQueue.then(() => pickSessionInner(sid, opts));
+    pickQueue = run.then(() => undefined, () => undefined);
+    return run;
+  }
+  async function pickSessionInner(sid, opts) {
     const s = (CONN.sessions || []).find((x) => x.sessionId === sid);
     CONN.sessionId = sid;
     CONN.storyName = (s && (s.title || s.worldName)) || '';
@@ -2563,8 +2608,8 @@
 
     // 会话侧已绑的资产集（tf_fight_bind）：只记录，**不在这切**——
     // 2026-11-28 用户实报「切换故事绑定的资产集没变」：故事变了就该跟着换资产集。
-    // 真正的切换决策放在下方「角色/故事名解析完」之后：pack.stories 声明匹配优先，
-    // 其次才尊重会话侧旧绑定（含旧版写 dirName 的兼容）。
+    // 真正的切换决策在下方「角色/故事名解析完」之后、composeRoster **之前**执行
+    //（pack.stories 声明匹配优先，其次才尊重会话侧旧绑定，含旧版写 dirName 的兼容）。
     const sessionBind = bindR && bindR.ok ? bindR.value : null;
     PACKS.bound = (sessionBind && sessionBind.packId)
       ? { storyName: sessionBind.storyName || CONN.storyName, packId: sessionBind.packId }
@@ -2582,6 +2627,15 @@
         name: r.name, roleType: r.roleType, profession: r.profession || '',
         avatarPath: r.avatarPath || '', description: r.description || '',
       }));
+    } else if (rosterR && rosterR.ok && rosterR.value
+      && Array.isArray(rosterR.value.storyChars) && rosterR.value.storyChars.length) {
+      // roles 拉取失败但有存档：按存档的角色名单恢复（名单当初就是从角色表来）。
+      // 不要落消息提取 —— 手机端后端冷启动慢，roles 偶发超时会从聊天里
+      // 提取出「用户」这类伪角色，把存档越滚越脏（2026-11-29 真机实测）。
+      chars = rosterR.value.storyChars.map((c) => ({
+        name: c.name, roleType: c.roleType || 'npc', profession: c.profession || '',
+        avatarPath: c.avatarPath || '', description: c.description || '',
+      }));
     } else {
       const msgR = await connApi('/api/conn/sessions/' + encodeURIComponent(sid) + '/messages');
       if (msgR && msgR.ok) chars = rolesFromMessages(msgR.messages);
@@ -2593,28 +2647,16 @@
       return;
     }
 
-    const saved = rosterR && rosterR.ok ? rosterR.value : null;
-    CONN.roster = composeRoster(chars, saved);
-    storySubEl.textContent = '故事：' + CONN.storyName + ' · 共 ' + CONN.roster.storyChars.length + ' 名角色（/api/conn/sessions/:sid/roles）';
-    storyStatusEl.textContent = (saved ? '已载入上次保存的绑定（可修改）' : '已自动随机分配默认资产角色')
-      + ' · 共 ' + chars.length + ' 个角色';
-    storyStatusEl.className = 'hint ok';
-    renderRosterEditor();
-    // 落点：只有「绑定」入口（opts.roster）才进绑定视图；选故事/打完一局回到主界面
-    //（2026-11-27 用户实报：选故事、打完一局都落进「角色资产绑定」是错的）。
-    if (opts && opts.roster) showRosterView();
-    else {
-      // 选完故事 = 选定了 → 关面板回主界面（主界面显示当前故事与绑定状态）
-      if (!(opts && opts.keepOpen)) storyEl.classList.remove('on');
-      showListView();
-    }
-    renderHomeStory();
-
-    // 资产集跟随故事（2026-11-28 重构，修「切换故事绑定的资产集没变」）：
+    // 资产集跟随故事（2026-11-28 重构；2026-11-29 提前到 composeRoster 之前）：
     // ① pack.stories 声明了这个故事 → 切到那个资产集，并把会话绑定刷新成它
     //   （顺手自愈旧版把 map_design 目录名写进 tf_fight_bind 的历史遗留）
     // ② 没有声明匹配 → 尊重会话侧旧绑定（findPackById 兼容 dir/id/dirName 三种格式）
     // ③ 都没有 → 保持当前资产集不动，状态行如实展示
+    // ⚠️ 必须在 composeRoster 之前切包：composeRoster 的实体池/roster.json/默认绑定
+    //   全部读「当前包」。2026-11-29 用户实报「资产集和故事绑定数据非常混乱」的根源
+    //   就是先组装名册后切包 —— 换故事那一刻名册还在拿上一个故事的实体池随机分配，
+    //   还会把上一个故事包 roster.json 里的名字追加进新名册
+    //   （赦夜 15 → 18、末世 13 → 26，一刷新才恢复，切故事必脏一次）。
     if (PACKS.list.length) {
       // stories 兜底：原生端旧 APK 只把 stories 放在 registry info 里
       const packStories = (p) => Array.isArray(p.stories) ? p.stories : (p.info && Array.isArray(p.info.stories) ? p.info.stories : []);
@@ -2638,6 +2680,30 @@
         }
       }
     }
+
+    const saved = rosterR && rosterR.ok ? rosterR.value : null;
+    CONN.roster = composeRoster(chars, saved);
+    // 自愈回写（2026-11-29）：存档存在但组装结果与它不一致 —— 历史脏数据被上面的
+    // 去重/默认绑定纠正了 → 静默落一次盘，后端数据随之洗净（否则显示对了、
+    // 后端存的还是错位绑定，换台设备/手机端又是乱的）。
+    if (saved) {
+      const sig = (r) => JSON.stringify((r.storyChars || []).map((c) => [c.name, c.charId, c.side]));
+      if (sig(saved) !== sig(CONN.roster)) saveRoster(true).catch(() => {});
+    }
+    storySubEl.textContent = '故事：' + CONN.storyName + ' · 共 ' + CONN.roster.storyChars.length + ' 名角色（/api/conn/sessions/:sid/roles）';
+    storyStatusEl.textContent = (saved ? '已载入上次保存的绑定（可修改）' : '已自动随机分配默认资产角色')
+      + ' · 共 ' + chars.length + ' 个角色';
+    storyStatusEl.className = 'hint ok';
+    renderRosterEditor();
+    // 落点：只有「绑定」入口（opts.roster）才进绑定视图；选故事/打完一局回到主界面
+    //（2026-11-27 用户实报：选故事、打完一局都落进「角色资产绑定」是错的）。
+    if (opts && opts.roster) showRosterView();
+    else {
+      // 选完故事 = 选定了 → 关面板回主界面（主界面显示当前故事与绑定状态）
+      if (!(opts && opts.keepOpen)) storyEl.classList.remove('on');
+      showListView();
+    }
+    renderHomeStory();
 
     // 挂起的资产集绑定（先选文件夹、后选会话）：选完会话立刻补写 tf_fight_bind
     if (PACKS.pendingBind) {
@@ -2715,6 +2781,8 @@
       }
       charSel.addEventListener('change', () => {
         c.charId = charSel.value;
+        // 用户显式改绑：跨刷新保留，不再被 FUSION_BIND / 默认绑定自动纠正
+        c.userSet = true;
         // 关键帧模式标签跟着新实体走（白模 → 抽 / 融 / 全 是不同的 char.json）
         c.keyframeMode = keyframeModeOf(c.charId);
         renderRosterEditor();   // 换绑后头像跟着变
@@ -2754,7 +2822,13 @@
       }),
       connApi('/api/conn/session-data/' + encodeURIComponent(CONN.sessionId) + '/tf_fight_bind', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: { storyName: CONN.storyName, sessionId: CONN.sessionId, worldId: CONN.worldId, packId: PACKS.cur ? PACKS.cur.dir : undefined } }),
+        body: JSON.stringify({ value: {
+          storyName: CONN.storyName, sessionId: CONN.sessionId, worldId: CONN.worldId,
+          packId: PACKS.cur ? PACKS.cur.dir : undefined,
+          // 手动绑定标记必须保住 —— saveRoster 顺手重写 bind 时不能把
+          // 「用户亲手绑的跨故事保留」降级成自动绑定（2026-11-29）
+          manual: !!(PACKS.bound && PACKS.bound.manual),
+        } }),
       }),
     ]);
     btn.textContent = '保 存';
