@@ -2385,9 +2385,7 @@
     for (const m of messages || []) {
       const name = String(m.role || '').trim();
       const roleType = String(m.roleType || 'npc');
-      // 「用户」是 toonflow 账号人设本身（它在自己发言里反复出现），
-      // 不是故事角色 —— 提取进来会污染名册（2026-11-29 真机实测）
-      if (!name || name === '用户' || roleType === 'narrator' || roleType === 'system') continue;
+      if (!name || roleType === 'narrator' || roleType === 'system') continue;
       const e = byName.get(name) || { name, roleType, count: 0 };
       e.count++; e.roleType = roleType;
       byName.set(name, e);
