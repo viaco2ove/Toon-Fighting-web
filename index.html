@@ -6361,8 +6361,9 @@
     // survival（2026-11-29 用户要求「选3人时也要1次一人上场」）：同样 turns 但**不摊命** ——
     //   我方选几人 = 几条命（依次上场）；敌方按 survival.json 编队同规则。
     //   1v1 关与旧单挑行为一致（turns 1v1 = 单回合）。
-    // practice（假人靠前端注入 P2 键，换人即断）不启用。
-    const kof = MODE === 'versus' || MODE === 'survival';
+    // practice（2026-11-29 用户要求「练习选3人也要依次上场」）：与 survival 同规则（不摊命）。
+    //   假人仍是前端注入 P2 键 —— 注入是全局的，换人后由当前上场者接收，行为不中断。
+    const kof = MODE === 'versus' || MODE === 'survival' || MODE === 'practice';
     const kofTeam = (list) => {
       const src = (list || []).filter(Boolean);
       if (!src.length) return src;
@@ -6371,8 +6372,8 @@
       return out;
     };
     const survList = (list) => (list || []).filter(Boolean).slice(0, 3);
-    const P1 = kof ? (MODE === 'survival' ? survList(p1List) : kofTeam(p1List)) : (p1List || []);
-    const P2 = kof ? (MODE === 'survival' ? survList(p2List) : kofTeam(p2List)) : (p2List || []);
+    const P1 = kof ? (MODE === 'versus' ? kofTeam(p1List) : survList(p1List)) : (p1List || []);
+    const P2 = kof ? (MODE === 'versus' ? kofTeam(p2List) : survList(p2List)) : (p2List || []);
     // 多人编队：side1 = -p1/-p3/-p5，side2 = -p2/-p4/-p6（main.f_commandLine 奇偶分边）
     const N1 = ['1', '3', '5'], N2 = ['2', '4', '6'];
     // 角色 id → 引擎能解析的路径。
