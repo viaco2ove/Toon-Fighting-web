@@ -1332,6 +1332,7 @@
         <select id="st-speech">
           <option value="text">文字气泡</option>
           <option value="voice">文字 + 语音朗读</option>
+          <option value="backend">文字 + 后端语音</option>
           <option value="off">关闭</option>
         </select></div>
       <div class="setting-line"><label>3 秒倒计时</label><span class="hint">开场 3-2-1</span>
@@ -1895,12 +1896,29 @@
   // 旧口径拿 mapping.charPool 减「引擎目录里的角色」—— 资产集的角色本来就在
   // 资产集目录里，拿引擎目录去比必然报缺，于是出现「资产集明明带了这个角色，
   // 却说本地缺少 14 个角色」这种自相矛盾的告警。
-  // 现在：资产集声明的池 − 资产集自带的可用角色 = 真的缺。
+  // 现在：资产集声明的池 −（资产集自带的可用角色 ∪ 引擎兜底层角色）= 真的缺。
+  // 兜底层角色（Hinako/K'/Leona/Lin/Rugal2nd…）在包里没有、由 ikemen-fs/file/chars 提供
+  // （手机端=APK 内置 www/ikemen-fs），不算「缺」——否则收口时把兜底副本从包里
+  // 拿掉的包（sheye/tiantian/heita）会永远误报「本地缺少 5 个角色」。
+  let BASE_CHARS = [];
+  (async () => {
+    try {
+      const mf = await (await fetch('ikemen-fs/manifest.json', { signal: AbortSignal.timeout(15000) })).json();
+      const ids = new Set();
+      for (const k of Object.keys(mf.files || {})) {
+        let m = /^chars\/([^/]+)\/\1\.def$/i.exec(k);
+        if (!m) m = /^chars\/([^/]+)\/[^/]*\.def$/i.exec(k);
+        if (m) ids.add(m[1]);
+      }
+      BASE_CHARS = [...ids];
+      if (PACKS.cur) refreshPackStat();   // 兜底清单到了 → 把之前误报的「本地缺少」刷掉
+    } catch (e) { /* 没有兜底清单的异常环境：维持原口径 */ }
+  })();
   function missingPackChars() {
     if (!PACKS.mapping || !Array.isArray(PACKS.mapping.charPool)) return [];
     const have = PACK_CHARS.length ? PACK_CHARS : (PACKS.packChars && PACKS.packChars[PACKS.cur && PACKS.cur.dir]) || [];
     if (!have.length) return [];   // 还没算出资产集自己的角色 → 不知道缺什么，不报
-    return PACKS.mapping.charPool.filter((id) => !have.includes(id));
+    return PACKS.mapping.charPool.filter((id) => !have.includes(id) && !BASE_CHARS.includes(id));
   }
 
   // 读取用户选中的文件夹：只取根层级的 4 个元数据 JSON
@@ -2846,7 +2864,7 @@
         bgm:    clampNum(s.volume && s.volume.bgm, 0, 100, 75),
       },
       battle: {
-        speech: (s.battle && ['off', 'text', 'voice'].includes(s.battle.speech)) ? s.battle.speech : 'text',
+        speech: (s.battle && ['off', 'text', 'voice', 'backend'].includes(s.battle.speech)) ? s.battle.speech : 'text',
         countdown: s.battle && s.battle.countdown === 'off' ? 'off' : 'on',
         headAvatar: !(s.battle && s.battle.headAvatar === 'off'),
         padui: !(s.battle && s.battle.padui === false),   // 战斗内 虚拟手柄+技能键 显隐（#uitog 悬浮球切换，boolean）
@@ -3391,11 +3409,21 @@
   let selPadOn = true;   // 选人屏虚拟手柄默认显示（《选人.md》：# 显示虚拟手柄）
   function applyPad() {
     const selOn = !engineStarted && selEl.classList.contains('on');
+    // 战斗视图 = 引擎活着 且 不在主界面/故事绑定面板。引擎还挂着但回到了主界面时，
+    // 手柄/摇杆/技能键/悬浮球必须收起来（真机实拍：结算返回后残留在主界面上挡卡片）。
+    const outside = document.getElementById('home').classList.contains('on')
+      || document.getElementById('story').classList.contains('on');
+    const inBattle = engineStarted && !outside;
     padEl.classList.toggle('selmode', selOn);
-    padEl.classList.toggle('on', selOn ? selPadOn : (engineStarted && padVisible() && settings.battle.padui));
-    document.getElementById('skills').classList.toggle('on', engineStarted && settings.battle.padui && !!(movesFor(p1SlotChars()[0] || curP1) || []).length);
-    document.getElementById('uitog').classList.toggle('on', engineStarted);   // 战斗内才显示悬浮球
+    padEl.classList.toggle('on', selOn ? selPadOn : (inBattle && padVisible() && settings.battle.padui));
+    document.getElementById('skills').classList.toggle('on', inBattle && settings.battle.padui && !!(movesFor(p1SlotChars()[0] || curP1) || []).length);
+    // 悬浮球跟「手柄可见的地方」同进退：战斗里总显示（padui 关了也要能再开），选人屏也显示
+    document.getElementById('uitog').classList.toggle('on', inBattle || selOn);
   }
+  // home/story 面板显隐变化 → 立即重算手柄可见性（不依赖每个开关点都记得调 applyPad）
+  const padViewObs = new MutationObserver(() => applyPad());
+  padViewObs.observe(document.getElementById('home'), { attributes: true, attributeFilter: ['class'] });
+  padViewObs.observe(document.getElementById('story'), { attributes: true, attributeFilter: ['class'] });
   function padDispatch(btn, type) {
     const tok = settings.keys.p1[btn.dataset.act];
     const code = INI2CODE[tok];
@@ -4377,6 +4405,12 @@
     uiDrag = null;
     if (moved) {
       try { localStorage.setItem(UITOG_KEY, JSON.stringify({ l: uitogEl.style.left, t: uitogEl.style.top })); } catch (e) {}
+      return;
+    }
+    if (selEl.classList.contains('on') && !engineStarted) {
+      selPadOn = !selPadOn;   // 选人屏：切的是选人屏自己的手柄显隐
+      applyPad();
+      selToast(selPadOn ? '选人屏手柄已显示' : '选人屏手柄已隐藏');
       return;
     }
     settings.battle.padui = !settings.battle.padui;
@@ -5679,7 +5713,9 @@
       if (r && r.ok && r.text) {
         // 开场 / 胜负 = 打字机流式上屏；随机过程发言即时显示，不喧宾夺主
         showSpeech(side, String(r.text).slice(0, 120), kind !== 'random');
-        if (settings.battle.speech === 'voice' && window.speechSynthesis) {
+        if (settings.battle.speech === 'backend') {
+          speakBackend(side, c, String(r.text).slice(0, 120));      // 后端 TTS：该角色音色
+        } else if (settings.battle.speech === 'voice' && window.speechSynthesis) {
           try {
             const u = new SpeechSynthesisUtterance(String(r.text).slice(0, 120));
             u.lang = 'zh-CN'; u.rate = 1.1;
@@ -5688,6 +5724,52 @@
         }
       }
     } catch { /* 任何异常直接跳过 */ }
+  }
+  // 后端语音（TTS）：把这句台词按「该角色在世界档案里配置的音色」合成并播放。
+  // 音色字段由 BFF roles 接口透传（voice.mode = text 预设 / clone 参考音频 / mix 混音 /
+  // prompt_voice 提示词）。同侧新发言顶掉上一段；失败静默跳过，文字气泡不受影响。
+  // window.__tfVoiceLog 供探针断言（play/err/http/exc）。
+  const TF_VOICE = { p1: null, p2: null };
+  async function speakBackend(side, c, text) {
+    try {
+      const roleMeta = CONN.storyRoles.find((r) => r.name === c.name) || {};
+      const v = roleMeta.voice || {};
+      if (!v || (!v.mode && !v.referenceAudioPath)) return;
+      const r = await fetch('/api/conn/agent/tts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(45000),   // 克隆合成可能要十几秒
+        body: JSON.stringify({
+          text,
+          speed: 1.1,
+          voice: {
+            mode: v.mode || 'clone',
+            presetId: v.presetId || '',
+            referenceAudioPath: v.referenceAudioPath || '',
+            referenceText: v.referenceText || '',
+            promptText: v.promptText || '',
+            mixVoices: v.mixVoices || [],
+          },
+        }),
+      });
+      if (!r.ok) { (window.__tfVoiceLog = window.__tfVoiceLog || []).push({ side, ev: 'http' + r.status, t: Date.now() }); return; }
+      const ct = r.headers.get('content-type') || '';
+      if (!/^audio\//.test(ct)) {
+        const j = await r.json().catch(() => null);
+        (window.__tfVoiceLog = window.__tfVoiceLog || []).push({ side, ev: 'err', error: j && j.error, t: Date.now() });
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      try { if (TF_VOICE[side]) { TF_VOICE[side].pause(); TF_VOICE[side].src = ''; } } catch { }
+      const a = new Audio(url);
+      a.volume = 1;
+      TF_VOICE[side] = a;
+      a.play().then(() => { (window.__tfVoiceLog = window.__tfVoiceLog || []).push({ side, ev: 'play', bytes: blob.size, ct, t: Date.now() }); })
+        .catch((e) => { (window.__tfVoiceLog = window.__tfVoiceLog || []).push({ side, ev: 'playfail', error: e && e.message, t: Date.now() }); });
+      a.onended = () => { URL.revokeObjectURL(url); };
+    } catch (e) {
+      (window.__tfVoiceLog = window.__tfVoiceLog || []).push({ side, ev: 'exc', error: e && e.message, t: Date.now() });
+    }
   }
   function battleIntro() {
     const auto = q.get('auto') === '1';

@@ -256,6 +256,10 @@ function json(res, code, obj) {
 }
 const fail = (res, e, what) => json(res, 200, { ok: false, error: (e && e.message) || String(e), what });
 
+// 后端 TTS 合成结果缓存（audioProxy 拉回的字节）：同台词+同音色不重复合成。
+// Map 按插入序淘汰，超 64 条删最旧。
+const TTS_CACHE = new Map();
+
 // ---------- 角色归一化 ----------
 // 世界角色（settings.roles 的元素）→ 格斗联动用的统一形态。
 // 字段口径来自后端 listImportableRoles / buildMiniGameRoleOptions。
@@ -276,6 +280,16 @@ function normalizeRole(raw) {
     hp: Number(card.hp || r.hp || 0) || 0,
     skills: Array.isArray(card.skills) ? card.skills.slice(0, 12) : [],
     sample: String(r.sample || '').slice(0, 200),
+    // 音色配置（原样透传给 /api/conn/agent/tts → 后端 /game/streamvoice）：
+    // mode 与后端 VoiceMode 枚举同口径：text|clone|mix|prompt_voice
+    voice: {
+      mode: String(r.voiceMode || '').trim(),
+      presetId: String(r.voicePresetId || '').trim(),
+      referenceAudioPath: String(r.voiceReferenceAudioPath || '').trim(),
+      referenceText: String(r.voiceReferenceText || '').trim(),
+      promptText: String(r.voicePromptText || '').trim(),
+      mixVoices: Array.isArray(r.voiceMixVoices) ? r.voiceMixVoices.slice(0, 6) : [],
+    },
   };
 }
 
@@ -755,6 +769,66 @@ async function handleApi(req, res, urlPath, query) {
           if (!text) return json(res, 200, { ok: false, error: (r && r.error) || '台词为空' });
           json(res, 200, { ok: true, text });
         } catch (e) { fail(res, e, 'speech'); }
+      });
+      return;
+    }
+
+    // 后端语音（TTS）：按角色音色（clone 参考音频 / 预设音色 / 混音 / 提示词音色）
+    // 调后端 /game/streamvoice → 拿 audioProxy 地址 → 取回音频字节给前端播。
+    // 模式字段与角色档案的 voiceMode 同口径（normalizeRole.voice 原样透传）。
+    // 失败返回 {ok:false}，前端静默跳过；同一行台词+音色命中内存缓存不重复合成。
+    if (urlPath === '/api/conn/agent/tts' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', async () => {
+        let input;
+        try { input = JSON.parse(body || '{}'); } catch { return json(res, 200, { ok: false, error: 'body 需为 JSON' }); }
+        const text = String(input.text || '').trim().slice(0, 300);
+        if (!text) return json(res, 200, { ok: false, error: '缺 text' });
+        const v = (input.voice && typeof input.voice === 'object') ? input.voice : {};
+        const mode = ['text', 'clone', 'mix', 'prompt_voice'].includes(String(v.mode)) ? String(v.mode) : 'text';
+        const speed = Number(input.speed) > 0 ? Math.min(2, Number(input.speed)) : 1.1;
+        const voiceKey = mode === 'clone' ? String(v.referenceAudioPath || '')
+          : mode === 'mix' ? JSON.stringify(v.mixVoices || [])
+          : mode === 'prompt_voice' ? String(v.promptText || '')
+          : String(v.presetId || '');
+        const key = mode + '|' + voiceKey + '|' + speed + '|' + text;
+        const cached = TTS_CACHE.get(key);
+        if (cached) {
+          res.writeHead(200, { 'Content-Type': cached.ct, 'Content-Length': cached.buf.length, 'X-TTS-Cache': 'hit' });
+          return res.end(cached.buf);
+        }
+        try {
+          const b = { text, mode, speed, use_cache: true };
+          if (mode === 'clone') {
+            if (!String(v.referenceAudioPath || '').trim()) return json(res, 200, { ok: false, error: '该角色没有配置克隆参考音频' });
+            b.referenceAudioPath = String(v.referenceAudioPath).trim();
+            if (String(v.referenceText || '').trim()) b.referenceText = String(v.referenceText).trim();
+          } else if (mode === 'text') {
+            if (!String(v.presetId || '').trim()) return json(res, 200, { ok: false, error: '该角色没有配置预设音色' });
+            b.voiceId = String(v.presetId).trim();
+          } else if (mode === 'mix') {
+            const mv = Array.isArray(v.mixVoices) ? v.mixVoices.filter((m) => m && String(m.voiceId || '').trim()).map((m) => ({ voiceId: String(m.voiceId).trim(), weight: Number(m.weight) || undefined })) : [];
+            if (!mv.length) return json(res, 200, { ok: false, error: '该角色没有配置混音音色' });
+            b.mixVoices = mv;
+          } else {
+            if (!String(v.promptText || '').trim()) return json(res, 200, { ok: false, error: '该角色没有配置音色提示词' });
+            b.promptText = String(v.promptText).trim();
+          }
+          const r = await bfAuth('/game/streamvoice', b, { authTokenOverride: authTok, timeoutMs: 90000 });
+          const audioUrl = r && r.audioUrl;
+          if (!audioUrl) return json(res, 200, { ok: false, error: (r && (r.message || r.error)) || '后端没有返回音频地址' });
+          // audioProxy 地址自带 token 参数（buildProxyAudioUrl 已塞进 query），直接取流
+          const ar = await fetch(audioUrl, { signal: AbortSignal.timeout(60000) });
+          if (!ar.ok) return json(res, 200, { ok: false, error: '音频代理返回 ' + ar.status });
+          const ab = Buffer.from(await ar.arrayBuffer());
+          if (ab.length < 512) return json(res, 200, { ok: false, error: '音频内容异常（' + ab.length + 'B）' });
+          const ct = ar.headers.get('content-type') || 'audio/wav';
+          if (TTS_CACHE.size >= 64) { TTS_CACHE.delete(TTS_CACHE.keys().next().value); }
+          TTS_CACHE.set(key, { buf: ab, ct });
+          res.writeHead(200, { 'Content-Type': ct, 'Content-Length': ab.length, 'X-TTS-Cache': 'miss' });
+          res.end(ab);
+        } catch (e) { fail(res, e, 'tts'); }
       });
       return;
     }

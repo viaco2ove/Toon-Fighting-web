@@ -318,19 +318,66 @@ window.FFDecode = (function () {
     return p;
   }
 
-  // SFFv2：0=raw 1=链接 2=RLE8 3=RLE5 4=LZ5 10+=PNG（暂不支持，与权威版一致）。
+  // SFFv2：0=raw 1=链接 2=RLE8 3=RLE5 4=LZ5 10+=PNG（KFM v2 融合包全精灵都是 PNG RGBA）。
   function decodeV2(buf, sp, sff) {
     const w = sp.w, h = sp.hh;
     if (sp.format === 0) {
       const px = buf.slice(sp.ofs, sp.ofs + sp.size);
       return { w, h, px, depth: sp.depth, pal: paletteOfIndex(sff, sp.pal) };
     }
-    if (sp.format >= 10) throw new Error('SFFv2 PNG 精灵（格式 ' + sp.format + '）暂不支持作为头像来源');
+    if (sp.format >= 10) throw new Error('SFFv2 PNG 精灵请走 spriteRgbaAsync（异步解 PNG）');
     const src = buf.subarray(sp.ofs + 4, sp.ofs + sp.size);
     const n = w * h;
     const dec = { 2: rle8, 3: rle5, 4: lz5 }[sp.format];
     if (!dec) throw new Error('SFFv2 未知格式：' + sp.format);
     return { w, h, px: dec(src, n), depth: 8, pal: paletteOfIndex(sff, sp.pal) };
+  }
+
+  // PNG 载荷 → RGBA。走 Image 元素 + blob URL（PC Chrome 与 Android WebView 都支持）——
+  // 不用 createImageBitmap：真机（Android 16 WebView）对同一 PNG 报
+  // 「The source image could not be decoded」，PC 同字节却能解（实机诊断实锤）。
+  // 结果 depth=32（shade 对 32 位直通，调色板/act 覆盖对 PNG 精灵天然不生效）。
+  async function decodePngRgba(bytes) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+    try {
+      const img = new Image();
+      await new Promise((ok, bad) => {
+        img.onload = () => ok();
+        img.onerror = () => bad(new Error('PNG 解码失败（img onerror）'));
+        img.src = url;
+      });
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, w, h);
+      return { w, h, px: new Uint8Array(d.data), depth: 32 };
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  // v2 通用异步取精灵：PNG（format 10+）解一次缓存到 sff.pngCache（key=精灵 ofs），
+  // 其余（raw/RLE/LZ5/size==0 链接）沿用同步 decodeV2；v1 整体走原 spriteRgba。
+  async function spriteRgbaAsync(buf, sff, group, index, palOverride) {
+    const target = sff.sprites.get(group + ',' + index);
+    if (!target) return null;
+    if (sff.ver !== 2) return spriteRgba(buf, sff, group, index, palOverride);
+    let sp = target, hops = 0;
+    while (sp.size === 0) {
+      if (sp.link >= sff.byIndex.length || ++hops > 64) throw new Error('精灵链接无效');
+      sp = sff.byIndex[sp.link];
+    }
+    if (sp.format < 10) return shade(decodeV2(buf, sp, sff), palOverride);
+    if (!sff.pngCache) sff.pngCache = new Map();
+    let img = sff.pngCache.get(sp.ofs);
+    if (!img) {
+      // PNG 载荷前有 4 字节前缀（与 decodeV2 的 RLE 路径 subarray(ofs+4) 同一约定），
+      // 不跳过的话 createImageBitmap 直接「source image could not be decoded」
+      img = await decodePngRgba(buf.subarray(sp.ofs + 4, sp.ofs + sp.size));
+      if (img) sff.pngCache.set(sp.ofs, img);
+    }
+    if (!img) throw new Error('PNG 精灵解码失败（格式 ' + sp.format + '）');
+    return shade(img, palOverride);
   }
 
   // SFFv1 取色：对局渲染的 paletteSame 规则（ps!=0 沿用上一精灵；size==0 共享块也沿用；
@@ -704,7 +751,7 @@ window.FFDecode = (function () {
       if (!ch) return null;
       for (const c of CANDIDATES) {
         let img = null;
-        try { img = spriteRgba(ch.buf, ch.sff, c[0], c[1], null); } catch (e) { img = null; }
+        try { img = await spriteRgbaAsync(ch.buf, ch.sff, c[0], c[1], null); } catch (e) { img = null; }
         if (!img || img.w < 8 || img.h < 8) continue;
         if (Math.max(img.w, img.h) > MAX_SIDE) continue;
         const ar = img.w / img.h;
@@ -713,7 +760,7 @@ window.FFDecode = (function () {
         if (ch.pal) {
           // 有些包精灵自带调色板是占位的，用外部 act 再解一次，取分高的
           try {
-            const alt = spriteRgba(ch.buf, ch.sff, c[0], c[1], ch.pal);
+            const alt = await spriteRgbaAsync(ch.buf, ch.sff, c[0], c[1], ch.pal);
             if (alt) {
               const altScore = portraitScore(alt);
               if (altScore > score) { img = alt; score = altScore; }
@@ -749,7 +796,7 @@ window.FFDecode = (function () {
         let img = null;
         const sp0 = ch.sff.sprites.get(f.grp + ',' + f.idx);
         const ownPal = !!(sp0 && sp0.ownPal);
-        try { img = spriteRgba(ch.buf, ch.sff, f.grp, f.idx, ownPal ? null : ch.pal); } catch (e) { img = null; }
+        try { img = await spriteRgbaAsync(ch.buf, ch.sff, f.grp, f.idx, ownPal ? null : ch.pal); } catch (e) { img = null; }
         if (!img) continue;
         const sp = ch.sff.sprites.get(f.grp + ',' + f.idx);
         img.ax = sp ? sp.ax : Math.round(img.w / 2);
