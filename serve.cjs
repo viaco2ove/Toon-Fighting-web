@@ -6,6 +6,9 @@
 //   node serve.cjs [port] --conn                 # 联动后端（读 .env，形态 B）
 //   node serve.cjs -- --story <故事名> --conn    # 直达故事会话（形态 C）
 //   node serve.cjs --chrome [port]               # Chrome/Edge app 模式（无地址栏独立窗口）
+//   node serve.cjs --gui [port]                  # Electron 外壳（tools/gui/electron，真桌面应用窗口）
+//                                                #   exe 查找顺序：TF_ELECTRON 环境变量 > 本项目 node_modules
+//                                                #   > 逐级向上扫邻居项目 node_modules/electron/dist/electron.exe
 //   node serve.cjs --go [exe路径]                # 原生引擎档：网页做 UI + spawn Ikemen_GO.exe 跑对局
 //                                                #   exe 默认找 .cache/ikemen-native/Ikemen_GO.exe
 //
@@ -70,6 +73,9 @@ const CONN = allArgs.includes('--conn');
 
 // --chrome：Chrome/Edge 的 --app 模式开一个无地址栏的独立窗口（伪 GUI 壳）
 const CHROME = allArgs.includes('--chrome');
+// --gui：Electron 外壳启动档。spawn tools/gui/electron/main.cjs 开一个真桌面应用窗口，
+// 端口/地址用 TF_PORT/TF_URL 环境变量传入。electron.exe 复用已装好的（不重复下载）。
+const GUI = allArgs.includes('--gui');
 // --go：原生引擎调度档。前端网页照旧做全部 UI，对局交给 serve.cjs spawn 的
 // 原生 Ikemen_GO.exe 子进程：argv 直通、stdout 收 TF_HEAD/TF_RESULT、
 // watch save/tf-result.ini 收结算、SendInput 桥注入虚拟手柄按键。
@@ -1056,6 +1062,46 @@ function launchChromeApp() {
   console.log('[chrome] app 模式窗口已拉起：' + exe);
 }
 
+// ---------- --gui 启动档（Electron 外壳） ----------
+// 找已装好的 electron.exe（本项目不装依赖，直接复用邻居项目下载过的二进制）：
+//   1. TF_ELECTRON 环境变量显式指定
+//   2. 本项目 node_modules/electron/dist/electron.exe（若有）
+//   3. 从项目目录逐级向上扫两级邻居 */node_modules/electron/dist/electron.exe
+function findElectronExe() {
+  if (process.env.TF_ELECTRON) {
+    const p = path.normalize(process.env.TF_ELECTRON);
+    if (fs.existsSync(p)) return p;
+    console.log('[gui] TF_ELECTRON 指向的文件不存在：' + p);
+  }
+  const candidates = [path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe')];
+  let up = ROOT;
+  for (let i = 0; i < 2; i++) {
+    up = path.dirname(up);
+    try {
+      for (const name of fs.readdirSync(up)) {
+        candidates.push(path.join(up, name, 'node_modules', 'electron', 'dist', 'electron.exe'));
+      }
+    } catch { /* 目录不可读跳过 */ }
+  }
+  for (const c of candidates) { try { if (fs.existsSync(c)) return c; } catch { /* 跳过 */ } }
+  return null;
+}
+function launchElectronApp() {
+  const exe = findElectronExe();
+  if (!exe) {
+    console.log('[gui] 没找到 electron.exe，--gui 启动档失效');
+    console.log('[gui] 可设 TF_ELECTRON 指向 electron.exe，或在任意邻居项目里 npm i electron 后重试');
+    return;
+  }
+  const main = path.join(ROOT, 'tools', 'gui', 'electron', 'main.cjs');
+  const env = { ...process.env, TF_PORT: String(PORT), TF_URL: 'http://127.0.0.1:' + PORT + '/index.html' };
+  // 某些 IDE（如 WorkBuddy）会给自己子进程注入 ELECTRON_RUN_AS_NODE=1，
+  // 不清掉的话 electron.exe 会被当纯 Node 跑，require('electron') 直接炸
+  delete env.ELECTRON_RUN_AS_NODE;
+  spawn(exe, [main], { stdio: 'ignore', env });
+  console.log('[gui] Electron 窗口已拉起：' + exe);
+}
+
 // ---------- 静态服务（原逻辑不变） ----------
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -1109,4 +1155,5 @@ http.createServer((req, res) => {
     console.log('[go] 引擎资产 cwd 优先级：请求 pack 参数 > 兜底层 ' + GO_FALLBACK_CWD);
   }
   if (CHROME) launchChromeApp();
+  if (GUI) launchElectronApp();
 });
