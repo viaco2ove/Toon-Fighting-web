@@ -5890,24 +5890,42 @@
   // vfs.js 把 save/ 下文件防抖 400ms 持久化到 localStorage（base64）。
   // localStorage 轮询是主信号通道；console.log 钩子仅作双保险保留。
   let matchSettled = false;
+  // 结算收尾（2026-11-28 用户实报「一局完了悬浮头像没删除并且黑屏」）：
+  // 悬浮头像/buff 徽章立刻摘掉；showLoading=true 再把「加载中」过渡盖到黑屏窗口上。
+  // 从 onMatchResult 里拆出来，让 TF_OVER（回合结束定格，早于 result 落盘）也能先摘头像。
+  let settleCleanupDone = false;
+  function settleCleanup(showLoading) {
+    // 摘头像只做一次；「加载中」过渡按需挂（TF_OVER 先摘、结算/黑屏探测器再挂过渡，
+    // 两个信号可能先后到达，不能让 done 标记把过渡挡掉）
+    if (!settleCleanupDone) {
+      settleCleanupDone = true;
+      try {
+        headavEl.classList.remove('on');
+        headavEl.innerHTML = '';
+        headNodes = {};
+        BUFFS[1] = null; BUFFS[2] = null;
+        window.__tfSettleCleanup = Date.now(); // 探针观测点
+      } catch (e) { /* 收尾失败不影响结算流程 */ }
+    }
+    if (showLoading) {
+      try {
+        // 二阶段过渡形态（img_12 + 佐助疾跑）：一局完了 → 下一局/回选人的过渡期专用
+        readyEl.classList.add('stage2');
+        readyEl.classList.add('on');
+      } catch (e) { /* 过渡失败不影响结算 */ }
+    }
+  }
+  // TF_OVER：引擎在回合结束（胜负定格）时报一次，早于 tf-result 落盘/轮询。
+  // 先摘浮动头像 —— 用户要求「打完一局胜利或失败就不要显示这些浮动头像」。
+  function onTfOver() { settleCleanup(false); }
   function onMatchResult(winner) {
     if (matchSettled) return;
     matchSettled = true;
     window.__tfMatchSettled = winner; // 供自动化验证探针读取
     clearInterval(battleIntro._t);
     if (battleIntro._cd) { battleIntro._cd(); battleIntro._cd = null; }   // 结算时收掉残留倒数
-    // 结算收尾（2026-11-28 用户实报「一局完了悬浮头像没删除并且黑屏」）：
-    // 悬浮头像/buff 徽章立刻摘掉；引擎 os.Exit 后到 reload 之间是黑屏期，
-    // 用 #ready 的「加载中」界面顶上（佐助疾跑载入条），回选人屏/下一关由既有定时器接管。
-    try {
-      headavEl.classList.remove('on');
-      headavEl.innerHTML = '';
-      headNodes = {};
-      BUFFS[1] = null; BUFFS[2] = null;
-      // 二阶段过渡形态（img_12 + 佐助疾跑）：一局完了 → 下一局/回选人的过渡期专用
-      readyEl.classList.add('stage2');
-      readyEl.classList.add('on');
-    } catch (e) { /* 收尾失败不影响结算流程 */ }
+    // 引擎 os.Exit 后到 reload 之间是黑屏期，用「加载中」顶上
+    settleCleanup(true);
     // 生存模式链：胜 → reload 下一关（换对手、AI 递增）；负 → 回主界面
     if (MODE === 'survival') {
       const stage = Number(q.get('stage') || 1);
@@ -5991,6 +6009,8 @@
         if (k !== -1) onTfHit(line.slice(k + 7).trim());
         const h = line.indexOf('TF_HEAL:');
         if (h !== -1) onTfHeal(line.slice(h + 8).trim());
+        const o = line.indexOf('TF_OVER:');
+        if (o !== -1) onTfOver(line.slice(o + 8).trim());
         const f = line.indexOf('TF_FIGHT:');
         if (f !== -1) onTfFight(line.slice(f + 8).trim());
       } catch { /* 信号解析失败不影响游戏 */ }
@@ -6059,9 +6079,10 @@
       // 实测本池角色身高 70~100 游戏像素（320×240 下）。
       // 注：.ha 有 translate(-50%,-100%)，style.top 是**渲染盒的底边**；
       // 盒内只有一个 46px 白边方块（无名字条），方块底 = top。
-      // 抬升 102 → 方块底 ≈ 轴点上 102 游戏像素：
+      // 抬升 148 → 方块底 ≈ 轴点上 148 游戏像素（2026-11-28 用户要求「再高一个头像那么高」，
+      // 原 102 + 一个头像位 46）：
       // 高个（Lin/Rugal ≈100）方块搭在发顶，矮个（Hinako ≈70）上浮 ~30 像素。
-      const liftPx = 102 * sc.sy;
+      const liftPx = 148 * sc.sy;   // 2026-11-28 用户要求再抬一个头像位（102 + 46）
       node.style.left = x.toFixed(1) + 'px';
       node.style.top = (y - liftPx).toFixed(1) + 'px';
     }
@@ -6397,6 +6418,25 @@
         }
       }
     }, 500);
+    // 黑屏探测器（兜底，2026-11-28 用户实报「结算后有时黑屏还卡死」）：
+    // FIGHT_READY 后 canvas 连续 2s 全黑/采样失效 = 引擎已 os.Exit（清屏）或冻结。
+    // 结算信号（TF_RESULT print / tf-result.ini 落盘）与 os.Exit 有竞态，可能晚到或丢；
+    // 这里先把「加载中」过渡盖到黑屏窗口上，reload 仍交给既有链
+    // （engineGone / 结算 6s timer / 冻结看门狗），不做第二套 reload。
+    let blackRun = 0, blackHandled = false;
+    const black = setInterval(() => {
+      if (matchSettled || blackHandled || engineGoneDone) { clearInterval(black); return; }
+      if (!FIGHT_READY) return;
+      const lum = canvasBright();
+      if (lum < 25) blackRun++; else blackRun = 0;
+      if (blackRun >= 4) {
+        blackHandled = true;
+        clearInterval(black);
+        console.warn('[tf] FIGHT_READY 后 canvas 持续黑屏（lum=' + lum + '），提前挂「加载中」过渡');
+        settleCleanup(true);
+        window.__tfBlackAt = Date.now(); // 探针观测点
+      }
+    }, 500);
   }
 
   function beginMatch(mode) {
@@ -6405,6 +6445,8 @@
     curP1 = rs.p1[0]; curP2 = rs.p2[0] || curP1;
     bootEl.classList.remove('done');
     matchSettled = false;
+    settleCleanupDone = false;   // 每局重置：上一局的「已摘头像」不能挡这一局的结算收尾
+    window.__tfSettleCleanup = 0;
     dummy.mode = 'idle';
     const aiVal = MODE === 'practice' ? 0 : (MODE === 'survival' ? survAiNow() : curAI);
     startEngine(rs.p1, MODE === 'practice' ? rs.p2 : rs.p2, aiVal).catch(fail);

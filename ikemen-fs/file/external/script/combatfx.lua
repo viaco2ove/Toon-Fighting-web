@@ -117,6 +117,14 @@ local function combatfx_stage()
 		combatfx.fight = true
 		print('TF_FIGHT:1')
 	end
+
+	-- 回合结束（3）→ 结算（4）：胜负定格。此刻 print 一次 TF_OVER，
+	-- 前端立刻摘浮动头像/挂加载过渡 —— 不等 tf-result 落盘（os.Exit 与
+	-- 落盘/轮询有竞态，实机出现过「结算后头像残留 + 黑屏窗口」）。
+	if rs >= 3 and not combatfx.over then
+		combatfx.over = true
+		print('TF_OVER:1')
+	end
 end
 
 local function combatfx_emit()
