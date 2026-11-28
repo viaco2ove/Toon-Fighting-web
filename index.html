@@ -1187,7 +1187,7 @@
     <div class="diff" id="difficulty"><b>难度</b>
       <select id="ai-sel">
         <option value="1">简单</option>
-        <option value="3" selected>普通</option>
+        <option value="3" selected>一般</option>
         <option value="6">困难</option>
         <option value="8">地狱</option>
       </select>
@@ -1344,6 +1344,13 @@
         <select id="st-headavatar">
           <option value="on">显示（实体头顶挂头像）</option>
           <option value="off">隐藏</option>
+        </select></div>
+      <div class="setting-line"><label>游戏难度</label><span class="hint">AI 对手强度 · 选人屏可单局临时改</span>
+        <select id="st-difficulty">
+          <option value="1">简单</option>
+          <option value="3">一般</option>
+          <option value="6">困难</option>
+          <option value="8">地狱</option>
         </select></div>
       <div class="hint" style="font-size:12px;color:#6f7b8d;line-height:1.8;margin-top:12px">
         发言 agent 在本页内实现、调用后端大模型接口生成符合角色人设与故事世界观的台词；
@@ -2940,6 +2947,9 @@
         countdown: s.battle && s.battle.countdown === 'off' ? 'off' : 'on',
         headAvatar: !(s.battle && s.battle.headAvatar === 'off'),
         padui: !(s.battle && s.battle.padui === false),   // 战斗内 虚拟手柄+技能键 显隐（#uitog 悬浮球切换，boolean）
+        // 游戏难度（2026-11-29）：AI 等级 1/3/6/8（简单/一般/困难/地狱），
+        // 对战默认值 + 生存逐关递增的基数；练习假人固定人控（Ailevel=0）不受影响
+        difficulty: [1, 3, 6, 8].includes(s.battle && s.battle.difficulty) ? s.battle.difficulty : 3,
       },
       keys: {
         p1: Object.assign({}, d.p1, (s.keys && s.keys.p1) || {}),
@@ -2953,6 +2963,9 @@
     } catch (e) { return normalizeSettings(null); }
   }
   const settings = loadSettings();
+  // 全局难度默认（设置 → 战斗 → 游戏难度）：对战 AI 等级跟随；
+  // URL ?ai= 仍最高（生存续关 ?auto=1 直启把下一关等级写进 URL，不能被默认值压回去）
+  if (!q.get('ai')) curAI = settings.battle.difficulty || curAI;
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
     applyFilterSetting();
@@ -3163,6 +3176,7 @@
     document.getElementById('st-speech').value = settings.battle.speech;
     document.getElementById('st-countdown').value = settings.battle.countdown;
     document.getElementById('st-headavatar').value = settings.battle.headAvatar ? 'on' : 'off';
+    document.getElementById('st-difficulty').value = String(settings.battle.difficulty);
     for (const k of ['master', 'wav', 'bgm']) {
       document.getElementById('st-vol-' + k).value = settings.volume[k];
       document.getElementById('st-vol-' + k + '-v').textContent = settings.volume[k] + '%';
@@ -3186,6 +3200,13 @@
   document.getElementById('st-headavatar').addEventListener('change', (e) => {
     settings.battle.headAvatar = e.target.value !== 'off'; saveSettings();
     if (settings.battle.headAvatar) renderHeadAvatars(); else { headavEl.classList.remove('on'); headavEl.innerHTML = ''; }
+  });
+  document.getElementById('st-difficulty').addEventListener('change', (e) => {
+    settings.battle.difficulty = Number(e.target.value); saveSettings();
+    // 对战默认等级即刻跟随；选人屏的单局难度下拉同步显示（仍可单局临时改）
+    curAI = settings.battle.difficulty;
+    const aiSel = document.getElementById('ai-sel');
+    if (aiSel) aiSel.value = String(curAI);
   });
 
   // ---------------- 账号与服务器 ----------------
@@ -3610,17 +3631,32 @@
   // 没有配置文件的资产集 = 纯随机对手 + AI 递增（原有行为）。
   let SURV_CFG = null;
   let survCfgLoaded = false;
+  let survCfgPromise = null;
+  window.__tfSurvCfg = () => ({ loaded: survCfgLoaded, has: !!SURV_CFG, mode: MODE, dir: PACKS.cur && PACKS.cur.dir, stages: SURV_CFG && SURV_CFG.stages ? Object.keys(SURV_CFG.stages) : null }); // 探针观测点
   async function preloadSurvival() {
-    if (survCfgLoaded || !MODE || MODE !== 'survival') return;
-    if (!(window.FFDecode && window.FFDecode.fetchPackText)) return;
+    if (!MODE || MODE !== 'survival') return null;
+    if (!(window.FFDecode && window.FFDecode.fetchPackText)) return null;
+    // 缓存在途 Promise 而不是布尔 latch —— 否则 loadPacks 里未 await 的首次调用
+    // 先占住 latch，续关 auto 块 await 时拿到的是「已加载但还在飞」的空配置
+    //（2026-11-29 探针实锤：敌方编队全部随机化）
+    if (survCfgPromise) return survCfgPromise;
     survCfgLoaded = true;
     const dir = PACKS.cur && PACKS.cur.dir;
-    if (!dir) return;
-    try { SURV_CFG = JSON.parse(await window.FFDecode.fetchPackText(dir, 'survival.json')); }
-    catch (e) { SURV_CFG = null; }   // 没有配置 = 纯随机模式
-    if (selEl && selEl.classList.contains('on')) renderSelect();
+    if (!dir) return null;
+    survCfgPromise = (async () => {
+      try { SURV_CFG = JSON.parse(await window.FFDecode.fetchPackText(dir, 'survival.json')); }
+      catch (e) { SURV_CFG = null; }
+      // 配置到达 → 清敌方编队缓存：首次渲染时配置未到会先随机一支并缓存，
+      // 不清的话开打时 resolveSlots 命中缓存还是随机队（2026-11-29 探针实锤）
+      survOppTeam = null; survOppTeamKey = null;
+      if (selEl && selEl.classList.contains('on')) renderSelect();
+      return SURV_CFG;
+    })();
+    return survCfgPromise;
   }
   const pickN = (arr) => Array.isArray(arr) && arr.length ? arr[Math.floor(Math.random() * arr.length)] : null;
+  // 旁白取值：字符串直用，数组=多个可能随机取一条（2026-11-29 故事线要求「每场多种可能」）
+  const pickAny = (v) => Array.isArray(v) ? pickN(v) : (v || null);
   // 当前关的合并配置：Boss（mini/mid/final 按 stage 命中）> stages["N"] > 默认旁白池
   function survCfg() {
     if (!SURV_CFG) return null;
@@ -3629,7 +3665,7 @@
     let boss = null;
     for (const k of ['mini', 'mid', 'final']) {
       const b = bosses[k];
-      if (b && Number(b.stage) === stage) boss = { rank: k, stage, char: b.char, title: b.title || '', ai: b.ai, intro: b.intro, win: b.win, lose: b.lose };
+      if (b && Number(b.stage) === stage) boss = { rank: k, stage, char: b.char, chars: b.chars, title: b.title || '', ai: b.ai, intro: b.intro, win: b.win, lose: b.lose };
     }
     const st = (SURV_CFG.stages && SURV_CFG.stages[String(stage)]) || null;
     const dn = SURV_CFG.defaultNarration || {};
@@ -3643,29 +3679,42 @@
   function survNarr(kind) {
     const c = survCfg();
     if (!c) return null;
-    return (c.boss && c.boss[kind]) || (c.st && c.st[kind]) || pickN(c.dn[kind]) || null;
+    return pickAny(c.boss && c.boss[kind]) || pickAny(c.st && c.st[kind]) || pickN(c.dn[kind]) || null;
   }
-  // 生存对手解析：Boss 关用指定角色，普通关按 pool 限定随机（无配置 = 全池随机）
-  function survivalOpponent(avoid) {
-    const c = survCfg();
-    if (c && c.boss && c.boss.char) return c.boss.char;
-    if (c && c.st && c.st.char) return c.st.char;
-    let pool = packCharPool();
-    if (c && c.pool) pool = pool.filter((id) => c.pool.includes(id));
-    const f = pool.filter((id) => !avoid || (Array.isArray(avoid) ? !avoid.includes(id) : id !== avoid));
-    if (f.length) return f[Math.floor(Math.random() * f.length)];
-    return randomCharId(avoid);
-  }
-  // 展示位对手段：每关固定一次（重渲染不换人），从 POOL 找条目保 toonflow 头像链
-  let survOppDisplay = null, survOppKey = null;
-  function survDisplayChar(avoid) {
+  // 生存敌方编队（2026-11-29）：Boss/stages["N"] 的 chars 数组（1~3 人）> 单 char > 按池随机
+  // count 个。有些关单人登场、有些关多人编队依次上场（引擎 turns 模式）。
+  // 每关固定一次（重渲染不换人），从 POOL 找条目保 toonflow 头像链。
+  let survOppTeam = null, survOppTeamKey = null;
+  function survEnemies(avoid) {
     const key = String(q.get('stage') || '1');
-    if (survOppKey !== key || !survOppDisplay) {
-      survOppKey = key;
-      const oppId = survivalOpponent(avoid);
-      survOppDisplay = POOL.find((x) => x.id === oppId) || { id: oppId, r: oppId };
+    if (survOppTeamKey === key && survOppTeam) return survOppTeam;
+    survOppTeamKey = key;
+    const c = survCfg();
+    const avoidArr = Array.isArray(avoid) ? avoid : (avoid ? [avoid] : []);
+    let ids = null, want = 1;
+    if (c && c.boss) {
+      if (Array.isArray(c.boss.chars) && c.boss.chars.length) ids = c.boss.chars.slice(0, 3);
+      else if (c.boss.char) ids = [c.boss.char];
+    } else if (c && c.st) {
+      if (Array.isArray(c.st.chars) && c.st.chars.length) ids = c.st.chars.slice(0, 3);
+      else if (c.st.char) ids = [c.st.char];
+      else want = Math.max(1, Math.min(3, Number(c.st.count) || 1));
     }
-    return survOppDisplay;
+    if (!ids) {
+      let pool = packCharPool();
+      if (c && c.pool) pool = pool.filter((id) => c.pool.includes(id));
+      const used = new Set();
+      ids = [];
+      for (let i = 0; i < want; i++) {
+        const f = pool.filter((id) => !used.has(id) && !avoidArr.includes(id));
+        const pick = f.length ? f[Math.floor(Math.random() * f.length)] : null;
+        if (!pick) break;
+        ids.push(pick); used.add(pick);
+      }
+      if (!ids.length) ids = [randomCharId(avoidArr)];
+    }
+    survOppTeam = ids.map((id) => POOL.find((x) => x.id === id) || { id, r: id });
+    return survOppTeam;
   }
   // 生存 AI：Boss 关用配置覆盖；否则 start + step*(stage-1) 封顶 max；无配置沿用 URL ai
   function survAi(stage, aiCfg) {
@@ -3679,8 +3728,12 @@
   }
   function survAiNow() {
     const c = survCfg();
-    if (c && c.boss && c.boss.ai !== undefined) return Number(c.boss.ai);
-    return survAi(Number(q.get('stage') || 1), c ? c.aiCfg || {} : {});
+    // 全局难度偏移（设置 → 战斗 → 游戏难度）：一般=±0，简单 -2 / 困难 +3 / 地狱 +5，
+    // 封顶 [1,8] —— 包自带的 survival.json 曲线（含 Boss 指定 AI）整体平移，
+    // 没配置的包以难度档为基数逐关递增（2026-11-29）
+    const shift = (settings.battle.difficulty || 3) - 3;
+    if (c && c.boss && c.boss.ai !== undefined) return Math.max(1, Math.min(8, Number(c.boss.ai) + shift));
+    return Math.max(1, Math.min(8, survAi(Number(q.get('stage') || 1), c ? c.aiCfg || {} : {}) + shift));
   }
   let phase = 1;                       // 两段式：1=选我方 2=选对方 3=双方已确定
   const randSlots = new Set();         // 「？随机」抽中的位置（'1:0'）
@@ -3994,17 +4047,19 @@
         });
       };
       if (survival && s === 2) {
-        const rnd = survDisplayChar(p1SlotChars()[0] || curP1) || null;
+        const team = survEnemies(p1SlotChars());
+        const rnd = team[0] || null;
         if (rnd) {
           showEntity(rnd);   // 实体动画/立绘
           const sc = survCfg();
           const oppName = sc && sc.boss ? sc.boss.title : '系统随机';
-          document.getElementById(pre + 'name').textContent = oppName;
-          document.getElementById(pre + 'ent').textContent = rnd.id;
-          document.getElementById(pre + 'job').textContent = '按资产集抽取';
-          document.getElementById(pre + 'm1').textContent = oppName;
-          document.getElementById(pre + 'm2').textContent = rnd.id;
-          document.getElementById(pre + 'm3').textContent = '胜+1 续关';
+          const teamTxt = team.length > 1 ? ' · ' + team.length + ' 人编队' : '';
+          document.getElementById(pre + 'name').textContent = oppName + teamTxt;
+          document.getElementById(pre + 'ent').textContent = team.length > 1 ? team[0].id + ' 等 ' + team.length + ' 人' : rnd.id;
+          document.getElementById(pre + 'job').textContent = team.length > 1 ? '依次上场' : '按资产集抽取';
+          document.getElementById(pre + 'm1').textContent = oppName + teamTxt;
+          document.getElementById(pre + 'm2').textContent = team.map((e) => e.id).join('、');
+          document.getElementById(pre + 'm3').textContent = team.length > 1 ? '依次上场 · 胜+1 续关' : '胜+1 续关';
         } else showVac('对手随机');
         return;
       }
@@ -4344,8 +4399,8 @@
         out[side].push(e ? e.id : randomCharId());
       }
     }
-    // 生存模式 P2 随机生成
-    if (MODE === 'survival') out.p2 = [survDisplayChar(out.p1).id];
+    // 生存模式 P2 = survival.json 敌方编队（1~3 人，依次上场）
+    if (MODE === 'survival') out.p2 = survEnemies(out.p1).map((e) => e.id);
     if (!out.p1.length) out.p1 = [curP1];
     if (!out.p2.length && MODE !== 'survival') out.p2 = [curP2];
     return out;
@@ -6025,7 +6080,8 @@
         p.set('mode', 'survival'); p.set('stage', String(stage + 1));
         const aiCfg = cs ? (cs.aiCfg || {}) : {};
         p.set('ai', String(survAi(stage + 1, aiCfg)));
-        p1SlotChars().forEach((c, i) => p.set('p1' + (i ? String.fromCharCode(97 + i) : ''), c));
+        // 我方编队整队续关（p1/p1a/p1b）—— auto 直启路径按同名参数恢复
+        p1SlotChars().slice(0, 3).forEach((c, i) => p.set(i ? 'p1' + String.fromCharCode(96 + i) : 'p1', c));
         if (CONN.sessionId && q.get('conn') === '1') { p.set('conn', '1'); p.set('session', CONN.sessionId); }
         setTimeout(() => { location.href = location.pathname + '?' + p.toString() + '&auto=1'; }, 3000);
         return;
@@ -6151,10 +6207,10 @@
       // 实测本池角色身高 70~100 游戏像素（320×240 下）。
       // 注：.ha 有 translate(-50%,-100%)，style.top 是**渲染盒的底边**；
       // 盒内只有一个 46px 白边方块（无名字条），方块底 = top。
-      // 抬升 148 → 方块底 ≈ 轴点上 148 游戏像素（2026-11-28 用户要求「再高一个头像那么高」，
+      // 抬升 例如128 → 方块底 ≈ 轴点上 128 游戏像素（2026-11-28 用户要求「再高一个头像那么高」，
       // 原 102 + 一个头像位 46）：
       // 高个（Lin/Rugal ≈100）方块搭在发顶，矮个（Hinako ≈70）上浮 ~30 像素。
-      const liftPx = 148 * sc.sy;   // 2026-11-28 用户要求再抬一个头像位（102 + 46）
+      const liftPx = 128 * sc.sy;   // 2026-11-28 用户要求再抬一个头像位（102 + 46）
       node.style.left = x.toFixed(1) + 'px';
       node.style.top = (y - liftPx).toFixed(1) + 'px';
     }
@@ -6299,11 +6355,14 @@
   // argv 构造（wasm / 原生 --go 两档共用）：拳王摊 3 命、奇偶分边、入口 def 解析。
   // 原生档把这个数组原样 POST 给 serve.cjs（spawn 直通），wasm 档喂给 Go wasm。
   function buildEngineArgv(p1List, p2List, aiVal) {
-    // 拳王模式（turns，tmode=2）：一次一人上场，一个 KO 算一回合，打到一方全灭。
-    // 编队按「3 条命」摊开：1 人=同一角色重复 3 次（3 条命）；3 人=每人 1 条命；2 人=2+1。
-    // 同角色重复入场时引擎按 t_assignedPals 自动分配 palette 2/3，不会同色。
-    // practice（假人靠前端注入 P2 键，换人即断）/ survival（生存链单挑续关）不启用。
-    const kof = MODE === 'versus';
+    // turns（tmode=2）：一次一人上场，一个 KO 算一回合，打到一方全灭。
+    // versus：编队按「3 条命」摊开 —— 1 人=同一角色重复 3 次（3 条命）；3 人=每人 1 条命；2 人=2+1。
+    //   同角色重复入场时引擎按 t_assignedPals 自动分配 palette 2/3，不会同色。
+    // survival（2026-11-29 用户要求「选3人时也要1次一人上场」）：同样 turns 但**不摊命** ——
+    //   我方选几人 = 几条命（依次上场）；敌方按 survival.json 编队同规则。
+    //   1v1 关与旧单挑行为一致（turns 1v1 = 单回合）。
+    // practice（假人靠前端注入 P2 键，换人即断）不启用。
+    const kof = MODE === 'versus' || MODE === 'survival';
     const kofTeam = (list) => {
       const src = (list || []).filter(Boolean);
       if (!src.length) return src;
@@ -6311,8 +6370,9 @@
       for (let i = 0; i < 3; i++) out.push(src[i % src.length]);
       return out;
     };
-    const P1 = kof ? kofTeam(p1List) : (p1List || []);
-    const P2 = kof ? kofTeam(p2List) : (p2List || []);
+    const survList = (list) => (list || []).filter(Boolean).slice(0, 3);
+    const P1 = kof ? (MODE === 'survival' ? survList(p1List) : kofTeam(p1List)) : (p1List || []);
+    const P2 = kof ? (MODE === 'survival' ? survList(p2List) : kofTeam(p2List)) : (p2List || []);
     // 多人编队：side1 = -p1/-p3/-p5，side2 = -p2/-p4/-p6（main.f_commandLine 奇偶分边）
     const N1 = ['1', '3', '5'], N2 = ['2', '4', '6'];
     // 角色 id → 引擎能解析的路径。
@@ -6495,16 +6555,22 @@
     // 结算信号（TF_RESULT print / tf-result.ini 落盘）与 os.Exit 有竞态，可能晚到或丢；
     // 这里先把「加载中」过渡盖到黑屏窗口上，reload 仍交给既有链
     // （engineGone / 结算 6s timer / 冻结看门狗），不做第二套 reload。
-    let blackRun = 0, blackHandled = false;
+    // ⚠️ 必须叠加「帧数停滞」判据（2026-11-29 实报「进战斗一会就被加载条盖住」）：
+    // 揭幕后的舞台黑淡入、超必杀插黑都让画面中心暗 2s+，但引擎帧数照常前进 ——
+    // 探测器的目标场景（os.Exit 清屏/冻结）帧数一定停滞。两者同时成立才算黑屏。
+    let blackRun = 0, blackHandled = false, blackLastF = -1;
     const black = setInterval(() => {
       if (matchSettled || blackHandled || engineGoneDone) { clearInterval(black); return; }
       if (!FIGHT_READY) return;
+      const f = window.__ikemenEngineFrames || 0;
+      const stalled = blackLastF === f;   // 这 500ms 里引擎一帧未进
+      blackLastF = f;
       const lum = canvasBright();
-      if (lum < 25) blackRun++; else blackRun = 0;
+      if (stalled && lum < 25) blackRun++; else blackRun = 0;
       if (blackRun >= 4) {
         blackHandled = true;
         clearInterval(black);
-        console.warn('[tf] FIGHT_READY 后 canvas 持续黑屏（lum=' + lum + '），提前挂「加载中」过渡');
+        console.warn('[tf] FIGHT_READY 后 canvas 持续黑屏且帧数停滞（lum=' + lum + '），提前挂「加载中」过渡');
         settleCleanup(true);
         window.__tfBlackAt = Date.now(); // 探针观测点
       }
@@ -6579,6 +6645,19 @@
         // 直启角色通常来自资产集：先装载（VFS 挂载 + charMeta），否则引擎找不到
         // 挂载的角色文件（0 帧卡死）、技能条读不到泛技能（2026-11-27 真机实测）
         await loadPacks();
+        if (MODE === 'survival') {
+          // 生存链续关（2026-11-29）：我方编队从 URL（p1/p1a/p1b）整队恢复，
+          // 敌方按 survival.json 编队（1~3 人，依次上场）。
+          // ⚠️ 旧版只读 p1 —— 编队第 2/3 人在续关时被静默丢掉。
+          const team = [q.get('p1'), q.get('p1a'), q.get('p1b')].filter(Boolean);
+          await preloadSurvival();
+          const p1 = team.length ? team : [curP1];
+          const p2 = survEnemies(p1).map((e) => e.id);
+          curP1 = p1[0]; curP2 = p2[0] || curP2;
+          const ai = a === null ? survAiNow() : Number(a);
+          await startEngine(p1, p2, ai);
+          return;
+        }
         await startEngine([curP1], [curP2], a === null ? 0 : Number(a));
         return;
       }
