@@ -36,6 +36,8 @@ node serve.cjs -- --story 末世选择，从解析神明开始成神 --conn
 对应的故事
 
 ## gui 运行(构想中)
+- electron 运行
+node serve.cjs  8200 --conn --gui
 - 启动档加进 serve.cjs  ,Chrome app 模式。
 node serve.cjs  8200 --conn --chrome 
 - 启动档加进 serve.cjs 前端网页继续做菜单/选人/绑定（这部分本来就不卡），对局画面由原生 exe 开自己的 GL 全屏窗口跑 运行。
