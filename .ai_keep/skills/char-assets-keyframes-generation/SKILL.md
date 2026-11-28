@@ -253,7 +253,7 @@ node ../../templates/diag-engine-drop.cjs <包>/<id>.sff   # 「引擎丢弃 M�
 | ① 拉角色+参考图 | [templates/fetch-avatars.mjs](templates/fetch-avatars.mjs) | `node fetch-avatars.mjs <worldId> <refsDir>` —— 登录 .env → getWorld（**玩家主角在 playerRole 字段，不在 settings.roles！**）→ OSS webp → full/head 双参考图 + roles-<worldId>.json |
 | ② 批量生图 | [templates/gen-frames-batch.mjs](templates/gen-frames-batch.mjs) | `node gen-frames-batch.mjs <personas.json> <refsDir>` —— 直连后端 agentRun，10 类×N 角色，已有跳过 |
 | ③ 批量构建 | [templates/build-kfm-batch.mjs](templates/build-kfm-batch.mjs) | `node build-kfm-batch.mjs <personas.json> <packDir>` —— 底座 def 解析 → build-merge-v2.mjs → char.json → shell cp 落盘 → diag 引擎丢弃必须 0 |
-| ④ 技能 | [templates/gen-skills.mjs](templates/gen-skills.mjs) | `node gen-skills.mjs <personas.json> <packDir>/chars` —— 5/6/7 技混合（melee/proj/dash/retreat + 速弹/重压），属性互不重复 |
+| ④ 技能 | [templates/gen-skills.mjs](templates/gen-skills.mjs) | `node gen-skills.mjs <personas.json> <packDir>/chars` —— 5/6/7 技混合（melee/proj/dash/retreat + 速弹/重压），属性互不重复；**配置口径详见 [char-generic-skills/SKILL.md](char-generic-skills/SKILL.md)** |
 | ⑤ 收口 | rebuild-pack-manifest.mjs + index.json | 资产集 manifest + assets/assetpacks/index.json 登记 + mapping/roster/pack/story 四件套 |
 
 personas.json 条目：`{ "角色名": { id, base(white-mold 职业目录), mode(alpha虚化|binary碎片), bodyAlpha(缺省 0.5/0.2), grayscale(1=body 灰白化), skillCount, profession, persona(英文形象提示词), theme:{storm,fx} } }`。

@@ -25,6 +25,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, '..', '..', '..', '..');   // 项目根（含 server/lib/sff.cjs）
 
 const [personasPath, packDir, onlyArg] = process.argv.slice(2);
 if (!personasPath || !packDir) {
@@ -33,7 +36,6 @@ if (!personasPath || !packDir) {
 }
 const personas = JSON.parse(fs.readFileSync(personasPath, 'utf8'));
 const only = onlyArg ? onlyArg.split(',') : null;
-const HERE = __dirname;
 
 for (const [name, cfg] of Object.entries(personas)) {
   if (only && !only.includes(name)) continue;
@@ -57,7 +59,7 @@ for (const [name, cfg] of Object.entries(personas)) {
   fs.rmSync(outDir, { recursive: true, force: true });
   // 前台串行——后台链的 cp/rebuild 会与实测竞态
   const r = spawnSync(process.execPath,
-    [path.join(HERE, 'keyframeMode/merge/templates/build-merge-v2.mjs'), base, framesDir, outDir, cfg.id, mode, String(bodyAlpha)],
+    [path.join(HERE, '../keyframeMode/merge/templates/build-merge-v2.mjs'), base, framesDir, outDir, cfg.id, mode, String(bodyAlpha)],
     { cwd: '.', env: { ...process.env, BASE_SFF: sffF, BASE_AIR: airF, BASE_DEF: defFile },
       stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' });
   const log = (r.stdout || '').split('\n').filter((l) => /写 sff|写 air|模式|合成精灵|引擎丢弃|group：/.test(l)).join('\n');
@@ -91,18 +93,29 @@ for (const [name, cfg] of Object.entries(personas)) {
 
   // 落盘（fs.cpSync recursive 段错误 → shell cp -r）
   const dest = path.join(packDir, 'chars', cfg.id);
+  fs.mkdirSync(path.join(packDir, 'chars'), { recursive: true });   // chars 目录可能被并行任务清掉
   fs.rmSync(dest, { recursive: true, force: true });
   const cp = spawnSync('cp', ['-r', outDir, dest], { stdio: 'ignore', shell: process.platform === 'win32' });
   if (cp.status !== 0 || !fs.existsSync(path.join(dest, cfg.id + '.sff'))) {
     console.warn(`[${name}] 落盘失败（cp 退出码 ${cp.status}）`); continue;
   }
 
-  // diag 复检：引擎丢弃必须 0
-  const diag = path.join(HERE, '../templates/diag-engine-drop.cjs');
-  const dr = spawnSync(process.execPath, [diag, path.join(dest, cfg.id + '.sff')], { encoding: 'utf8' });
-  const keep = (dr.stdout || '').match(/保留\s+(\d+)\s+引擎丢弃\s+(\d+)/);
-  const dropped = keep ? Number(keep[2]) : -1;
-  console.log(`[${name}] 已落盘 ${dest}（diag 引擎丢弃 ${dropped}）`);
-  if (dropped !== 0) { console.error(`[${name}] 引擎丢弃 ${dropped} ≠ 0，必须排查！`); process.exitCode = 1; }
+  // v2 校验（diag-engine-drop.cjs 是 v1 专用，对 v2 误报）：loadSff 读回 + PNG 魔数
+  const vr = spawnSync(process.execPath, ['-e', `
+    const fs = require('fs');
+    const { loadSff } = require(${JSON.stringify(path.join(ROOT, 'server', 'lib', 'sff.cjs').split(path.sep).join('/'))});
+    const buf = fs.readFileSync(process.argv[1]);
+    const sff = loadSff(buf);
+    let bad = 0;
+    for (const s of sff.byIndex) {
+      if (s.size === 0) continue;
+      if (buf.readUInt32LE(s.ofs + 4) !== 0x474e5089) bad++;   // PNG 魔数
+    }
+    console.log('sprites=' + sff.byIndex.length + ' badPng=' + bad);
+    process.exit(bad > 0 ? 1 : 0);
+  `, path.join(dest, cfg.id + '.sff')], { encoding: 'utf8' });
+  const ok = /badPng=0/.test(vr.stdout || '');
+  console.log(`[${name}] 已落盘 ${dest}（${(vr.stdout || '').trim()}）`);
+  if (!ok) { console.error(`[${name}] v2 校验失败：${(vr.stderr || vr.stdout || '').trim().slice(0, 200)}`); process.exitCode = 1; }
 }
 console.log('\n批量构建完成');
